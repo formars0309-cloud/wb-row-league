@@ -5,10 +5,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 type PrimaryRole = "infantry" | "cavalry" | "ranged";
 type SecondaryRole = "garrison" | "rally" | "blocker";
 type Tool = "select" | "moveArrow" | "attackArrow" | "defense" | "rally" | "step" | "text" | "delete";
+type ObjectiveOwner = "neutral" | "lucia" | "ian";
 type Point = { x: number; y: number };
 type Player = { id: number; nickname: string; primaryRole: PrimaryRole; secondaryRoles: SecondaryRole[] };
 type TacticalObject = { id: string; type: Exclude<Tool, "select" | "delete">; x: number; y: number; x2?: number; y2?: number; text?: string };
-type Scene = { id: string; name: string; time: string; positions: Record<string, Point>; objects: TacticalObject[] };
+type Scene = { id: string; name: string; time: string; positions: Record<string, Point>; objects: TacticalObject[]; objectiveOwners?: Record<string, ObjectiveOwner> };
 type Operation = { version: 1; name: string; players: Player[]; scenes: Scene[]; activeSceneId: string; updatedAt: string };
 
 const STORAGE_KEY = "heinapel-war-table-v0.1";
@@ -36,6 +37,17 @@ const PLAYER_SOURCE: Array<[string, PrimaryRole]> = [
 ];
 const INITIAL_PLAYERS: Player[] = PLAYER_SOURCE.map(([nickname, primaryRole], index) => ({ id: index + 1, nickname, primaryRole, secondaryRoles: [] }));
 const SCENE_TIMES = ["60:00", "55:00", "52:00", "46:00", "42:00"];
+const OBJECTIVE_META = [
+  { id: "northwest", label: "북서 거점", x: 21, y: 19 },
+  { id: "north", label: "북부 거점", x: 62, y: 9 },
+  { id: "north-center", label: "북중앙 거점", x: 62, y: 17 },
+  { id: "east", label: "동부 거점", x: 80, y: 32 },
+  { id: "west", label: "서부 거점", x: 19, y: 47 },
+  { id: "west-south", label: "서남 외곽 거점", x: 20, y: 75 },
+  { id: "southwest", label: "남서 거점", x: 38, y: 79 },
+  { id: "southeast", label: "남동 거점", x: 80, y: 76 },
+  { id: "south", label: "남부 거점", x: 70, y: 79 },
+] as const;
 
 function freshOperation(): Operation {
   const sceneId = "scene-1";
@@ -152,7 +164,7 @@ export default function WarTable() {
     updateScene(scene.id, (target) => { target.positions[String(playerId)] = point; }); setSelectedIds([playerId]); setEditingId(playerId); setTool("select");
   };
   const handleMapPointerDown = (event: React.PointerEvent<HTMLElement>) => {
-    if ((event.target as Element).closest(".player-token,.tactical-object")) return;
+    if ((event.target as Element).closest(".player-token,.tactical-object,.capture-objective")) return;
     const point = pointFromClient(event.clientX, event.clientY);
     if (tool === "select") {
       const unplaced = selectedIds.length === 1 && !scene.positions[String(selectedIds[0])];
@@ -176,6 +188,11 @@ export default function WarTable() {
     setDrawStart(null);
   };
   const deleteObject = (objectId: string) => { if (tool !== "delete") return; updateScene(scene.id, (target) => { target.objects = target.objects.filter((object) => object.id !== objectId); }); };
+  const cycleObjective = (objectiveId: string) => updateScene(scene.id, (target) => {
+    const current = target.objectiveOwners?.[objectiveId] ?? "neutral";
+    const next: ObjectiveOwner = current === "neutral" ? "lucia" : current === "lucia" ? "ian" : "neutral";
+    target.objectiveOwners = { ...target.objectiveOwners, [objectiveId]: next };
+  });
 
   const cloneScene = () => commit((draft) => {
     const source = draft.scenes.find((item) => item.id === draft.activeSceneId) ?? draft.scenes[0];
@@ -200,6 +217,10 @@ export default function WarTable() {
   const placedCount = Object.keys(scene.positions).length;
   const visibleObjects = scene.objects.filter((object) => object.type === "moveArrow" || object.type === "attackArrow" ? layers.arrows : object.type === "defense" ? layers.zones : object.type === "text" ? layers.text : layers.markers);
   const stepObjects = visibleObjects.filter((object) => object.type === "step");
+  const objectiveCounts = OBJECTIVE_META.reduce((counts, objective) => {
+    counts[scene.objectiveOwners?.[objective.id] ?? "neutral"] += 1;
+    return counts;
+  }, { neutral: 0, lucia: 0, ian: 0 } as Record<ObjectiveOwner, number>);
 
   return (
     <main className="war-shell">
@@ -231,6 +252,8 @@ export default function WarTable() {
 
         <section ref={mapRef} className={`map-panel tool-${tool}`} aria-label="헤이나펄 전장 작전판" onDragOver={(event) => event.preventDefault()} onDrop={handleMapDrop} onPointerDown={handleMapPointerDown} onPointerUp={handleMapPointerUp}>
           <div className="map-image-layer" /><div className="map-grid-lines" />
+          <div className="home-zone home-lucia"><span>루시아팀 본진 · 30 CASTLES</span></div><div className="home-zone home-ian"><span>이안팀 본진 · 30 CASTLES</span></div>
+          {OBJECTIVE_META.map((objective, index) => { const owner = scene.objectiveOwners?.[objective.id] ?? "neutral"; return <button type="button" key={objective.id} className={`capture-objective owner-${owner}`} style={{ left: `${objective.x}%`, top: `${objective.y}%` }} onClick={() => cycleObjective(objective.id)} aria-label={`${objective.label}: ${owner === "neutral" ? "중립" : owner === "lucia" ? "루시아팀" : "이안팀"}`} title={`${objective.label} · 클릭하여 점령 상태 변경`}><b>{String(index + 1).padStart(2, "0")}</b><span>{objective.label}</span></button>; })}
           <svg className="tactical-svg" viewBox="0 0 1000 1000" preserveAspectRatio="none" aria-label="전술 오브젝트 레이어">
             <defs><marker id="move-head" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#55cfff" /></marker><marker id="attack-head" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#ff5353" /></marker></defs>
             {visibleObjects.filter((object) => ["moveArrow", "attackArrow", "defense"].includes(object.type)).map((object) => object.type === "defense" ? <rect key={object.id} className="tactical-object defense-zone" onClick={() => deleteObject(object.id)} x={Math.min(object.x, object.x2 ?? object.x) * 1000} y={Math.min(object.y, object.y2 ?? object.y) * 1000} width={Math.abs((object.x2 ?? object.x) - object.x) * 1000} height={Math.abs((object.y2 ?? object.y) - object.y) * 1000} /> : <line key={object.id} className={`tactical-object arrow-${object.type}`} onClick={() => deleteObject(object.id)} x1={object.x * 1000} y1={object.y * 1000} x2={(object.x2 ?? object.x) * 1000} y2={(object.y2 ?? object.y) * 1000} markerEnd={`url(#${object.type === "moveArrow" ? "move-head" : "attack-head"})`} />)}
@@ -249,6 +272,7 @@ export default function WarTable() {
           <div className="role-options compact">{(Object.keys(ROLE_LABEL) as PrimaryRole[]).map((role) => <button type="button" key={role} className={`role-option role-${role} ${editing.primaryRole === role ? "selected" : ""}`} onClick={() => patchPlayer(editing.id, { primaryRole: role })}><span>{role === "infantry" ? "▣" : role === "cavalry" ? "◆" : "◎"}</span>{ROLE_LABEL[role]}</button>)}</div>
           <div className="secondary-options">{(Object.keys(SECONDARY_LABEL) as SecondaryRole[]).map((role) => <label key={role} className={editing.secondaryRoles.includes(role) ? "checked" : ""}><input type="checkbox" checked={editing.secondaryRoles.includes(role)} onChange={() => toggleSecondary(role)} /><span>{SECONDARY_LABEL[role]}</span></label>)}</div>
           <div className="section-rule" /><div className="sub-heading"><span>LAYER FILTER</span><b>{visibleObjects.length}</b></div>
+          <div className="objective-legend"><span className="owner-neutral">중립 {objectiveCounts.neutral}</span><span className="owner-lucia">루시아 {objectiveCounts.lucia}</span><span className="owner-ian">이안 {objectiveCounts.ian}</span><small>지도 거점을 클릭해 점령 상태를 변경하세요.</small></div>
           <div className="layer-list">{(Object.keys(layers) as Array<keyof typeof layers>).map((layer) => <label key={layer}><input type="checkbox" checked={layers[layer]} onChange={() => setLayers((current) => ({ ...current, [layer]: !current[layer] }))} /><span>{({ players: "플레이어", arrows: "화살표", zones: "방어구역", markers: "집결·스테프", text: "텍스트" })[layer]}</span></label>)}</div>
         </aside>
       </section>
