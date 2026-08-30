@@ -36,9 +36,12 @@ test("server-renders the Heinapel War Table", async () => {
   assert.match(html, /핵심 작전 도구/);
   assert.match(html, /OPERATION TIMELINE/);
   assert.match(html, /CURRENT TIME/);
-  assert.match(html, /페어리 드래곤 젠/);
-  assert.match(html, /생명석 젠/);
   assert.match(html, /장면 시간 및 이벤트 편집/);
+  assert.match(html, /01 장면 삭제/);
+  assert.match(html, /루시아 배치/);
+  assert.match(html, /이안 배치/);
+  assert.doesNotMatch(html, /class="fairy-dragon-anchor/);
+  assert.doesNotMatch(html, /class="lifestone-anchor/);
   assert.match(html, /전술 맵/);
   assert.match(html, /실전 맵/);
   assert.match(html, /생명의 반석/);
@@ -81,7 +84,10 @@ test("keeps the interactive operation features and map assets wired", async () =
   assert.match(warTable, /type LineupStatus = "starter" \| "reserve"/);
   assert.match(warTable, /type SceneEvents =/);
   assert.match(warTable, /const DEFAULT_SCENE_EVENTS/);
+  assert.match(warTable, /type FairyDragonPosition = "northwest" \| "southeast"/);
   assert.match(warTable, /const saveSceneEditor =/);
+  assert.match(warTable, /const removeScene =/);
+  assert.match(warTable, /const deployStarters =/);
   assert.match(warTable, /const patchPlayer =/);
   assert.match(warTable, /filter\(\(player\) => player\.lineup === "starter"\)/);
   assert.match(warTable, /function UnitRoleIcon/);
@@ -101,7 +107,10 @@ test("keeps the interactive operation features and map assets wired", async () =
   assert.match(theme, /\.draw-preview/);
   assert.match(theme, /\.map-time-chip/);
   assert.match(theme, /\.fairy-dragon-anchor/);
+  assert.match(theme, /\.fairy-dragon-anchor\.position-southeast/);
   assert.match(theme, /\.scene-event-editor/);
+  assert.match(theme, /\.scene-remove-button/);
+  assert.match(theme, /\.deployment-button/);
   assert.match(theme, /content: attr\(data-tooltip\)/);
   assert.match(page, /return <WarTable \/>/);
   assert.match(layout, /title: "Heinapel War Table v0\.1"/);

@@ -360,12 +360,12 @@ body {
 }
 .tool-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-  margin-top: 14px;
+  gap: 8px;
+  margin-top: 10px;
 }
 .tool-grid button {
-  min-height: 72px;
-  gap: 7px;
+  min-height: 62px;
+  gap: 5px;
   border-width: 2px;
   font-size: 13px;
   font-weight: 800;
@@ -512,12 +512,12 @@ body {
 }
 
 .assignment-panel {
-  margin-top: 12px;
-  padding-top: 10px;
+  margin-top: 8px;
+  padding-top: 7px;
   border-top: 1px solid #3b3e43;
 }
 .assignment-player {
-  padding: 9px 11px;
+  padding: 7px 10px;
   border: 1px solid #3a3d42;
   border-left: 3px solid #d7b56d;
   background: linear-gradient(105deg, rgba(215, 181, 109, 0.1), rgba(21, 23, 25, 0.9));
@@ -552,24 +552,24 @@ body {
   line-height: 1.35;
 }
 .assignment-heading {
-  margin: 9px 1px 5px;
+  margin: 7px 1px 4px;
   color: #a9a79f;
   font: 800 10px/1 ui-monospace, monospace;
   letter-spacing: 0.1em;
 }
 .assignment-grid {
   display: grid;
-  gap: 7px;
+  gap: 6px;
 }
 .assignment-grid.two-column { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .assignment-grid.three-column { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .assignment-button {
-  min-height: 54px;
+  min-height: 46px;
   display: grid;
   place-items: center;
   align-content: center;
-  gap: 5px;
-  padding: 7px 4px;
+  gap: 3px;
+  padding: 5px 4px;
   border: 1px solid #404348;
   border-radius: 2px;
   background: linear-gradient(#23262a, #17191c);
@@ -589,12 +589,12 @@ body {
   box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.45), 0 0 10px color-mix(in srgb, var(--role-color, #d7b56d) 22%, transparent);
 }
 .assignment-button > span {
-  font-size: 24px;
+  font-size: 20px;
   line-height: 1;
 }
 .assignment-button .unit-role-icon {
-  width: 30px;
-  height: 30px;
+  width: 25px;
+  height: 25px;
 }
 .assignment-button.status-starter { --role-color: #e2c574; }
 .assignment-button.status-reserve { --role-color: #ff9d55; }
@@ -606,7 +606,7 @@ body {
 }
 .assignment-button .command-glyph {
   color: #ffc65c;
-  font-size: 30px;
+  font-size: 24px;
 }
 
 .role-count-board {
@@ -620,32 +620,32 @@ body {
 .role-count-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+  gap: 6px;
 }
 .role-count-tile {
-  min-height: 80px;
+  min-height: 60px;
   display: grid;
-  grid-template-columns: 44px 1fr;
+  grid-template-columns: 34px 1fr;
   grid-template-rows: 1fr auto;
   align-items: center;
-  padding: 9px 9px 8px;
+  padding: 6px 7px;
   border: 1px solid color-mix(in srgb, var(--role-color) 43%, #34373b);
   border-radius: 2px;
   background: color-mix(in srgb, var(--role-color) 7%, #17191c);
 }
 .role-count-tile .unit-role-icon {
-  width: 38px;
-  height: 38px;
+  width: 30px;
+  height: 30px;
 }
 .role-count-tile strong {
   color: var(--role-color);
-  font: 900 36px/1 ui-monospace, monospace;
+  font: 900 30px/1 ui-monospace, monospace;
   text-align: center;
 }
 .role-count-tile small {
   grid-column: 1 / -1;
   color: #b7b5ae;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 800;
   text-align: center;
 }
@@ -656,6 +656,48 @@ body {
   fill: #ff4b4b;
   stroke: #3b080b;
 }
+
+.deployment-board {
+  margin-top: 8px;
+  padding-top: 1px;
+  border-top: 1px solid #34373b;
+}
+.deployment-board .assignment-heading {
+  margin-top: 7px;
+}
+.deployment-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+.deployment-button {
+  min-height: 44px;
+  display: grid;
+  grid-template-columns: 18px 1fr;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 8px;
+  border: 1px solid color-mix(in srgb, var(--deploy-color) 60%, #34373b);
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--deploy-color) 8%, #17191c);
+  color: var(--deploy-color);
+  cursor: pointer;
+}
+.deployment-button:hover {
+  background: color-mix(in srgb, var(--deploy-color) 16%, #17191c);
+  box-shadow: 0 0 13px color-mix(in srgb, var(--deploy-color) 22%, transparent);
+}
+.deployment-button span {
+  font-size: 18px;
+  text-shadow: 0 0 8px currentColor;
+}
+.deployment-button strong {
+  color: #e5e3dc;
+  font-size: 11px;
+  text-align: left;
+}
+.deployment-lucia { --deploy-color: #55cfff; }
+.deployment-ian { --deploy-color: #f0d221; }
 
 /* High-visibility operation timeline */
 .timeline-shell {
@@ -758,8 +800,10 @@ body {
   text-align: center;
   text-shadow: 0 2px 5px #000;
 }
-.map-tactical .fairy-dragon-anchor { left: 32.3%; top: 19%; }
-.map-field .fairy-dragon-anchor { left: 27.8%; top: 26%; }
+.map-tactical .fairy-dragon-anchor.position-northwest { left: 32.3%; top: 19%; }
+.map-field .fairy-dragon-anchor.position-northwest { left: 27.8%; top: 26%; }
+.map-tactical .fairy-dragon-anchor.position-southeast { left: 75.4%; top: 52.5%; }
+.map-field .fairy-dragon-anchor.position-southeast { left: 74.7%; top: 69.5%; }
 .fairy-dragon-anchor > span {
   position: relative;
   z-index: 1;
@@ -862,22 +906,47 @@ body {
 .scene-edit-button {
   position: absolute;
   right: 4px;
-  top: 5px;
+  bottom: 4px;
   width: 29px;
-  height: 44px;
+  height: 21px;
   padding: 0;
   border: 1px solid #4c4d4c;
   border-radius: 2px;
   background: #17191c;
   color: #d6bd7c;
   cursor: pointer;
-  font-size: 19px;
+  font-size: 15px;
   font-weight: 900;
 }
 .scene-edit-button:hover {
   border-color: #d7b56d;
   background: #30291d;
   color: #ffe09b;
+}
+.scene-remove-button {
+  position: absolute;
+  right: 4px;
+  top: 4px;
+  width: 29px;
+  height: 21px;
+  padding: 0;
+  border: 1px solid #654044;
+  border-radius: 2px;
+  background: #211719;
+  color: #ff7777;
+  cursor: pointer;
+  font-size: 17px;
+  font-weight: 900;
+  line-height: 1;
+}
+.scene-remove-button:hover:not(:disabled) {
+  border-color: #ff6262;
+  background: #3a181b;
+  color: #ffaaaa;
+}
+.scene-remove-button:disabled {
+  opacity: 0.28;
+  cursor: not-allowed;
 }
 
 .scene-event-editor {
@@ -936,7 +1005,8 @@ body {
   font-size: 10px;
   font-weight: 800;
 }
-.scene-editor-grid input {
+.scene-editor-grid input,
+.scene-editor-grid select {
   width: 100%;
   height: 37px;
   padding: 0 10px;
@@ -948,11 +1018,18 @@ body {
   font-size: 12px;
   font-weight: 700;
 }
-.scene-editor-grid input:focus {
+.scene-editor-grid select {
+  appearance: auto;
+}
+.scene-editor-grid input:focus,
+.scene-editor-grid select:focus {
   border-color: #d7b56d;
   box-shadow: 0 0 0 2px rgba(215, 181, 109, 0.12);
 }
 .scene-editor-grid .event-field {
+  grid-column: 1 / -1;
+}
+.scene-editor-grid .fairy-position-field {
   grid-column: 1 / -1;
 }
 .scene-editor-actions {
