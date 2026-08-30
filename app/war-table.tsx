@@ -49,8 +49,8 @@ const INITIAL_PLAYERS: Player[] = PLAYER_SOURCE.map(([nickname, primaryRole], in
 const DEFAULT_SCENE_EVENTS: SceneEvents = { fairyDragon: "", lifeStone: "", fairyDragonPosition: "northwest" };
 const SCENE_TIMES = ["60:00", "55:00", "52:00", "46:00", "42:00"];
 const STARTING_POINT_CENTER: Record<MapVariant, Record<"lucia" | "ian", Point>> = {
-  tactical: { lucia: { x: .434, y: .194 }, ian: { x: .612, y: .558 } },
-  field: { lucia: { x: .381, y: .35 }, ian: { x: .594, y: .65 } },
+  tactical: { lucia: { x: .392, y: .268 }, ian: { x: .612, y: .558 } },
+  field: { lucia: { x: .342, y: .42 }, ian: { x: .594, y: .65 } },
 };
 const OBJECTIVE_META = [
   { id: "spirit-west", label: "영목", location: "서쪽", tactical: { x: 27.9, y: 39.3 }, field: { x: 20.8, y: 54.2 } },
