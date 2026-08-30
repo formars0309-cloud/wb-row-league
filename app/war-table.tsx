@@ -4,12 +4,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 type PrimaryRole = "infantry" | "cavalry" | "ranged";
 type SecondaryRole = "garrison" | "rally" | "blocker";
+type LineupStatus = "starter" | "reserve";
 type Tool = "select" | "moveArrow" | "attackArrow" | "defense" | "rally" | "step" | "text" | "delete";
 type ObjectiveOwner = "neutral" | "lucia" | "ian";
 type MapVariant = "tactical" | "field";
 type Point = { x: number; y: number };
-type Player = { id: number; nickname: string; primaryRole: PrimaryRole; secondaryRoles: SecondaryRole[] };
-type TacticalObject = { id: string; type: Exclude<Tool, "select" | "delete">; x: number; y: number; x2?: number; y2?: number; text?: string };
+type Player = { id: number; nickname: string; primaryRole: PrimaryRole; secondaryRoles: SecondaryRole[]; lineup: LineupStatus };
+type TacticalObject = { id: string; type: Exclude<Tool, "select" | "delete">; x: number; y: number; x2?: number; y2?: number; points?: Point[]; text?: string };
 type Scene = { id: string; name: string; time: string; positions: Record<string, Point>; objects: TacticalObject[]; objectiveOwners?: Record<string, ObjectiveOwner> };
 type Operation = { version: 1; name: string; players: Player[]; scenes: Scene[]; activeSceneId: string; updatedAt: string };
 
@@ -23,6 +24,7 @@ const TOOL_META: Array<{ id: Tool; label: string; glyph: string; hint: string }>
   { id: "delete", label: "삭제", glyph: "×", hint: "오브젝트 클릭" },
 ];
 const RALLY_PLAYERS = new Set(["[WB] 진 수", "벌꿀오소리"]);
+const RESERVE_PLAYERS = new Set(["코다마", "[WB] 스누피Tank", "[WB] 이천상", "몽클"]);
 const PLAYER_SOURCE: Array<[string, PrimaryRole]> = [
   ["[WB] ᵂᴮ Elega", "infantry"], ["5000", "ranged"], ["glen fiddich", "infantry"], ["압 수", "infantry"],
   ["Junkhun", "infantry"], ["욘 두 Yondu", "infantry"], ["[WB] 구너(마구니)", "ranged"], ["최산수", "ranged"],
@@ -39,6 +41,7 @@ const INITIAL_PLAYERS: Player[] = PLAYER_SOURCE.map(([nickname, primaryRole], in
   nickname,
   primaryRole,
   secondaryRoles: RALLY_PLAYERS.has(nickname) ? ["rally"] : [],
+  lineup: RESERVE_PLAYERS.has(nickname) ? "reserve" : "starter",
 }));
 const SCENE_TIMES = ["60:00", "55:00", "52:00", "46:00", "42:00"];
 const OBJECTIVE_META = [
@@ -63,16 +66,31 @@ function freshOperation(): Operation {
 function clone<T>(value: T): T { return JSON.parse(JSON.stringify(value)) as T; }
 function clamp(value: number) { return Math.max(0.025, Math.min(0.975, value)); }
 function uid(prefix: string) { return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`; }
+function smoothPath(points: Point[]) {
+  if (points.length < 2) return "";
+  const scaled = points.map((point) => ({ x: point.x * 1000, y: point.y * 1000 }));
+  let path = `M ${scaled[0].x} ${scaled[0].y}`;
+  for (let index = 1; index < scaled.length - 1; index += 1) {
+    const current = scaled[index];
+    const next = scaled[index + 1];
+    path += ` Q ${current.x} ${current.y} ${(current.x + next.x) / 2} ${(current.y + next.y) / 2}`;
+  }
+  const last = scaled[scaled.length - 1];
+  return `${path} L ${last.x} ${last.y}`;
+}
+function playerNameClass(player: Player) {
+  if (player.secondaryRoles.includes("rally")) return "name-rally";
+  if (player.secondaryRoles.includes("garrison")) return "name-garrison";
+  return `name-${player.primaryRole}`;
+}
 
-function RolePill({ role }: { role: PrimaryRole }) { return <span className={`role-pill role-${role}`}>{ROLE_LABEL[role]}</span>; }
-
-function UnitRoleIcon({ role, isRally = false }: { role: PrimaryRole; isRally?: boolean }) {
+function UnitRoleIcon({ unitRole, isRally = false }: { unitRole: PrimaryRole; isRally?: boolean }) {
   return (
     <svg className={`unit-role-icon ${isRally ? "rally-unit-icon" : ""}`} viewBox="0 0 24 24" aria-hidden="true">
       {isRally ? <><path d="M3 2h4l6.1 6.1-3 3L4 5H2V3l1-1Zm7.8 11.4 2.8 2.8-2.1 2.1-1.4-1.4-3.2 3.2-2.1-2.1 3.2-3.2-1.4-1.4 2.1-2.1 2.1 2.1Z" /><path d="M21 2h-4l-6.1 6.1 3 3L20 5h2V3l-1-1Zm-7.8 11.4-2.8 2.8 2.1 2.1 1.4-1.4 3.2 3.2 2.1-2.1-3.2-3.2 1.4-1.4-2.1-2.1-2.1 2.1Z" /></> : <>
-        {role === "infantry" && <path d="M12 2 20 5v6c0 5.2-3.4 9.1-8 11-4.6-1.9-8-5.8-8-11V5l8-3Z" />}
-        {role === "cavalry" && <><path d="M6 19h13v3H5v-2l1-1Zm3-1c0-2.2.9-4 2.6-5.3L10 10l2-6 2.4 2.5L19 8l-2.2 3.6c.8 1.4 1.2 3 1.2 4.9V18H9Z" /><circle cx="14.8" cy="9.5" r="1" className="unit-icon-cutout" /></>}
-        {role === "ranged" && <><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="3" className="unit-icon-cutout" /></>}
+        {unitRole === "infantry" && <path d="M12 2 20 5v6c0 5.2-3.4 9.1-8 11-4.6-1.9-8-5.8-8-11V5l8-3Z" />}
+        {unitRole === "cavalry" && <><path d="M6 19h13v3H5v-2l1-1Zm3-1c0-2.2.9-4 2.6-5.3L10 10l2-6 2.4 2.5L19 8l-2.2 3.6c.8 1.4 1.2 3 1.2 4.9V18H9Z" /><circle cx="14.8" cy="9.5" r="1" className="unit-icon-cutout" /></>}
+        {unitRole === "ranged" && <><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="3" className="unit-icon-cutout" /></>}
       </>}
     </svg>
   );
@@ -84,7 +102,7 @@ export default function WarTable() {
   const [editingId, setEditingId] = useState(1);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [tool, setTool] = useState<Tool>("select");
-  const [drawStart, setDrawStart] = useState<Point | null>(null);
+  const [drawPoints, setDrawPoints] = useState<Point[]>([]);
   const [roleFilter, setRoleFilter] = useState<"all" | PrimaryRole>("all");
   const [mapVariant, setMapVariant] = useState<MapVariant>("tactical");
   const [mapFocus, setMapFocus] = useState(true);
@@ -95,12 +113,15 @@ export default function WarTable() {
   const pastRef = useRef<Operation[]>([]);
   const futureRef = useRef<Operation[]>([]);
   const dragRef = useRef<null | { startClient: Point; sceneId: string; initial: Record<string, Point> }>(null);
+  const drawPointsRef = useRef<Point[]>([]);
 
   const scene = operation.scenes.find((item) => item.id === operation.activeSceneId) ?? operation.scenes[0];
+  const editing = operation.players.find((player) => player.id === editingId) ?? operation.players[0];
   const counts = useMemo(() => ({
     infantry: operation.players.filter((p) => p.primaryRole === "infantry").length,
     cavalry: operation.players.filter((p) => p.primaryRole === "cavalry").length,
     ranged: operation.players.filter((p) => p.primaryRole === "ranged").length,
+    rally: operation.players.filter((p) => p.secondaryRoles.includes("rally")).length,
   }), [operation.players]);
 
   useEffect(() => {
@@ -109,7 +130,10 @@ export default function WarTable() {
         const raw = localStorage.getItem(STORAGE_KEY);
         if (raw) {
           const saved = JSON.parse(raw) as Operation;
-          if (saved.version === 1 && saved.players?.length === INITIAL_PLAYERS.length && saved.scenes?.length) setOperation(saved);
+          if (saved.version === 1 && saved.players?.length === INITIAL_PLAYERS.length && saved.scenes?.length) {
+            saved.players = saved.players.map((player) => ({ ...player, lineup: player.lineup ?? (RESERVE_PLAYERS.has(player.nickname) ? "reserve" : "starter") }));
+            setOperation(saved);
+          }
         }
       } catch { localStorage.removeItem(STORAGE_KEY); }
       setReady(true);
@@ -187,23 +211,46 @@ export default function WarTable() {
       else setSelectedIds([]);
       return;
     }
-    if (["moveArrow", "attackArrow", "defense"].includes(tool)) { setDrawStart(point); return; }
+    if (["attackArrow", "defense"].includes(tool)) {
+      drawPointsRef.current = [point];
+      setDrawPoints([point]);
+      try { event.currentTarget.setPointerCapture(event.pointerId); } catch { /* Synthetic pointer events do not own capture. */ }
+      return;
+    }
     if (tool === "rally") {
       const object: TacticalObject = { id: uid(tool), type: "rally", ...point };
       updateScene(scene.id, (target) => { target.objects.push(object); });
       setTool("select");
     }
   };
+  const patchPlayer = (id: number, patch: Partial<Player>) => commit((draft) => {
+    draft.players = draft.players.map((player) => player.id === id ? { ...player, ...patch } : player); return draft;
+  });
+  const handleMapPointerMove = (event: React.PointerEvent<HTMLElement>) => {
+    if (!drawPointsRef.current.length || !["attackArrow", "defense"].includes(tool)) return;
+    const point = pointFromClient(event.clientX, event.clientY);
+    const previous = drawPointsRef.current[drawPointsRef.current.length - 1];
+    if (Math.hypot(point.x - previous.x, point.y - previous.y) < .003) return;
+    drawPointsRef.current = [...drawPointsRef.current, point];
+    setDrawPoints(drawPointsRef.current);
+  };
   const handleMapPointerUp = (event: React.PointerEvent<HTMLElement>) => {
-    if (!drawStart || !["moveArrow", "attackArrow", "defense"].includes(tool)) return;
+    if (!drawPointsRef.current.length || !["attackArrow", "defense"].includes(tool)) return;
     const end = pointFromClient(event.clientX, event.clientY);
-    if (Math.hypot(end.x - drawStart.x, end.y - drawStart.y) > .015) {
-      const object: TacticalObject = { id: uid(tool), type: tool as "moveArrow" | "attackArrow" | "defense", ...drawStart, x2: end.x, y2: end.y };
+    const points = [...drawPointsRef.current];
+    const previous = points[points.length - 1];
+    if (Math.hypot(end.x - previous.x, end.y - previous.y) >= .003) points.push(end);
+    const start = points[0];
+    const pathLength = points.slice(1).reduce((total, point, index) => total + Math.hypot(point.x - points[index].x, point.y - points[index].y), 0);
+    if (points.length > 1 && pathLength > .01) {
+      const object: TacticalObject = { id: uid(tool), type: tool as "attackArrow" | "defense", ...start, x2: end.x, y2: end.y, points };
       updateScene(scene.id, (target) => { target.objects.push(object); });
     }
-    setDrawStart(null);
-    setTool("select");
+    drawPointsRef.current = [];
+    setDrawPoints([]);
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
   };
+  const cancelMapDrawing = () => { drawPointsRef.current = []; setDrawPoints([]); };
   const deleteObject = (objectId: string) => { if (tool !== "delete") return; updateScene(scene.id, (target) => { target.objects = target.objects.filter((object) => object.id !== objectId); }); };
   const cycleObjective = (objectiveId: string) => updateScene(scene.id, (target) => {
     const current = target.objectiveOwners?.[objectiveId] ?? "neutral";
@@ -224,11 +271,17 @@ export default function WarTable() {
   };
   const importJson = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]; if (!file) return;
-    try { const parsed = JSON.parse(await file.text()) as Operation; if (parsed.version !== 1 || parsed.players?.length !== INITIAL_PLAYERS.length || !parsed.scenes?.length) throw new Error(); checkpoint(); setOperation(parsed); setSelectedIds([]); }
+    try { const parsed = JSON.parse(await file.text()) as Operation; if (parsed.version !== 1 || parsed.players?.length !== INITIAL_PLAYERS.length || !parsed.scenes?.length) throw new Error(); parsed.players = parsed.players.map((player) => ({ ...player, lineup: player.lineup ?? (RESERVE_PLAYERS.has(player.nickname) ? "reserve" : "starter") })); checkpoint(); setOperation(parsed); setSelectedIds([]); }
     catch { window.alert("Heinapel War Table v0.1 JSON 파일이 아닙니다."); }
     event.target.value = "";
   };
   const resetOperation = () => { if (!window.confirm("현재 작전 데이터를 초기화할까요?")) return; checkpoint(); setOperation(freshOperation()); setSelectedIds([]); };
+  const toggleCommandRole = (role: "rally" | "garrison") => {
+    const secondaryRoles = editing.secondaryRoles.includes(role)
+      ? editing.secondaryRoles.filter((item) => item !== role)
+      : [...editing.secondaryRoles.filter((item) => item !== "rally" && item !== "garrison"), role];
+    patchPlayer(editing.id, { secondaryRoles });
+  };
 
   const placedCount = Object.keys(scene.positions).length;
   const visibleObjects = scene.objects;
@@ -254,19 +307,19 @@ export default function WarTable() {
         <aside className="roster-panel panel">
           <div className="panel-heading"><div><span className="eyebrow">BLUE FORCE</span><h2>PLAYER ROSTER</h2></div><span className="count-badge">{operation.players.length} / {operation.players.length}</span></div>
           <div className="roster-controls">
-            <div className="role-summary"><span className="dot infantry" /> {counts.infantry}<span className="dot cavalry" /> {counts.cavalry}<span className="dot ranged" /> {counts.ranged}</div>
+            <div className="role-summary"><span className="legend-infantry">보병 {counts.infantry}</span><span className="legend-cavalry">기병 {counts.cavalry}</span><span className="legend-ranged">원거리 {counts.ranged}</span><span className="legend-rally">집결 {counts.rally}</span></div>
             <select aria-label="역할 필터" value={roleFilter} onChange={(event) => setRoleFilter(event.target.value as "all" | PrimaryRole)}><option value="all">전체 역할</option><option value="infantry">보병</option><option value="cavalry">기병</option><option value="ranged">원거리</option></select>
           </div>
           <div className="roster-list" aria-label={`${operation.players.length}명 플레이어 명단`}>
             {operation.players.filter((player) => roleFilter === "all" || player.primaryRole === roleFilter).map((player) => (
               <button draggable type="button" key={player.id} className={`player-row ${editingId === player.id ? "is-active" : ""} ${scene.positions[String(player.id)] ? "is-placed" : ""}`} onDragStart={(event) => handleRosterDrag(event, player.id)} onClick={() => { setEditingId(player.id); if (!scene.positions[String(player.id)]) setSelectedIds([player.id]); }}>
-                <span className="player-num">{String(player.id).padStart(2, "0")}</span><span className="player-copy"><strong>{player.nickname}</strong><RolePill role={player.primaryRole} /></span><span className="edit-glyph">{scene.positions[String(player.id)] ? "●" : "⋮⋮"}</span>
+                <span className="player-num">{String(player.id).padStart(2, "0")}</span><span className="player-copy"><strong className={playerNameClass(player)}>{player.nickname}</strong><span className={`lineup-badge ${player.lineup}`}>{player.lineup === "reserve" ? "예비" : "주전"}</span></span><span className="edit-glyph">{scene.positions[String(player.id)] ? "●" : "⋮⋮"}</span>
               </button>
             ))}
           </div>
         </aside>
 
-        <section ref={mapRef} className={`map-panel map-${mapVariant} tool-${tool}`} aria-label="헤이나펄 전장 작전판" onDragOver={(event) => event.preventDefault()} onDrop={handleMapDrop} onPointerDown={handleMapPointerDown} onPointerUp={handleMapPointerUp}>
+        <section ref={mapRef} className={`map-panel map-${mapVariant} tool-${tool}`} aria-label="헤이나펄 전장 작전판" onDragOver={(event) => event.preventDefault()} onDrop={handleMapDrop} onPointerDown={handleMapPointerDown} onPointerMove={handleMapPointerMove} onPointerUp={handleMapPointerUp} onPointerCancel={cancelMapDrawing}>
           <div className="map-image-layer" /><div className="map-grid-lines" />
           <div className="map-toolbar" onPointerDown={(event) => event.stopPropagation()}>
             <div className="map-switcher" aria-label="지도 선택"><button type="button" className={mapVariant === "tactical" ? "active" : ""} onClick={() => setMapVariant("tactical")}>전술 맵</button><button type="button" className={mapVariant === "field" ? "active" : ""} onClick={() => setMapVariant("field")}>실전 맵</button></div>
@@ -278,16 +331,34 @@ export default function WarTable() {
           {OBJECTIVE_META.map((objective) => { const owner = scene.objectiveOwners?.[objective.id] ?? "neutral"; const point = objective[mapVariant]; return <button type="button" key={objective.id} className={`capture-objective owner-${owner}`} style={{ left: `${point.x}%`, top: `${point.y}%` }} onClick={() => cycleObjective(objective.id)} aria-label={`${objective.location} ${objective.label}: ${owner === "neutral" ? "중립" : owner === "lucia" ? "루시아팀" : "이안팀"}`} title={`${objective.location} ${objective.label} · 클릭하여 점령 상태 변경`}><span>{objective.label}</span></button>; })}
           <svg className="tactical-svg" viewBox="0 0 1000 1000" preserveAspectRatio="none" aria-label="전술 오브젝트 레이어">
             <defs><marker id="move-head" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#55cfff" /></marker><marker id="attack-head" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#ff5353" /></marker></defs>
-            {visibleObjects.filter((object) => ["moveArrow", "attackArrow", "defense"].includes(object.type)).map((object) => <line key={object.id} className={`tactical-object ${object.type === "defense" ? "defense-line" : `arrow-${object.type}`}`} onClick={() => deleteObject(object.id)} x1={object.x * 1000} y1={object.y * 1000} x2={(object.x2 ?? object.x) * 1000} y2={(object.y2 ?? object.y) * 1000} markerEnd={object.type === "defense" ? undefined : `url(#${object.type === "moveArrow" ? "move-head" : "attack-head"})`} />)}
+            {visibleObjects.filter((object) => ["moveArrow", "attackArrow", "defense"].includes(object.type)).map((object) => object.points?.length ? <path key={object.id} className={`tactical-object freehand-path ${object.type === "defense" ? "defense-line" : `arrow-${object.type}`}`} onClick={() => deleteObject(object.id)} d={smoothPath(object.points)} markerEnd={object.type === "defense" ? undefined : `url(#${object.type === "moveArrow" ? "move-head" : "attack-head"})`} /> : <line key={object.id} className={`tactical-object ${object.type === "defense" ? "defense-line" : `arrow-${object.type}`}`} onClick={() => deleteObject(object.id)} x1={object.x * 1000} y1={object.y * 1000} x2={(object.x2 ?? object.x) * 1000} y2={(object.y2 ?? object.y) * 1000} markerEnd={object.type === "defense" ? undefined : `url(#${object.type === "moveArrow" ? "move-head" : "attack-head"})`} />)}
+            {drawPoints.length > 1 && <path className={`draw-preview freehand-path ${tool === "defense" ? "defense-line" : "arrow-attackArrow"}`} d={smoothPath(drawPoints)} markerEnd={tool === "attackArrow" ? "url(#attack-head)" : undefined} />}
           </svg>
           {visibleObjects.filter((object) => ["rally", "step", "text"].includes(object.type)).map((object) => <button type="button" key={object.id} className={`tactical-object map-marker marker-${object.type}`} style={{ left: `${object.x * 100}%`, top: `${object.y * 100}%` }} onClick={() => deleteObject(object.id)}><span>{object.type === "rally" ? "⚔" : object.type === "step" ? `S${stepObjects.findIndex((item) => item.id === object.id) + 1}` : object.text}</span></button>)}
-          {operation.players.filter((player) => scene.positions[String(player.id)] && (roleFilter === "all" || player.primaryRole === roleFilter)).map((player) => { const pos = scene.positions[String(player.id)]; const isRally = player.secondaryRoles.includes("rally"); const tooltip = `${player.nickname} · ${ROLE_LABEL[player.primaryRole]}${player.secondaryRoles.length ? ` · ${player.secondaryRoles.map((role) => SECONDARY_LABEL[role]).join("/")}` : ""}`; return <button type="button" key={player.id} className={`player-token role-${player.primaryRole} ${isRally ? "is-rally" : ""} ${selectedIds.includes(player.id) ? "selected" : ""}`} style={{ left: `${pos.x * 100}%`, top: `${pos.y * 100}%` }} onPointerDown={(event) => handleTokenPointerDown(event, player.id)} aria-label={tooltip} data-tooltip={tooltip}><UnitRoleIcon role={player.primaryRole} isRally={isRally} />{!isRally && <span className="token-num">{String(player.id).padStart(2, "0")}</span>}</button>; })}
+          {operation.players.filter((player) => scene.positions[String(player.id)] && (roleFilter === "all" || player.primaryRole === roleFilter)).map((player) => { const pos = scene.positions[String(player.id)]; const isRally = player.secondaryRoles.includes("rally"); const tooltip = `${player.nickname} · ${ROLE_LABEL[player.primaryRole]}${player.secondaryRoles.length ? ` · ${player.secondaryRoles.map((role) => SECONDARY_LABEL[role]).join("/")}` : ""}`; return <button type="button" key={player.id} className={`player-token role-${player.primaryRole} ${isRally ? "is-rally" : ""} ${selectedIds.includes(player.id) ? "selected" : ""}`} style={{ left: `${pos.x * 100}%`, top: `${pos.y * 100}%` }} onPointerDown={(event) => handleTokenPointerDown(event, player.id)} aria-label={tooltip} data-tooltip={tooltip}><UnitRoleIcon unitRole={player.primaryRole} isRally={isRally} />{!isRally && <span className="token-num">{String(player.id).padStart(2, "0")}</span>}</button>; })}
           <div className="map-note"><span>{mapVariant === "tactical" ? "TACTICAL OVERVIEW" : "FIELD REFERENCE"}</span><strong>{mapVariant === "tactical" ? "헤이나펄 전술 맵" : "헤이나펄 실전 지형"}</strong><small>{TOOL_META.find((item) => item.id === tool)?.hint}</small></div><div className="map-coordinates"><span>GRID A-01</span><span>생명의 반석 기준 작전도</span><span>GRID H-09</span></div>
         </section>
 
         <aside className="inspector-panel panel">
           <div className="panel-heading"><div><span className="eyebrow">TACTICAL CONTROL</span><h2>핵심 작전 도구</h2></div></div>
           <div className="tool-grid">{TOOL_META.map((item) => <button type="button" key={item.id} className={`${tool === item.id ? "active" : ""} tool-${item.id}`} onClick={() => setTool((current) => current === item.id ? "select" : item.id)} title={item.hint}><span>{item.glyph}</span>{item.label}</button>)}</div>
+          <div className="assignment-panel">
+            <div className="assignment-player"><span>SELECTED PLAYER</span><strong className={playerNameClass(editing)}>{editing.nickname}</strong><small>명단에서 아이디를 선택한 뒤 역할을 지정하세요.</small></div>
+            <div className="assignment-heading">편성</div>
+            <div className="assignment-grid two-column">
+              <button type="button" className={`assignment-button status-starter ${editing.lineup === "starter" ? "active" : ""}`} onClick={() => patchPlayer(editing.id, { lineup: "starter" })}><span>★</span>주전</button>
+              <button type="button" className={`assignment-button status-reserve ${editing.lineup === "reserve" ? "active" : ""}`} onClick={() => patchPlayer(editing.id, { lineup: "reserve" })}><span>◇</span>예비</button>
+            </div>
+            <div className="assignment-heading">병종</div>
+            <div className="assignment-grid three-column">
+              {(Object.keys(ROLE_LABEL) as PrimaryRole[]).map((role) => <button type="button" key={role} className={`assignment-button role-${role} ${editing.primaryRole === role ? "active" : ""}`} onClick={() => patchPlayer(editing.id, { primaryRole: role })}><UnitRoleIcon unitRole={role} />{ROLE_LABEL[role]}</button>)}
+            </div>
+            <div className="assignment-heading">지휘 역할</div>
+            <div className="assignment-grid two-column">
+              <button type="button" className={`assignment-button command-rally ${editing.secondaryRoles.includes("rally") ? "active" : ""}`} onClick={() => toggleCommandRole("rally")}><UnitRoleIcon unitRole="infantry" isRally />집결장</button>
+              <button type="button" className={`assignment-button command-garrison ${editing.secondaryRoles.includes("garrison") ? "active" : ""}`} onClick={() => toggleCommandRole("garrison")}><span className="command-glyph">♜</span>주둔장</button>
+            </div>
+          </div>
         </aside>
       </section>
 

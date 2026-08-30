@@ -391,6 +391,15 @@ body {
   vector-effect: non-scaling-stroke;
   filter: drop-shadow(0 0 5px rgba(97, 191, 255, 0.65));
 }
+.freehand-path {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.draw-preview {
+  opacity: 0.82;
+  pointer-events: none !important;
+}
 .marker-rally {
   color: #ff4b4b;
 }
@@ -414,4 +423,177 @@ body {
   stroke: rgba(45, 0, 3, 0.95);
   stroke-width: 1.1;
   filter: drop-shadow(0 0 5px rgba(255, 75, 75, 0.75)) drop-shadow(0 3px 3px rgba(0, 0, 0, 0.75));
+}
+
+/* Readable roster names, lineup status, and role colors */
+.workspace-grid {
+  grid-template-columns: 250px minmax(610px, 1fr) 320px;
+}
+.roster-controls {
+  height: 58px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 78px;
+  align-items: center;
+}
+.roster-controls .role-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px 8px;
+  padding: 7px 8px;
+  border: 0;
+  font-size: 8px;
+  font-weight: 800;
+  line-height: 1;
+}
+.role-summary .legend-infantry { color: #67adf2; }
+.role-summary .legend-cavalry { color: #75bd8d; }
+.role-summary .legend-ranged { color: #c38cff; }
+.role-summary .legend-rally { color: #ff4b4b; }
+.roster-controls select {
+  width: 73px;
+  height: 30px;
+  margin-right: 5px;
+}
+.player-row {
+  min-height: 40px;
+  grid-template-columns: 25px minmax(0, 1fr) 12px;
+  padding: 5px 6px;
+}
+.player-copy {
+  gap: 7px;
+}
+.player-copy strong {
+  flex: 1 1 auto;
+  color: #e8e5dc;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.015em;
+}
+.player-copy strong.name-infantry { color: #67adf2; }
+.player-copy strong.name-cavalry { color: #75bd8d; }
+.player-copy strong.name-ranged { color: #c38cff; }
+.player-copy strong.name-rally {
+  color: #ff4b4b;
+  text-shadow: 0 0 7px rgba(255, 75, 75, 0.38);
+}
+.player-copy strong.name-garrison,
+.assignment-player strong.name-garrison {
+  color: #ffc65c;
+  text-shadow: 0 0 7px rgba(255, 198, 92, 0.3);
+}
+.lineup-badge {
+  flex: 0 0 auto;
+  min-width: 27px;
+  padding: 3px 4px;
+  border: 1px solid currentColor;
+  border-radius: 2px;
+  text-align: center;
+  font: 800 8px/1 ui-monospace, monospace;
+}
+.lineup-badge.starter {
+  color: #e2c574;
+  background: rgba(226, 197, 116, 0.09);
+}
+.lineup-badge.reserve {
+  color: #ff9d55;
+  background: rgba(255, 116, 55, 0.12);
+}
+
+.assignment-panel {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid #3b3e43;
+}
+.assignment-player {
+  padding: 12px;
+  border: 1px solid #3a3d42;
+  border-left: 3px solid #d7b56d;
+  background: linear-gradient(105deg, rgba(215, 181, 109, 0.1), rgba(21, 23, 25, 0.9));
+}
+.assignment-player > span,
+.assignment-player > strong,
+.assignment-player > small {
+  display: block;
+}
+.assignment-player > span {
+  color: #9f8b65;
+  font: 800 8px/1 ui-monospace, monospace;
+  letter-spacing: 0.12em;
+}
+.assignment-player > strong {
+  margin-top: 7px;
+  overflow: hidden;
+  color: #eee9df;
+  font-size: 15px;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.assignment-player > strong.name-infantry { color: #67adf2; }
+.assignment-player > strong.name-cavalry { color: #75bd8d; }
+.assignment-player > strong.name-ranged { color: #c38cff; }
+.assignment-player > strong.name-rally { color: #ff4b4b; }
+.assignment-player > small {
+  margin-top: 6px;
+  color: #8c8e8b;
+  font-size: 9px;
+  line-height: 1.35;
+}
+.assignment-heading {
+  margin: 14px 1px 7px;
+  color: #a9a79f;
+  font: 800 10px/1 ui-monospace, monospace;
+  letter-spacing: 0.1em;
+}
+.assignment-grid {
+  display: grid;
+  gap: 7px;
+}
+.assignment-grid.two-column { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.assignment-grid.three-column { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.assignment-button {
+  min-height: 62px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 5px;
+  padding: 7px 4px;
+  border: 1px solid #404348;
+  border-radius: 2px;
+  background: linear-gradient(#23262a, #17191c);
+  color: #aaa9a4;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 800;
+}
+.assignment-button:hover {
+  border-color: color-mix(in srgb, var(--role-color, #d7b56d) 74%, #fff 12%);
+  color: #f0ede5;
+}
+.assignment-button.active {
+  border: 2px solid var(--role-color, #d7b56d);
+  color: var(--role-color, #f0d392);
+  background: color-mix(in srgb, var(--role-color, #d7b56d) 12%, #191b1e);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.45), 0 0 10px color-mix(in srgb, var(--role-color, #d7b56d) 22%, transparent);
+}
+.assignment-button > span {
+  font-size: 24px;
+  line-height: 1;
+}
+.assignment-button .unit-role-icon {
+  width: 30px;
+  height: 30px;
+}
+.assignment-button.status-starter { --role-color: #e2c574; }
+.assignment-button.status-reserve { --role-color: #ff9d55; }
+.assignment-button.command-rally { --role-color: #ff4b4b; }
+.assignment-button.command-garrison { --role-color: #ffc65c; }
+.assignment-button.command-rally .rally-unit-icon {
+  fill: #ff4b4b;
+  stroke: #3b080b;
+}
+.assignment-button .command-glyph {
+  color: #ffc65c;
+  font-size: 30px;
 }
