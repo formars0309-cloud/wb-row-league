@@ -10,6 +10,7 @@ type ObjectiveOwner = "neutral" | "lucia" | "ian";
 type MapVariant = "tactical" | "field";
 type MissionSide = "ian" | "lucia";
 type MissionOrders = [string, string, string, string, string];
+type MissionCard = { playerId: number; x: number; y: number };
 type MissionTone = "rally" | "garrison" | "roam" | "join" | "block" | "field" | "hold";
 type FairyDragonPosition = "northwest" | "southeast";
 type Point = { x: number; y: number };
@@ -18,7 +19,7 @@ type TacticalObject = { id: string; type: Exclude<Tool, "select" | "delete">; x:
 type SceneEvents = { fairyDragon: string; lifeStone: string; fairyDragonPosition: FairyDragonPosition };
 type Scene = { id: string; name: string; time: string; positions: Record<string, Point>; objects: TacticalObject[]; events: SceneEvents; objectiveOwners?: Record<string, ObjectiveOwner> };
 type SceneDraft = { id: string; name: string; time: string; fairyDragon: string; lifeStone: string; fairyDragonPosition: FairyDragonPosition };
-type Operation = { version: 1; name: string; players: Player[]; scenes: Scene[]; activeSceneId: string; updatedAt: string; side?: MissionSide };
+type Operation = { version: 1; name: string; players: Player[]; scenes: Scene[]; activeSceneId: string; updatedAt: string; side?: MissionSide; cards?: MissionCard[] };
 
 const STORAGE_KEY = "heinapel-war-table-v0.3";
 const ROLE_LABEL: Record<PrimaryRole, string> = { infantry: "보병", cavalry: "기병", ranged: "원거리" };
@@ -31,7 +32,7 @@ const TOOL_META: Array<{ id: Tool; label: string; glyph: string; hint: string }>
   { id: "delete", label: "지우개", glyph: "", hint: "지울 오브젝트를 클릭" },
 ];
 const RALLY_PLAYERS = new Set(["[WB] 진 수", "벌꿀오소리"]);
-const RESERVE_PLAYERS = new Set(["코다마", "[WB] 스누피Tank", "[WB] 이천상", "몽클"]);
+const RESERVE_PLAYERS = new Set(["코다마", "[WB] 스누피Tank", "[WB] 이천상", "몽클", "산삼맨", "ᴵᴿᴼᴺ 핫 짱 구", "THOR", "알나인티"]);
 const PLAYER_SOURCE: Array<[string, PrimaryRole]> = [
   ["[WB] ᵂᴮ Elega", "infantry"], ["5000", "ranged"], ["glen fiddich", "infantry"], ["압 수", "infantry"],
   ["Junkhun", "infantry"], ["욘 두 Yondu", "infantry"], ["[WB] 구너(마구니)", "ranged"], ["최산수", "ranged"],
@@ -42,6 +43,7 @@ const PLAYER_SOURCE: Array<[string, PrimaryRole]> = [
   ["대장군 뽀로링", "infantry"], ["서틸로", "infantry"], ["예리", "infantry"], ["Kingsway", "ranged"],
   ["햄찌", "ranged"], ["몽클", "infantry"], ["SIGH", "ranged"], ["[WB] 스누피Tank", "infantry"],
   ["[WB] 이천상", "ranged"], ["코다마", "infantry"], ["벌꿀오소리", "infantry"],
+  ["ᴵᴿᴼᴺ 핫 짱 구", "infantry"], ["THOR", "infantry"], ["알나인티", "infantry"],
 ];
 const INITIAL_PLAYERS: Player[] = PLAYER_SOURCE.map(([nickname, primaryRole], index) => ({
   id: index + 1,
@@ -91,6 +93,12 @@ const MISSION_MIRROR_PAIRS: Array<[string, string]> = [["12시", "6시"], ["1시
 const MISSION_MIRROR = new Map<string, string>(MISSION_MIRROR_PAIRS.flatMap(([left, right]) => [[left, right], [right, left]] as Array<[string, string]>));
 const MISSION_MIRROR_PATTERN = new RegExp([...MISSION_MIRROR.keys()].sort((a, b) => b.length - a.length).join("|"), "g");
 const MISSION_SIDE_LABEL: Record<MissionSide, string> = { ian: "이안", lucia: "루시아" };
+// 카드는 내용 길이에 따라 높이가 달라져, 맵 밖으로 나가지 않게 넉넉한 공칭 크기로만 잡아 둔다.
+const MISSION_CARD_SIZE = { width: .27, height: .36 };
+const STAFF_ORDER: Partial<Record<PrimaryRole, string>> = {
+  infantry: "첫 스타팅 때 각자 맡은 라인에서 STAFF 사용",
+  ranged: "상대 진영에 페어리 드래곤이 처음 소환되기 전, 약속된 장소에서 STAFF 사용",
+};
 const DEFAULT_SCENE_EVENTS: SceneEvents = { fairyDragon: "", lifeStone: "", fairyDragonPosition: "northwest" };
 const SCENE_TIMES = ["60:00", "55:00", "52:00", "46:00", "42:00"];
 const STARTING_POINT_CENTER: Record<MapVariant, Record<"lucia" | "ian", Point>> = {
@@ -119,6 +127,12 @@ function freshOperation(): Operation {
 function clone<T>(value: T): T { return JSON.parse(JSON.stringify(value)) as T; }
 function clamp(value: number) { return Math.max(0.025, Math.min(0.975, value)); }
 function uid(prefix: string) { return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`; }
+function mergePlayers(saved: Player[]): Player[] {
+  const merged = saved.map((player) => ({ ...player, lineup: player.lineup ?? (RESERVE_PLAYERS.has(player.nickname) ? "reserve" : "starter") }));
+  const known = new Set(merged.map((player) => player.nickname));
+  INITIAL_PLAYERS.forEach((player) => { if (!known.has(player.nickname)) merged.push({ ...player }); });
+  return merged;
+}
 function normalizeScene(item: Scene, index: number): Scene {
   const savedEvents = (item.events ?? {}) as Partial<SceneEvents>;
   const legacyDefaultStart = index === 0 && item.name === "START" && savedEvents.fairyDragon === "페어리 드래곤 젠" && savedEvents.lifeStone === "생명석 젠";
@@ -152,6 +166,12 @@ function memoRect(start: Point, end: Point) {
 function memoSpan(object: TacticalObject) { return { width: Math.abs((object.x2 ?? object.x) - object.x), height: Math.abs((object.y2 ?? object.y) - object.y) }; }
 function mirrorMission(text: string, side: MissionSide) {
   return side === "ian" ? text : text.replace(MISSION_MIRROR_PATTERN, (token) => MISSION_MIRROR.get(token) ?? token);
+}
+// 카드는 진영색 한 가지로 칠하므로, 색상 대신 강조 단계로 위계를 준다.
+function missionEmphasis(text: string) {
+  const tone = missionTone(text);
+  if (tone === "rally" || tone === "garrison") return "is-key";
+  return tone === "field" ? "is-muted" : "";
 }
 function missionTone(text: string): MissionTone {
   if (text.includes("집결 탑승")) return "join";
@@ -227,13 +247,19 @@ export default function WarTable() {
   const drawPointsRef = useRef<Point[]>([]);
   const memoInputRef = useRef<HTMLTextAreaElement>(null);
   const memoDragRef = useRef<null | { id: string; sceneId: string; text: string; startClient: Point; origin: Point; size: { width: number; height: number }; moved: boolean }>(null);
+  const cardDragRef = useRef<null | { playerId: number; startClient: Point; origin: Point; moved: boolean }>(null);
 
   const scene = operation.scenes.find((item) => item.id === operation.activeSceneId) ?? operation.scenes[0];
   const editingMemoId = memoDraft?.id ?? null;
   const missionSide: MissionSide = operation.side ?? "ian";
   const editing = operation.players.find((player) => player.id === editingId) ?? operation.players[0];
-  const editingOrders = MISSION_BY_NICKNAME.get(editing.nickname)?.map((text) => mirrorMission(text, missionSide)) ?? null;
-  const editingCommandRoles = editingOrders ? missionCommandRoles(editingOrders) : [];
+  const missionCards = operation.cards ?? [];
+  const openMissionBriefs = missionCards.map((card) => {
+    const player = operation.players.find((item) => item.id === card.playerId);
+    if (!player) return null;
+    const orders = MISSION_BY_NICKNAME.get(player.nickname)?.map((text) => mirrorMission(text, missionSide)) ?? null;
+    return { card, player, orders, roles: orders ? missionCommandRoles(orders) : [] };
+  }).filter((brief) => brief !== null);
   const counts = useMemo(() => {
     const starters = operation.players.filter((player) => player.lineup === "starter");
     return {
@@ -251,8 +277,8 @@ export default function WarTable() {
         const raw = localStorage.getItem(STORAGE_KEY);
         if (raw) {
           const saved = JSON.parse(raw) as Operation;
-          if (saved.version === 1 && saved.players?.length === INITIAL_PLAYERS.length && saved.scenes?.length) {
-            saved.players = saved.players.map((player) => ({ ...player, lineup: player.lineup ?? (RESERVE_PLAYERS.has(player.nickname) ? "reserve" : "starter") }));
+          if (saved.version === 1 && saved.players?.length && saved.scenes?.length) {
+            saved.players = mergePlayers(saved.players);
             saved.scenes = saved.scenes.map(normalizeScene);
             setOperation(saved);
           }
@@ -299,6 +325,15 @@ export default function WarTable() {
   useEffect(() => {
     const move = (event: PointerEvent) => {
       const rect = mapRef.current?.getBoundingClientRect(); if (!rect) return;
+      const card = cardDragRef.current;
+      if (card) {
+        const moveX = (event.clientX - card.startClient.x) / rect.width; const moveY = (event.clientY - card.startClient.y) / rect.height;
+        if (!card.moved && Math.hypot(moveX, moveY) < .004) return;
+        card.moved = true;
+        const x = fitAxis(card.origin.x + moveX, MISSION_CARD_SIZE.width); const y = fitAxis(card.origin.y + moveY, MISSION_CARD_SIZE.height);
+        setOperation((current) => ({ ...current, cards: (current.cards ?? []).map((item) => item.playerId === card.playerId ? { ...item, x, y } : item) }));
+        return;
+      }
       const memo = memoDragRef.current;
       if (memo) {
         const moveX = (event.clientX - memo.startClient.x) / rect.width; const moveY = (event.clientY - memo.startClient.y) / rect.height;
@@ -318,6 +353,7 @@ export default function WarTable() {
     };
     const up = () => {
       dragRef.current = null;
+      cardDragRef.current = null;
       const memo = memoDragRef.current; memoDragRef.current = null;
       if (memo && !memo.moved) setMemoDraft({ id: memo.id, text: memo.text });
     };
@@ -369,6 +405,23 @@ export default function WarTable() {
     }
   };
   const setMissionSide = (side: MissionSide) => commit((draft) => { draft.side = side; return draft; });
+  const openMissionCard = (playerId: number) => commit((draft) => {
+    const cards = draft.cards ?? [];
+    if (cards.some((card) => card.playerId === playerId)) { draft.cards = cards; return draft; }
+    // 새로 여는 카드는 이미 열린 장수만큼 어긋나게 놓아 서로 가리지 않게 한다.
+    const step = cards.length % 8;
+    draft.cards = [...cards, { playerId, x: fitAxis(.16 + step * .034, MISSION_CARD_SIZE.width), y: fitAxis(.11 + step * .058, MISSION_CARD_SIZE.height) }];
+    return draft;
+  });
+  const closeMissionCard = (playerId: number) => commit((draft) => { draft.cards = (draft.cards ?? []).filter((card) => card.playerId !== playerId); return draft; });
+  const closeAllMissionCards = () => commit((draft) => { draft.cards = []; return draft; });
+  const handleCardPointerDown = (event: React.PointerEvent, card: MissionCard) => {
+    if (tool === "delete") { event.stopPropagation(); closeMissionCard(card.playerId); return; }
+    if (tool !== "select") return;
+    event.stopPropagation();
+    checkpoint();
+    cardDragRef.current = { playerId: card.playerId, startClient: { x: event.clientX, y: event.clientY }, origin: { x: card.x, y: card.y }, moved: false };
+  };
   const patchPlayer = (id: number, patch: Partial<Player>) => commit((draft) => {
     draft.players = draft.players.map((player) => player.id === id ? { ...player, ...patch } : player); return draft;
   });
@@ -472,7 +525,7 @@ export default function WarTable() {
   };
   const importJson = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]; if (!file) return;
-    try { const parsed = JSON.parse(await file.text()) as Operation; if (parsed.version !== 1 || parsed.players?.length !== INITIAL_PLAYERS.length || !parsed.scenes?.length) throw new Error(); parsed.players = parsed.players.map((player) => ({ ...player, lineup: player.lineup ?? (RESERVE_PLAYERS.has(player.nickname) ? "reserve" : "starter") })); parsed.scenes = parsed.scenes.map(normalizeScene); checkpoint(); setOperation(parsed); setSelectedIds([]); setMemoDraft(null); }
+    try { const parsed = JSON.parse(await file.text()) as Operation; if (parsed.version !== 1 || !parsed.players?.length || !parsed.scenes?.length) throw new Error(); parsed.players = mergePlayers(parsed.players); parsed.scenes = parsed.scenes.map(normalizeScene); checkpoint(); setOperation(parsed); setSelectedIds([]); setMemoDraft(null); }
     catch { window.alert("Heinapel War Table v0.1 JSON 파일이 아닙니다."); }
     event.target.value = "";
   };
@@ -537,7 +590,7 @@ export default function WarTable() {
           </div>
           <div className="roster-list" aria-label={`플레이어 명단 ${visiblePlayers.length}명 표시 · 총 ${operation.players.length}명`}>
             {visiblePlayers.map((player) => (
-              <button draggable type="button" key={player.id} className={`player-row ${editingId === player.id ? "is-active" : ""} ${scene.positions[String(player.id)] ? "is-placed" : ""}`} onDragStart={(event) => handleRosterDrag(event, player.id)} onClick={() => { setEditingId(player.id); if (!scene.positions[String(player.id)]) setSelectedIds([player.id]); }}>
+              <button draggable type="button" key={player.id} className={`player-row ${editingId === player.id ? "is-active" : ""} ${scene.positions[String(player.id)] ? "is-placed" : ""}`} onDragStart={(event) => handleRosterDrag(event, player.id)} onClick={() => { setEditingId(player.id); openMissionCard(player.id); if (!scene.positions[String(player.id)]) setSelectedIds([player.id]); }}>
                 <span className="player-num">{String(player.id).padStart(2, "0")}</span><span className="player-copy"><strong className={playerNameClass(player)}>{player.nickname}</strong><span className={`lineup-badge ${player.lineup}`}>{player.lineup === "reserve" ? "예비" : "주전"}</span></span><span className="edit-glyph">{scene.positions[String(player.id)] ? "●" : "⋮⋮"}</span>
               </button>
             ))}
@@ -547,7 +600,11 @@ export default function WarTable() {
         <section ref={mapRef} className={`map-panel map-${mapVariant} tool-${tool}`} aria-label="헤이나펄 전장 작전판" onDragOver={(event) => event.preventDefault()} onDrop={handleMapDrop} onPointerDown={handleMapPointerDown} onPointerMove={handleMapPointerMove} onPointerUp={handleMapPointerUp} onPointerCancel={cancelMapDrawing}>
           <div className="map-image-layer" /><div className="map-grid-lines" />
           <div className="map-toolbar" onPointerDown={(event) => event.stopPropagation()}>
-            <div className="map-switcher" aria-label="지도 선택"><button type="button" className={mapVariant === "tactical" ? "active" : ""} onClick={() => setMapVariant("tactical")}>전술 맵</button><button type="button" className={mapVariant === "field" ? "active" : ""} onClick={() => setMapVariant("field")}>실전 맵</button></div>
+            <div className="map-toolbar-left">
+              <div className="map-switcher" aria-label="지도 선택"><button type="button" className={mapVariant === "tactical" ? "active" : ""} onClick={() => setMapVariant("tactical")}>전술 맵</button><button type="button" className={mapVariant === "field" ? "active" : ""} onClick={() => setMapVariant("field")}>실전 맵</button></div>
+              <div className={`mission-side-switch side-${missionSide}`} role="group" aria-label="임무 기준 진영">{(Object.keys(MISSION_SIDE_LABEL) as MissionSide[]).map((side) => <button type="button" key={side} className={missionSide === side ? "active" : ""} aria-pressed={missionSide === side} onClick={() => setMissionSide(side)}>{MISSION_SIDE_LABEL[side]}</button>)}</div>
+              {missionCards.length > 0 && <button type="button" className="mission-clear" onClick={closeAllMissionCards}>카드 {missionCards.length}장 닫기</button>}
+            </div>
             <div className="map-toolbar-stats"><span>배치 <b>{placedCount}/{operation.players.length}</b></span><span>중립 <b>{objectiveCounts.neutral}</b></span><span className="stat-lucia">루시아 <b>{objectiveCounts.lucia}</b></span><span className="stat-ian">이안 <b>{objectiveCounts.ian}</b></span></div>
             <button type="button" className="panel-toggle" onClick={() => setMapFocus((current) => !current)}>{mapFocus ? "편집 패널 열기" : "지도 크게 보기"}</button>
           </div>
@@ -562,6 +619,18 @@ export default function WarTable() {
             {drawPoints.length > 1 && <path className={`draw-preview freehand-path ${tool === "defense" ? "defense-line" : "arrow-attackArrow"}`} d={smoothPath(drawPoints)} markerEnd={tool === "attackArrow" ? "url(#attack-head)" : undefined} />}
           </svg>
           {tool === "memo" && drawPoints.length > 1 && (() => { const area = memoRect(drawPoints[0], drawPoints[1]); return <div className="memo-preview" style={{ left: `${area.left * 100}%`, top: `${area.top * 100}%`, width: `${area.width * 100}%`, height: `${area.height * 100}%` }} />; })()}
+          {openMissionBriefs.map(({ card, player, orders, roles }) => <div key={card.playerId} className={`tactical-object mission-card side-${missionSide} role-${player.primaryRole}`} style={{ left: `${card.x * 100}%`, top: `${card.y * 100}%` }} onPointerDown={(event) => { if (tool === "delete") { event.stopPropagation(); closeMissionCard(card.playerId); } }}>
+            <div className="mission-card-head" onPointerDown={(event) => handleCardPointerDown(event, card)}>
+              <UnitRoleIcon unitRole={player.primaryRole} isRally={player.secondaryRoles.includes("rally")} />
+              <strong className="mission-card-name">{player.nickname}</strong>
+              <button type="button" className="mission-card-close" onClick={() => closeMissionCard(card.playerId)} aria-label={`${player.nickname} 임무 카드 닫기`}>×</button>
+            </div>
+            {orders ? <div className="mission-card-body">
+              {STAFF_ORDER[player.primaryRole] && <p className="mission-staff"><b>STAFF</b>{STAFF_ORDER[player.primaryRole]}</p>}
+              {roles.length > 0 && <div className="mission-roles">{roles.map((role) => <span key={role.key} className="mission-role"><b>{role.label}</b>{role.place}</span>)}</div>}
+              <ol className="mission-units">{orders.map((text, index) => <li key={index} className={`mission-unit ${missionEmphasis(text)}`}><i>{index + 1}</i><span>{text}</span></li>)}</ol>
+            </div> : <p className="mission-empty">임무표에 배정된 부대가 없습니다<small>{player.lineup === "reserve" ? "예비 편성" : "시트 미배정"}</small></p>}
+          </div>)}
           {visibleObjects.filter((object) => object.type === "memo").map((note) => { const span = memoSpan(note); const isEditing = memoDraft?.id === note.id; return <div key={note.id} className={`tactical-object map-memo${isEditing ? " is-editing" : ""}`} style={{ left: `${note.x * 100}%`, top: `${note.y * 100}%`, width: `${span.width * 100}%`, height: `${span.height * 100}%` }}>{isEditing ? <textarea ref={memoInputRef} aria-label="메모 내용" placeholder="메모를 입력하세요" value={memoDraft.text} onChange={(event) => setMemoDraft({ id: note.id, text: event.target.value })} onBlur={() => finishMemoEdit(true)} onKeyDown={(event) => { if (event.key === "Escape") { event.preventDefault(); finishMemoEdit(false); } }} /> : <button type="button" className="memo-face" onPointerDown={(event) => handleMemoPointerDown(event, note)} onClick={(event) => { if (event.detail !== 0) return; if (tool === "delete") deleteObject(note.id); else if (tool === "select") setMemoDraft({ id: note.id, text: note.text ?? "" }); }} title={tool === "delete" ? "클릭해 메모 삭제" : "클릭해 메모 수정 · 드래그로 이동"}><span className={note.text ? "" : "is-placeholder"}>{note.text || "메모 입력"}</span></button>}</div>; })}
           {visibleObjects.filter((object) => object.type === "attackArrow").map((object, index) => { const origin = object.points?.[0] ?? { x: object.x, y: object.y }; return <span key={`${object.id}-order`} className="attack-line-order" style={{ left: `${origin.x * 100}%`, top: `${origin.y * 100}%` }} aria-hidden="true">{index + 1}</span>; })}
           {visibleObjects.filter((object) => ["rally", "step", "text"].includes(object.type)).map((object) => <button type="button" key={object.id} className={`tactical-object map-marker marker-${object.type}`} style={{ left: `${object.x * 100}%`, top: `${object.y * 100}%` }} onClick={() => deleteObject(object.id)}><span>{object.type === "rally" ? "⚔" : object.type === "step" ? `S${stepObjects.findIndex((item) => item.id === object.id) + 1}` : object.text}</span></button>)}
@@ -574,14 +643,6 @@ export default function WarTable() {
           <div className="tool-grid">{TOOL_META.map((item) => <button type="button" key={item.id} className={`${tool === item.id ? "active" : ""} tool-${item.id}`} onClick={() => setTool((current) => current === item.id ? "select" : item.id)} title={item.hint}>{item.id === "delete" ? <EraserIcon /> : <span>{item.glyph}</span>}{item.label}</button>)}</div>
           <div className="assignment-panel">
             <div className="assignment-player"><span>SELECTED PLAYER</span><strong className={playerNameClass(editing)}>{editing.nickname}</strong><small>명단에서 아이디를 선택한 뒤 역할을 지정하세요.</small></div>
-            <div className="mission-board">
-              <div className="mission-heading"><span>임무 브리핑</span><div className="mission-side-switch" role="group" aria-label="임무 기준 진영">{(Object.keys(MISSION_SIDE_LABEL) as MissionSide[]).map((side) => <button type="button" key={side} className={missionSide === side ? "active" : ""} aria-pressed={missionSide === side} onClick={() => setMissionSide(side)}>{MISSION_SIDE_LABEL[side]}</button>)}</div></div>
-              {editingOrders ? <>
-                {editingCommandRoles.length > 0 && <div className="mission-roles">{editingCommandRoles.map((role) => <span key={role.key} className={`mission-role tone-${role.tone}`}><b>{role.label}</b>{role.place}</span>)}</div>}
-                <ol className="mission-units">{editingOrders.map((text, index) => <li key={index} className={`mission-unit tone-${missionTone(text)}`}><i>{index + 1}부대</i><span>{text}</span></li>)}</ol>
-                <p className="mission-foot">{MISSION_SIDE_LABEL[missionSide]} 진영 기준{missionSide === "lucia" ? " · 시트(이안)에서 좌우 환산됨" : ""}</p>
-              </> : <p className="mission-empty">임무표에 배정된 부대가 없습니다<small>{editing.lineup === "reserve" ? "예비 편성" : "시트 미배정"}</small></p>}
-            </div>
             <div className="assignment-heading">편성</div>
             <div className="assignment-grid two-column">
               <button type="button" className={`assignment-button status-starter ${editing.lineup === "starter" ? "active" : ""}`} onClick={() => patchPlayer(editing.id, { lineup: "starter" })}><span>★</span>주전</button>
