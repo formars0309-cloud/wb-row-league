@@ -709,3 +709,271 @@ body {
   font-size: 11px;
   font-weight: 800;
 }
+
+/* Scene time and fixed spawn-event overlays */
+.map-time-chip {
+  position: absolute;
+  left: 26px;
+  top: 61px;
+  z-index: 11;
+  min-width: 132px;
+  padding: 8px 12px 9px;
+  border: 1px solid rgba(215, 181, 109, 0.72);
+  border-left: 4px solid #e2bd6d;
+  border-radius: 2px;
+  background: rgba(13, 15, 17, 0.94);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.58);
+  pointer-events: none;
+}
+.map-time-chip span,
+.map-time-chip strong,
+.map-time-chip small {
+  display: block;
+}
+.map-time-chip span {
+  color: #aa956b;
+  font: 800 8px/1 ui-monospace, monospace;
+  letter-spacing: 0.13em;
+}
+.map-time-chip strong {
+  margin-top: 5px;
+  color: #f5d88f;
+  font: 900 26px/1 ui-monospace, monospace;
+}
+.map-time-chip small {
+  margin-top: 4px;
+  color: #d8d4ca;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.event-anchor {
+  position: absolute;
+  z-index: 7;
+  transform: translate(-50%, -50%);
+  display: grid;
+  justify-items: center;
+  pointer-events: none;
+  color: #9cf4d6;
+  text-align: center;
+  text-shadow: 0 2px 5px #000;
+}
+.map-tactical .fairy-dragon-anchor { left: 32.3%; top: 19%; }
+.map-field .fairy-dragon-anchor { left: 27.8%; top: 26%; }
+.fairy-dragon-anchor > span {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 2px solid currentColor;
+  border-radius: 50%;
+  background: rgba(10, 35, 31, 0.9);
+  box-shadow: 0 0 14px rgba(108, 242, 196, 0.62), inset 0 0 12px rgba(108, 242, 196, 0.2);
+  font-size: 22px;
+}
+.fairy-dragon-anchor strong,
+.fairy-dragon-anchor small {
+  position: relative;
+  z-index: 1;
+  display: block;
+  max-width: 180px;
+  padding: 3px 8px;
+  border-left: 1px solid currentColor;
+  border-right: 1px solid currentColor;
+  background: rgba(11, 22, 21, 0.93);
+  white-space: nowrap;
+}
+.fairy-dragon-anchor strong {
+  margin-top: 3px;
+  color: #d7fff1;
+  font-size: 10px;
+}
+.fairy-dragon-anchor small {
+  padding-top: 1px;
+  color: #8dc8b4;
+  font-size: 8px;
+}
+.lifestone-anchor small {
+  font-size: 8px;
+  font-weight: 800;
+}
+
+/* Editable timeline scenes */
+.timeline-shell {
+  position: relative;
+  z-index: 30;
+  overflow: visible;
+}
+.scene-strip .scene-card {
+  position: relative;
+  flex: 0 0 176px;
+  height: 54px;
+}
+.scene-card .scene-select {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  padding: 0 36px 0 0;
+  border: 1px solid #3a3d42;
+  border-radius: 2px;
+  background: linear-gradient(#212429, #16181b);
+  color: #92938f;
+  cursor: pointer;
+  text-align: left;
+}
+.scene-card .scene-select > i {
+  align-self: stretch;
+  width: 35px;
+  display: grid;
+  place-items: center;
+  border-right: 1px solid #3a3d42;
+  color: #73767a;
+  font: 800 12px ui-monospace, monospace;
+}
+.scene-card .scene-select > span {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+  padding: 0 10px;
+}
+.scene-card .scene-select b {
+  color: #d8e2e4;
+  font: 800 14px ui-monospace, monospace;
+}
+.scene-card .scene-select small {
+  overflow: hidden;
+  color: #999b97;
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.scene-card.active .scene-select {
+  border-color: #9e8353;
+  background: linear-gradient(#302b21, #1a1815);
+  box-shadow: inset 0 0 0 1px rgba(215, 181, 109, 0.14);
+}
+.scene-card.active .scene-select i,
+.scene-card.active .scene-select b {
+  color: #dfc27f;
+}
+.scene-edit-button {
+  position: absolute;
+  right: 4px;
+  top: 5px;
+  width: 29px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid #4c4d4c;
+  border-radius: 2px;
+  background: #17191c;
+  color: #d6bd7c;
+  cursor: pointer;
+  font-size: 19px;
+  font-weight: 900;
+}
+.scene-edit-button:hover {
+  border-color: #d7b56d;
+  background: #30291d;
+  color: #ffe09b;
+}
+
+.scene-event-editor {
+  position: absolute;
+  left: 205px;
+  bottom: calc(100% + 8px);
+  z-index: 60;
+  width: min(620px, calc(100vw - 440px));
+  padding: 15px;
+  border: 1px solid #8c754d;
+  border-top: 3px solid #d7b56d;
+  border-radius: 3px;
+  background: rgba(18, 20, 23, 0.98);
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.75);
+}
+.scene-editor-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 13px;
+}
+.scene-editor-heading span,
+.scene-editor-heading strong {
+  display: block;
+}
+.scene-editor-heading span {
+  color: #a98e58;
+  font: 800 8px/1 ui-monospace, monospace;
+  letter-spacing: 0.13em;
+}
+.scene-editor-heading strong {
+  margin-top: 5px;
+  color: #eee9de;
+  font-size: 16px;
+}
+.scene-editor-heading button {
+  width: 30px;
+  height: 30px;
+  border: 1px solid #4b4e52;
+  background: #1b1d20;
+  color: #aaa8a2;
+  cursor: pointer;
+  font-size: 20px;
+}
+.scene-editor-grid {
+  display: grid;
+  grid-template-columns: 130px minmax(0, 1fr);
+  gap: 10px;
+}
+.scene-editor-grid label {
+  display: grid;
+  gap: 6px;
+}
+.scene-editor-grid label > span {
+  color: #b0ada5;
+  font-size: 10px;
+  font-weight: 800;
+}
+.scene-editor-grid input {
+  width: 100%;
+  height: 37px;
+  padding: 0 10px;
+  border: 1px solid #45484d;
+  border-radius: 2px;
+  outline: 0;
+  background: #101215;
+  color: #f0ede6;
+  font-size: 12px;
+  font-weight: 700;
+}
+.scene-editor-grid input:focus {
+  border-color: #d7b56d;
+  box-shadow: 0 0 0 2px rgba(215, 181, 109, 0.12);
+}
+.scene-editor-grid .event-field {
+  grid-column: 1 / -1;
+}
+.scene-editor-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 13px;
+}
+.scene-editor-actions button {
+  min-width: 78px;
+  height: 36px;
+  border: 1px solid #4b4e52;
+  border-radius: 2px;
+  background: #1c1f22;
+  color: #aaa9a4;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 800;
+}
+.scene-editor-actions button[type="submit"] {
+  border-color: #a98a52;
+  background: #30291d;
+  color: #f0d392;
+}

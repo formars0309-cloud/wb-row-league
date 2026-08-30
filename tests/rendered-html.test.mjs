@@ -35,6 +35,10 @@ test("server-renders the Heinapel War Table", async () => {
   assert.match(html, /PLAYER ROSTER/);
   assert.match(html, /핵심 작전 도구/);
   assert.match(html, /OPERATION TIMELINE/);
+  assert.match(html, /CURRENT TIME/);
+  assert.match(html, /페어리 드래곤 젠/);
+  assert.match(html, /생명석 젠/);
+  assert.match(html, /장면 시간 및 이벤트 편집/);
   assert.match(html, /전술 맵/);
   assert.match(html, /실전 맵/);
   assert.match(html, /생명의 반석/);
@@ -75,6 +79,9 @@ test("keeps the interactive operation features and map assets wired", async () =
   assert.match(warTable, /const RALLY_PLAYERS = new Set\(\["\[WB\] 진 수", "벌꿀오소리"\]\)/);
   assert.match(warTable, /const RESERVE_PLAYERS = new Set\(\["코다마", "\[WB\] 스누피Tank", "\[WB\] 이천상", "몽클"\]\)/);
   assert.match(warTable, /type LineupStatus = "starter" \| "reserve"/);
+  assert.match(warTable, /type SceneEvents =/);
+  assert.match(warTable, /const DEFAULT_SCENE_EVENTS/);
+  assert.match(warTable, /const saveSceneEditor =/);
   assert.match(warTable, /const patchPlayer =/);
   assert.match(warTable, /filter\(\(player\) => player\.lineup === "starter"\)/);
   assert.match(warTable, /function UnitRoleIcon/);
@@ -92,6 +99,9 @@ test("keeps the interactive operation features and map assets wired", async () =
   assert.match(theme, /\.player-token\.is-rally/);
   assert.match(theme, /\.player-copy strong\.name-rally/);
   assert.match(theme, /\.draw-preview/);
+  assert.match(theme, /\.map-time-chip/);
+  assert.match(theme, /\.fairy-dragon-anchor/);
+  assert.match(theme, /\.scene-event-editor/);
   assert.match(theme, /content: attr\(data-tooltip\)/);
   assert.match(page, /return <WarTable \/>/);
   assert.match(layout, /title: "Heinapel War Table v0\.1"/);

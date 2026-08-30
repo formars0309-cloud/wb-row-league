@@ -11,7 +11,9 @@ type MapVariant = "tactical" | "field";
 type Point = { x: number; y: number };
 type Player = { id: number; nickname: string; primaryRole: PrimaryRole; secondaryRoles: SecondaryRole[]; lineup: LineupStatus };
 type TacticalObject = { id: string; type: Exclude<Tool, "select" | "delete">; x: number; y: number; x2?: number; y2?: number; points?: Point[]; text?: string };
-type Scene = { id: string; name: string; time: string; positions: Record<string, Point>; objects: TacticalObject[]; objectiveOwners?: Record<string, ObjectiveOwner> };
+type SceneEvents = { fairyDragon: string; lifeStone: string };
+type Scene = { id: string; name: string; time: string; positions: Record<string, Point>; objects: TacticalObject[]; events: SceneEvents; objectiveOwners?: Record<string, ObjectiveOwner> };
+type SceneDraft = { id: string; name: string; time: string; fairyDragon: string; lifeStone: string };
 type Operation = { version: 1; name: string; players: Player[]; scenes: Scene[]; activeSceneId: string; updatedAt: string };
 
 const STORAGE_KEY = "heinapel-war-table-v0.3";
@@ -43,6 +45,7 @@ const INITIAL_PLAYERS: Player[] = PLAYER_SOURCE.map(([nickname, primaryRole], in
   secondaryRoles: RALLY_PLAYERS.has(nickname) ? ["rally"] : [],
   lineup: RESERVE_PLAYERS.has(nickname) ? "reserve" : "starter",
 }));
+const DEFAULT_SCENE_EVENTS: SceneEvents = { fairyDragon: "페어리 드래곤 젠", lifeStone: "생명석 젠" };
 const SCENE_TIMES = ["60:00", "55:00", "52:00", "46:00", "42:00"];
 const OBJECTIVE_META = [
   { id: "spirit-west", label: "영목", location: "서쪽", tactical: { x: 27.9, y: 39.3 }, field: { x: 20.8, y: 54.2 } },
@@ -61,7 +64,7 @@ const OBJECTIVE_META = [
 
 function freshOperation(): Operation {
   const sceneId = "scene-1";
-  return { version: 1, name: "WB 헤이나펄 리그 2기", players: INITIAL_PLAYERS, scenes: [{ id: sceneId, name: "START", time: "60:00", positions: {}, objects: [] }], activeSceneId: sceneId, updatedAt: new Date().toISOString() };
+  return { version: 1, name: "WB 헤이나펄 리그 2기", players: INITIAL_PLAYERS, scenes: [{ id: sceneId, name: "START", time: "60:00", positions: {}, objects: [], events: { ...DEFAULT_SCENE_EVENTS } }], activeSceneId: sceneId, updatedAt: new Date().toISOString() };
 }
 function clone<T>(value: T): T { return JSON.parse(JSON.stringify(value)) as T; }
 function clamp(value: number) { return Math.max(0.025, Math.min(0.975, value)); }
@@ -116,6 +119,7 @@ export default function WarTable() {
   const [roleFilter, setRoleFilter] = useState<"all" | PrimaryRole>("all");
   const [mapVariant, setMapVariant] = useState<MapVariant>("tactical");
   const [mapFocus, setMapFocus] = useState(false);
+  const [sceneDraft, setSceneDraft] = useState<SceneDraft | null>(null);
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
   const mapRef = useRef<HTMLElement>(null);
@@ -145,6 +149,7 @@ export default function WarTable() {
           const saved = JSON.parse(raw) as Operation;
           if (saved.version === 1 && saved.players?.length === INITIAL_PLAYERS.length && saved.scenes?.length) {
             saved.players = saved.players.map((player) => ({ ...player, lineup: player.lineup ?? (RESERVE_PLAYERS.has(player.nickname) ? "reserve" : "starter") }));
+            saved.scenes = saved.scenes.map((item) => ({ ...item, events: { ...DEFAULT_SCENE_EVENTS, ...item.events } }));
             setOperation(saved);
           }
         }
@@ -278,17 +283,31 @@ export default function WarTable() {
     draft.scenes.push(next); draft.activeSceneId = id; return draft;
   });
   const switchScene = (sceneId: string) => { setOperation((current) => ({ ...current, activeSceneId: sceneId })); setSelectedIds([]); };
+  const openSceneEditor = (target: Scene) => {
+    switchScene(target.id);
+    setSceneDraft({ id: target.id, name: target.name, time: target.time, fairyDragon: target.events.fairyDragon, lifeStone: target.events.lifeStone });
+  };
+  const saveSceneEditor = () => {
+    if (!sceneDraft) return;
+    updateScene(sceneDraft.id, (target) => {
+      target.time = sceneDraft.time.trim() || "00:00";
+      target.name = sceneDraft.name.trim() || "SCENE";
+      target.events = { fairyDragon: sceneDraft.fairyDragon.trim(), lifeStone: sceneDraft.lifeStone.trim() };
+    });
+    setSceneDraft(null);
+  };
+  const patchSceneDraft = (patch: Partial<SceneDraft>) => setSceneDraft((current) => current ? { ...current, ...patch } : current);
   const exportJson = () => {
     const blob = new Blob([JSON.stringify(operation, null, 2)], { type: "application/json" }); const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a"); anchor.href = url; anchor.download = "heinapel-operation.json"; document.body.appendChild(anchor); anchor.click(); anchor.remove(); window.setTimeout(() => URL.revokeObjectURL(url), 0);
   };
   const importJson = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]; if (!file) return;
-    try { const parsed = JSON.parse(await file.text()) as Operation; if (parsed.version !== 1 || parsed.players?.length !== INITIAL_PLAYERS.length || !parsed.scenes?.length) throw new Error(); parsed.players = parsed.players.map((player) => ({ ...player, lineup: player.lineup ?? (RESERVE_PLAYERS.has(player.nickname) ? "reserve" : "starter") })); checkpoint(); setOperation(parsed); setSelectedIds([]); }
+    try { const parsed = JSON.parse(await file.text()) as Operation; if (parsed.version !== 1 || parsed.players?.length !== INITIAL_PLAYERS.length || !parsed.scenes?.length) throw new Error(); parsed.players = parsed.players.map((player) => ({ ...player, lineup: player.lineup ?? (RESERVE_PLAYERS.has(player.nickname) ? "reserve" : "starter") })); parsed.scenes = parsed.scenes.map((item) => ({ ...item, events: { ...DEFAULT_SCENE_EVENTS, ...item.events } })); checkpoint(); setOperation(parsed); setSelectedIds([]); }
     catch { window.alert("Heinapel War Table v0.1 JSON 파일이 아닙니다."); }
     event.target.value = "";
   };
-  const resetOperation = () => { if (!window.confirm("현재 작전 데이터를 초기화할까요?")) return; checkpoint(); setOperation(freshOperation()); setSelectedIds([]); };
+  const resetOperation = () => { if (!window.confirm("현재 작전 데이터를 초기화할까요?")) return; checkpoint(); setOperation(freshOperation()); setSelectedIds([]); setSceneDraft(null); };
   const toggleCommandRole = (role: "rally" | "garrison") => {
     const secondaryRoles = editing.secondaryRoles.includes(role)
       ? editing.secondaryRoles.filter((item) => item !== role)
@@ -338,8 +357,10 @@ export default function WarTable() {
             <div className="map-toolbar-stats"><span>배치 <b>{placedCount}/{operation.players.length}</b></span><span>중립 <b>{objectiveCounts.neutral}</b></span><span className="stat-lucia">루시아 <b>{objectiveCounts.lucia}</b></span><span className="stat-ian">이안 <b>{objectiveCounts.ian}</b></span></div>
             <button type="button" className="panel-toggle" onClick={() => setMapFocus((current) => !current)}>{mapFocus ? "편집 패널 열기" : "지도 크게 보기"}</button>
           </div>
+          <div className="map-time-chip" aria-label={`현재 장면 시간 ${scene.time}`}><span>CURRENT TIME</span><strong>{scene.time}</strong><small>{scene.name}</small></div>
           <div className="home-zone home-lucia" role="img" aria-label="루시아팀 스타팅 포인트" /><div className="home-zone home-ian" role="img" aria-label="이안팀 스타팅 포인트" />
-          <div className="lifestone-anchor" aria-label="생명의 반석, 생명석 스폰 지점"><span>◆</span><strong>생명의 반석</strong><small>생명석 스폰</small></div>
+          {scene.events.fairyDragon && <div className="fairy-dragon-anchor event-anchor" aria-label={`페어리 드래곤 젠 위치: ${scene.events.fairyDragon}`}><span>✦</span><strong>{scene.events.fairyDragon}</strong><small>전망대 사이 젠 위치</small></div>}
+          <div className="lifestone-anchor" aria-label={`생명의 반석, ${scene.events.lifeStone || "생명석 젠 위치"}`}><span>◆</span><strong>생명의 반석</strong>{scene.events.lifeStone && <small>{scene.events.lifeStone}</small>}</div>
           {OBJECTIVE_META.map((objective) => { const owner = scene.objectiveOwners?.[objective.id] ?? "neutral"; const point = objective[mapVariant]; return <button type="button" key={objective.id} className={`capture-objective owner-${owner}`} style={{ left: `${point.x}%`, top: `${point.y}%` }} onClick={() => cycleObjective(objective.id)} aria-label={`${objective.location} ${objective.label}: ${owner === "neutral" ? "중립" : owner === "lucia" ? "루시아팀" : "이안팀"}`} title={`${objective.location} ${objective.label} · 클릭하여 점령 상태 변경`}><span>{objective.label}</span></button>; })}
           <svg className="tactical-svg" viewBox="0 0 1000 1000" preserveAspectRatio="none" aria-label="전술 오브젝트 레이어">
             <defs><marker id="move-head" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#55cfff" /></marker><marker id="attack-head" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#ff5353" /></marker></defs>
@@ -385,8 +406,21 @@ export default function WarTable() {
 
       <footer className="timeline-shell">
         <div className="timeline-title"><span>OPERATION TIMELINE</span><strong>{operation.scenes.length} SCENES · AUTO SAVE</strong></div>
-        <div className="scene-strip">{operation.scenes.map((item, index) => <button type="button" key={item.id} className={item.id === scene.id ? "active" : ""} onClick={() => switchScene(item.id)}><i>{String(index + 1).padStart(2, "0")}</i><span><b>{item.time}</b><small>{item.name}</small></span></button>)}<button type="button" className="clone-scene" onClick={cloneScene}><i>＋</i><span><b>SCENE 복제</b><small>현재 배치에서 생성</small></span></button></div>
+        <div className="scene-strip">
+          {operation.scenes.map((item, index) => <div key={item.id} className={`scene-card ${item.id === scene.id ? "active" : ""}`}><button type="button" className="scene-select" onClick={() => switchScene(item.id)}><i>{String(index + 1).padStart(2, "0")}</i><span><b>{item.time}</b><small>{item.name}</small></span></button><button type="button" className="scene-edit-button" onClick={() => openSceneEditor(item)} aria-label={`${String(index + 1).padStart(2, "0")} 장면 시간 및 이벤트 편집`} title="시간·이벤트 편집">◷</button></div>)}
+          <button type="button" className="clone-scene" onClick={cloneScene}><i>＋</i><span><b>SCENE 복제</b><small>현재 배치에서 생성</small></span></button>
+        </div>
         <div className="footer-actions"><button type="button" onClick={resetOperation}>초기화</button><span>PHASE 6 · READY</span></div>
+        {sceneDraft && <form className="scene-event-editor" onSubmit={(event) => { event.preventDefault(); saveSceneEditor(); }}>
+          <div className="scene-editor-heading"><div><span>SCENE SETTINGS</span><strong>시간 · 젠 이벤트 편집</strong></div><button type="button" onClick={() => setSceneDraft(null)} aria-label="장면 편집 닫기">×</button></div>
+          <div className="scene-editor-grid">
+            <label><span>장면 시간</span><input aria-label="장면 시간" value={sceneDraft.time} onChange={(event) => patchSceneDraft({ time: event.target.value })} maxLength={12} placeholder="예: 55:00" /></label>
+            <label><span>장면 이름</span><input aria-label="장면 이름" value={sceneDraft.name} onChange={(event) => patchSceneDraft({ name: event.target.value })} maxLength={24} placeholder="예: 루브라이트" /></label>
+            <label className="event-field"><span>페어리 드래곤 이벤트</span><input aria-label="페어리 드래곤 이벤트" value={sceneDraft.fairyDragon} onChange={(event) => patchSceneDraft({ fairyDragon: event.target.value })} maxLength={40} placeholder="예: 페어리 드래곤 젠" /></label>
+            <label className="event-field"><span>생명석 이벤트</span><input aria-label="생명석 이벤트" value={sceneDraft.lifeStone} onChange={(event) => patchSceneDraft({ lifeStone: event.target.value })} maxLength={40} placeholder="예: 생명석 젠" /></label>
+          </div>
+          <div className="scene-editor-actions"><button type="button" onClick={() => setSceneDraft(null)}>취소</button><button type="submit">장면 저장</button></div>
+        </form>}
       </footer>
       <div className="desktop-only">이 작전판은 1180px 이상의 PC 화면에 최적화되어 있습니다.</div>
     </main>
