@@ -656,12 +656,44 @@ body {
   font-weight: 800;
   text-align: center;
 }
-.role-count-tile.role-count-rally {
-  --role-color: #ff4b4b;
+.role-count-tile.role-count-total {
+  --role-color: #d7b56d;
 }
-.role-count-tile.role-count-rally .rally-unit-icon {
+.role-count-tile .total-glyph {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  color: var(--role-color);
+  font: 900 23px/1 ui-monospace, monospace;
+}
+.role-count-tile.role-count-total small {
+  font-size: 8px;
+  color: #a5a39c;
+}
+/* 집결장 is a second role, not a fourth unit type, so it sits outside the grid. */
+.role-count-note {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 6px 0 0;
+  padding: 6px 8px;
+  border: 1px dashed #46494e;
+  border-radius: 2px;
+  color: #97968f;
+  font-size: 9px;
+  line-height: 1.35;
+}
+.role-count-note .unit-role-icon {
+  flex: 0 0 auto;
+  width: 17px;
+  height: 17px;
   fill: #ff4b4b;
   stroke: #3b080b;
+}
+.role-count-note b {
+  color: #ff8f8f;
+  font-size: 11px;
 }
 
 .deployment-board {

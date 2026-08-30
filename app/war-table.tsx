@@ -168,6 +168,7 @@ export default function WarTable() {
       cavalry: starters.filter((player) => player.primaryRole === "cavalry").length,
       ranged: starters.filter((player) => player.primaryRole === "ranged").length,
       rally: starters.filter((player) => player.secondaryRoles.includes("rally")).length,
+      starters: starters.length,
     };
   }, [operation.players]);
 
@@ -429,6 +430,7 @@ export default function WarTable() {
     setTool("select");
   };
 
+  const visiblePlayers = operation.players.filter((player) => roleFilter === "all" || player.primaryRole === roleFilter);
   const placedCount = Object.keys(scene.positions).length;
   const visibleObjects = scene.objects;
   const stepObjects = visibleObjects.filter((object) => object.type === "step");
@@ -451,12 +453,12 @@ export default function WarTable() {
 
       <section className="workspace-grid">
         <aside className="roster-panel panel">
-          <div className="panel-heading"><div><span className="eyebrow">BLUE FORCE</span><h2>PLAYER ROSTER</h2></div><span className="count-badge">{operation.players.length} / {operation.players.length}</span></div>
+          <div className="panel-heading"><div><span className="eyebrow">BLUE FORCE</span><h2>PLAYER ROSTER</h2></div><span className="count-badge">{visiblePlayers.length} / {operation.players.length}</span></div>
           <div className="roster-controls">
             <select aria-label="역할 필터" value={roleFilter} onChange={(event) => setRoleFilter(event.target.value as "all" | PrimaryRole)}><option value="all">전체 역할</option><option value="infantry">보병</option><option value="cavalry">기병</option><option value="ranged">원거리</option></select>
           </div>
-          <div className="roster-list" aria-label={`${operation.players.length}명 플레이어 명단`}>
-            {operation.players.filter((player) => roleFilter === "all" || player.primaryRole === roleFilter).map((player) => (
+          <div className="roster-list" aria-label={`플레이어 명단 ${visiblePlayers.length}명 표시 · 총 ${operation.players.length}명`}>
+            {visiblePlayers.map((player) => (
               <button draggable type="button" key={player.id} className={`player-row ${editingId === player.id ? "is-active" : ""} ${scene.positions[String(player.id)] ? "is-placed" : ""}`} onDragStart={(event) => handleRosterDrag(event, player.id)} onClick={() => { setEditingId(player.id); if (!scene.positions[String(player.id)]) setSelectedIds([player.id]); }}>
                 <span className="player-num">{String(player.id).padStart(2, "0")}</span><span className="player-copy"><strong className={playerNameClass(player)}>{player.nickname}</strong><span className={`lineup-badge ${player.lineup}`}>{player.lineup === "reserve" ? "예비" : "주전"}</span></span><span className="edit-glyph">{scene.positions[String(player.id)] ? "●" : "⋮⋮"}</span>
               </button>
@@ -514,8 +516,9 @@ export default function WarTable() {
                 <div className="role-count-tile role-infantry"><UnitRoleIcon unitRole="infantry" /><strong>{counts.infantry}</strong><small>보병</small></div>
                 <div className="role-count-tile role-cavalry"><UnitRoleIcon unitRole="cavalry" /><strong>{counts.cavalry}</strong><small>기병</small></div>
                 <div className="role-count-tile role-ranged"><UnitRoleIcon unitRole="ranged" /><strong>{counts.ranged}</strong><small>원거리</small></div>
-                <div className="role-count-tile role-count-rally"><UnitRoleIcon unitRole="infantry" isRally /><strong>{counts.rally}</strong><small>집결장</small></div>
+                <div className="role-count-tile role-count-total"><span className="total-glyph">Σ</span><strong>{counts.starters}</strong><small>주전 합계 · 총 {operation.players.length}명</small></div>
               </div>
+              <p className="role-count-note"><UnitRoleIcon unitRole="infantry" isRally />집결장 <b>{counts.rally}</b>명 · 겸직이라 위 병종 수에 이미 포함됩니다</p>
             </div>
             <div className="deployment-board">
               <div className="assignment-heading">주전 일괄 배치</div>
