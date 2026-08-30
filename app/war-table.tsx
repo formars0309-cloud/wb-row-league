@@ -32,6 +32,7 @@ const TOOL_META: Array<{ id: Tool; label: string; glyph: string; hint: string }>
   { id: "delete", label: "지우개", glyph: "", hint: "지울 오브젝트를 클릭" },
 ];
 const RALLY_PLAYERS = new Set(["[WB] 진 수", "벌꿀오소리"]);
+const GARRISON_PLAYERS = new Set(["glen fiddich", "욘 두 Yondu", "[WB] ᴵᴿᴼᴺ TESLA", "예리", "핫떠그"]);
 const RESERVE_PLAYERS = new Set(["코다마", "[WB] 스누피Tank", "[WB] 이천상", "몽클", "산삼맨", "ᴵᴿᴼᴺ 핫 짱 구", "THOR", "알나인티"]);
 const PLAYER_SOURCE: Array<[string, PrimaryRole]> = [
   ["[WB] ᵂᴮ Elega", "infantry"], ["5000", "ranged"], ["glen fiddich", "infantry"], ["압 수", "infantry"],
@@ -45,11 +46,16 @@ const PLAYER_SOURCE: Array<[string, PrimaryRole]> = [
   ["[WB] 이천상", "ranged"], ["코다마", "infantry"], ["벌꿀오소리", "infantry"],
   ["ᴵᴿᴼᴺ 핫 짱 구", "infantry"], ["THOR", "infantry"], ["알나인티", "infantry"],
 ];
+function defaultCommandRoles(nickname: string): SecondaryRole[] {
+  if (RALLY_PLAYERS.has(nickname)) return ["rally"];
+  if (GARRISON_PLAYERS.has(nickname)) return ["garrison"];
+  return [];
+}
 const INITIAL_PLAYERS: Player[] = PLAYER_SOURCE.map(([nickname, primaryRole], index) => ({
   id: index + 1,
   nickname,
   primaryRole,
-  secondaryRoles: RALLY_PLAYERS.has(nickname) ? ["rally"] : [],
+  secondaryRoles: defaultCommandRoles(nickname),
   lineup: RESERVE_PLAYERS.has(nickname) ? "reserve" : "starter",
 }));
 const MEMO_MIN_SIZE = { width: .11, height: .075 };
@@ -128,7 +134,11 @@ function clone<T>(value: T): T { return JSON.parse(JSON.stringify(value)) as T; 
 function clamp(value: number) { return Math.max(0.025, Math.min(0.975, value)); }
 function uid(prefix: string) { return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`; }
 function mergePlayers(saved: Player[]): Player[] {
-  const merged = saved.map((player) => ({ ...player, lineup: player.lineup ?? (RESERVE_PLAYERS.has(player.nickname) ? "reserve" : "starter") }));
+  const merged = saved.map((player) => ({
+    ...player,
+    lineup: player.lineup ?? (RESERVE_PLAYERS.has(player.nickname) ? "reserve" : "starter"),
+    secondaryRoles: player.secondaryRoles?.length ? player.secondaryRoles : defaultCommandRoles(player.nickname),
+  }));
   const known = new Set(merged.map((player) => player.nickname));
   INITIAL_PLAYERS.forEach((player) => { if (!known.has(player.nickname)) merged.push({ ...player }); });
   return merged;
