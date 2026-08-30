@@ -32,7 +32,7 @@ const TOOL_META: Array<{ id: Tool; label: string; glyph: string; hint: string }>
   { id: "delete", label: "지우개", glyph: "", hint: "지울 오브젝트를 클릭" },
 ];
 const RALLY_PLAYERS = new Set(["[WB] 진 수", "벌꿀오소리"]);
-const GARRISON_PLAYERS = new Set(["glen fiddich", "욘 두 Yondu", "[WB] ᴵᴿᴼᴺ TESLA", "예리", "핫떠그"]);
+const GARRISON_PLAYERS = new Set(["glen fiddich", "욘 두 Yondu", "[WB] ᴵᴿᴼᴺ TESLA", "예리", "핫떠그", "Junkhun", "압 수"]);
 const RESERVE_PLAYERS = new Set(["코다마", "[WB] 스누피Tank", "[WB] 이천상", "몽클", "산삼맨", "ᴵᴿᴼᴺ 핫 짱 구", "THOR", "알나인티"]);
 const PLAYER_SOURCE: Array<[string, PrimaryRole]> = [
   ["[WB] ᵂᴮ Elega", "infantry"], ["5000", "ranged"], ["glen fiddich", "infantry"], ["압 수", "infantry"],
