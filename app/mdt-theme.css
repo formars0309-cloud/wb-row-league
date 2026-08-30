@@ -330,3 +330,88 @@ body {
   text-shadow: 0 1px 3px #000, 0 0 3px #000;
   font: 900 7px ui-monospace, monospace;
 }
+
+/* Expanded field map and simplified high-visibility controls */
+.workspace-grid {
+  grid-template-columns: 220px minmax(680px, 1fr) 320px;
+}
+
+.map-field .map-image-layer {
+  background-size: 170% 100%;
+  background-position: center;
+}
+.map-field .home-lucia { left: 38.1%; top: 35%; }
+.map-field .home-ian { left: 59.4%; top: 65%; }
+
+.inspector-panel {
+  padding: 16px;
+}
+.inspector-panel .panel-heading {
+  min-height: 58px;
+  padding: 4px 2px 13px;
+}
+.inspector-panel .panel-heading h2 {
+  margin-top: 6px;
+  font-size: 16px;
+  font-weight: 800;
+}
+.inspector-panel .eyebrow {
+  font-size: 9px;
+}
+.tool-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+.tool-grid button {
+  min-height: 82px;
+  gap: 7px;
+  border-width: 2px;
+  font-size: 13px;
+  font-weight: 800;
+}
+.tool-grid button span {
+  font-size: 30px;
+  line-height: 1;
+}
+.tool-grid .tool-rally span {
+  color: #ff4b4b;
+  text-shadow: 0 0 10px rgba(255, 75, 75, 0.55);
+}
+.tool-grid .tool-delete span {
+  font-size: 36px;
+}
+
+.defense-line {
+  fill: none;
+  stroke: #61bfff;
+  stroke-width: 8;
+  stroke-dasharray: 14 8;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+  filter: drop-shadow(0 0 5px rgba(97, 191, 255, 0.65));
+}
+.marker-rally {
+  color: #ff4b4b;
+}
+.marker-rally > span {
+  min-width: 44px;
+  height: 44px;
+  font-size: 24px;
+  background: rgba(35, 8, 10, 0.92);
+  box-shadow: 0 0 13px rgba(255, 75, 75, 0.55), 0 3px 12px rgba(0, 0, 0, 0.7);
+}
+
+.player-token.is-rally {
+  --role-color: #ff4b4b;
+  width: 42px;
+  height: 42px;
+}
+.player-token.is-rally .rally-unit-icon {
+  width: 42px;
+  height: 42px;
+  fill: #ff4b4b;
+  stroke: rgba(45, 0, 3, 0.95);
+  stroke-width: 1.1;
+  filter: drop-shadow(0 0 5px rgba(255, 75, 75, 0.75)) drop-shadow(0 3px 3px rgba(0, 0, 0, 0.75));
+}

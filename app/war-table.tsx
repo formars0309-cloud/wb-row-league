@@ -13,19 +13,16 @@ type TacticalObject = { id: string; type: Exclude<Tool, "select" | "delete">; x:
 type Scene = { id: string; name: string; time: string; positions: Record<string, Point>; objects: TacticalObject[]; objectiveOwners?: Record<string, ObjectiveOwner> };
 type Operation = { version: 1; name: string; players: Player[]; scenes: Scene[]; activeSceneId: string; updatedAt: string };
 
-const STORAGE_KEY = "heinapel-war-table-v0.2";
+const STORAGE_KEY = "heinapel-war-table-v0.3";
 const ROLE_LABEL: Record<PrimaryRole, string> = { infantry: "보병", cavalry: "기병", ranged: "원거리" };
 const SECONDARY_LABEL: Record<SecondaryRole, string> = { garrison: "주둔장", rally: "집결장", blocker: "블로커" };
 const TOOL_META: Array<{ id: Tool; label: string; glyph: string; hint: string }> = [
-  { id: "select", label: "선택", glyph: "⌁", hint: "말 선택·이동" },
-  { id: "moveArrow", label: "이동", glyph: "↗", hint: "드래그로 이동선" },
-  { id: "attackArrow", label: "공격", glyph: "➤", hint: "드래그로 공격선" },
-  { id: "defense", label: "방어구역", glyph: "▧", hint: "드래그로 범위" },
-  { id: "rally", label: "집결", glyph: "◉", hint: "클릭해 집결점" },
-  { id: "step", label: "스테프", glyph: "✦", hint: "클릭해 스테프" },
-  { id: "text", label: "텍스트", glyph: "T", hint: "클릭해 메모" },
+  { id: "attackArrow", label: "공격 라인", glyph: "➤", hint: "드래그로 공격 라인 표시" },
+  { id: "defense", label: "방어 라인", glyph: "╱", hint: "드래그로 방어 라인 표시" },
+  { id: "rally", label: "집결", glyph: "⚔", hint: "클릭해 집결 지점 표시" },
   { id: "delete", label: "삭제", glyph: "×", hint: "오브젝트 클릭" },
 ];
+const RALLY_PLAYERS = new Set(["[WB] 진 수", "벌꿀오소리"]);
 const PLAYER_SOURCE: Array<[string, PrimaryRole]> = [
   ["[WB] ᵂᴮ Elega", "infantry"], ["5000", "ranged"], ["glen fiddich", "infantry"], ["압 수", "infantry"],
   ["Junkhun", "infantry"], ["욘 두 Yondu", "infantry"], ["[WB] 구너(마구니)", "ranged"], ["최산수", "ranged"],
@@ -37,17 +34,26 @@ const PLAYER_SOURCE: Array<[string, PrimaryRole]> = [
   ["햄찌", "ranged"], ["몽클", "infantry"], ["SIGH", "ranged"], ["[WB] 스누피Tank", "infantry"],
   ["[WB] 이천상", "ranged"], ["코다마", "infantry"], ["벌꿀오소리", "infantry"],
 ];
-const INITIAL_PLAYERS: Player[] = PLAYER_SOURCE.map(([nickname, primaryRole], index) => ({ id: index + 1, nickname, primaryRole, secondaryRoles: [] }));
+const INITIAL_PLAYERS: Player[] = PLAYER_SOURCE.map(([nickname, primaryRole], index) => ({
+  id: index + 1,
+  nickname,
+  primaryRole,
+  secondaryRoles: RALLY_PLAYERS.has(nickname) ? ["rally"] : [],
+}));
 const SCENE_TIMES = ["60:00", "55:00", "52:00", "46:00", "42:00"];
 const OBJECTIVE_META = [
-  { id: "spirit-west", label: "영목", location: "서쪽", tactical: { x: 27.9, y: 39.3 }, field: { x: 32.8, y: 54.2 } },
-  { id: "spirit-north", label: "영목", location: "북쪽", tactical: { x: 57.5, y: 10.3 }, field: { x: 57, y: 16.3 } },
-  { id: "spirit-east", label: "영목", location: "동쪽", tactical: { x: 77.3, y: 38.1 }, field: { x: 67.5, y: 40 } },
-  { id: "spirit-south", label: "영목", location: "남쪽", tactical: { x: 43.3, y: 71.3 }, field: { x: 43.2, y: 81.6 } },
-  { id: "hall-northeast", label: "전당", location: "1시", tactical: { x: 71.1, y: 11.3 }, field: { x: 67, y: 21 } },
-  { id: "hall-southwest", label: "전당", location: "7시", tactical: { x: 24.8, y: 61.6 }, field: { x: 33, y: 75 } },
-  { id: "hall-north", label: "전당", location: "생명의 반석 12시", tactical: { x: 53.5, y: 18.9 }, field: { x: 53.2, y: 27.3 } },
-  { id: "hall-south", label: "전당", location: "생명의 반석 6시", tactical: { x: 47.7, y: 50.6 }, field: { x: 47.2, y: 68.5 } },
+  { id: "spirit-west", label: "영목", location: "서쪽", tactical: { x: 27.9, y: 39.3 }, field: { x: 20.8, y: 54.2 } },
+  { id: "spirit-north", label: "영목", location: "북쪽", tactical: { x: 57.5, y: 10.3 }, field: { x: 61.9, y: 16.3 } },
+  { id: "spirit-east", label: "영목", location: "동쪽", tactical: { x: 77.3, y: 38.1 }, field: { x: 79.8, y: 40 } },
+  { id: "spirit-south", label: "영목", location: "남쪽", tactical: { x: 43.3, y: 71.3 }, field: { x: 38.4, y: 81.6 } },
+  { id: "hall-northeast", label: "전당", location: "1시", tactical: { x: 71.1, y: 11.3 }, field: { x: 78.9, y: 21 } },
+  { id: "hall-southwest", label: "전당", location: "7시", tactical: { x: 24.8, y: 61.6 }, field: { x: 21.1, y: 75 } },
+  { id: "hall-north", label: "전당", location: "생명의 반석 12시", tactical: { x: 53.5, y: 18.9 }, field: { x: 55.4, y: 27.3 } },
+  { id: "hall-south", label: "전당", location: "생명의 반석 6시", tactical: { x: 47.7, y: 50.6 }, field: { x: 45.2, y: 68.5 } },
+  { id: "lookout-lucia-west", label: "전망대", location: "루시아 스타팅 후방 서쪽", tactical: { x: 28.1, y: 15 }, field: { x: 21.8, y: 23.4 } },
+  { id: "lookout-lucia-east", label: "전망대", location: "루시아 스타팅 후방 동쪽", tactical: { x: 36.4, y: 13.3 }, field: { x: 33.7, y: 22.2 } },
+  { id: "lookout-ian-west", label: "전망대", location: "이안 스타팅 후방 서쪽", tactical: { x: 70.6, y: 60.2 }, field: { x: 69.6, y: 75.8 } },
+  { id: "lookout-ian-east", label: "전망대", location: "이안 스타팅 후방 동쪽", tactical: { x: 80.2, y: 57.2 }, field: { x: 79.8, y: 73.4 } },
 ] as const;
 
 function freshOperation(): Operation {
@@ -60,12 +66,14 @@ function uid(prefix: string) { return `${prefix}-${Date.now()}-${Math.random().t
 
 function RolePill({ role }: { role: PrimaryRole }) { return <span className={`role-pill role-${role}`}>{ROLE_LABEL[role]}</span>; }
 
-function UnitRoleIcon({ role }: { role: PrimaryRole }) {
+function UnitRoleIcon({ role, isRally = false }: { role: PrimaryRole; isRally?: boolean }) {
   return (
-    <svg className="unit-role-icon" viewBox="0 0 24 24" aria-hidden="true">
-      {role === "infantry" && <path d="M12 2 20 5v6c0 5.2-3.4 9.1-8 11-4.6-1.9-8-5.8-8-11V5l8-3Z" />}
-      {role === "cavalry" && <><path d="M6 19h13v3H5v-2l1-1Zm3-1c0-2.2.9-4 2.6-5.3L10 10l2-6 2.4 2.5L19 8l-2.2 3.6c.8 1.4 1.2 3 1.2 4.9V18H9Z" /><circle cx="14.8" cy="9.5" r="1" className="unit-icon-cutout" /></>}
-      {role === "ranged" && <><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="3" className="unit-icon-cutout" /></>}
+    <svg className={`unit-role-icon ${isRally ? "rally-unit-icon" : ""}`} viewBox="0 0 24 24" aria-hidden="true">
+      {isRally ? <><path d="M3 2h4l6.1 6.1-3 3L4 5H2V3l1-1Zm7.8 11.4 2.8 2.8-2.1 2.1-1.4-1.4-3.2 3.2-2.1-2.1 3.2-3.2-1.4-1.4 2.1-2.1 2.1 2.1Z" /><path d="M21 2h-4l-6.1 6.1 3 3L20 5h2V3l-1-1Zm-7.8 11.4-2.8 2.8 2.1 2.1 1.4-1.4 3.2 3.2 2.1-2.1-3.2-3.2 1.4-1.4-2.1-2.1-2.1 2.1Z" /></> : <>
+        {role === "infantry" && <path d="M12 2 20 5v6c0 5.2-3.4 9.1-8 11-4.6-1.9-8-5.8-8-11V5l8-3Z" />}
+        {role === "cavalry" && <><path d="M6 19h13v3H5v-2l1-1Zm3-1c0-2.2.9-4 2.6-5.3L10 10l2-6 2.4 2.5L19 8l-2.2 3.6c.8 1.4 1.2 3 1.2 4.9V18H9Z" /><circle cx="14.8" cy="9.5" r="1" className="unit-icon-cutout" /></>}
+        {role === "ranged" && <><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="3" className="unit-icon-cutout" /></>}
+      </>}
     </svg>
   );
 }
@@ -77,9 +85,7 @@ export default function WarTable() {
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [tool, setTool] = useState<Tool>("select");
   const [drawStart, setDrawStart] = useState<Point | null>(null);
-  const [textDraft, setTextDraft] = useState("작전 메모");
   const [roleFilter, setRoleFilter] = useState<"all" | PrimaryRole>("all");
-  const [layers, setLayers] = useState({ players: true, arrows: true, zones: true, markers: true, text: true });
   const [mapVariant, setMapVariant] = useState<MapVariant>("tactical");
   const [mapFocus, setMapFocus] = useState(true);
   const [canUndo, setCanUndo] = useState(false);
@@ -91,7 +97,6 @@ export default function WarTable() {
   const dragRef = useRef<null | { startClient: Point; sceneId: string; initial: Record<string, Point> }>(null);
 
   const scene = operation.scenes.find((item) => item.id === operation.activeSceneId) ?? operation.scenes[0];
-  const editing = operation.players.find((player) => player.id === editingId) ?? operation.players[0];
   const counts = useMemo(() => ({
     infantry: operation.players.filter((p) => p.primaryRole === "infantry").length,
     cavalry: operation.players.filter((p) => p.primaryRole === "cavalry").length,
@@ -136,9 +141,6 @@ export default function WarTable() {
     const next = futureRef.current.pop(); if (!next) return;
     pastRef.current.push(clone(operation)); setOperation(next); setSelectedIds([]); setCanUndo(true); setCanRedo(futureRef.current.length > 0);
   };
-  const patchPlayer = (id: number, patch: Partial<Player>) => commit((draft) => {
-    draft.players = draft.players.map((player) => player.id === id ? { ...player, ...patch } : player); return draft;
-  });
   const updateScene = (sceneId: string, updater: (target: Scene) => void) => commit((draft) => {
     const target = draft.scenes.find((item) => item.id === sceneId); if (target) updater(target); return draft;
   });
@@ -186,9 +188,10 @@ export default function WarTable() {
       return;
     }
     if (["moveArrow", "attackArrow", "defense"].includes(tool)) { setDrawStart(point); return; }
-    if (["rally", "step", "text"].includes(tool)) {
-      const object: TacticalObject = { id: uid(tool), type: tool as "rally" | "step" | "text", ...point, text: tool === "text" ? textDraft.trim() || "작전 메모" : undefined };
+    if (tool === "rally") {
+      const object: TacticalObject = { id: uid(tool), type: "rally", ...point };
       updateScene(scene.id, (target) => { target.objects.push(object); });
+      setTool("select");
     }
   };
   const handleMapPointerUp = (event: React.PointerEvent<HTMLElement>) => {
@@ -199,6 +202,7 @@ export default function WarTable() {
       updateScene(scene.id, (target) => { target.objects.push(object); });
     }
     setDrawStart(null);
+    setTool("select");
   };
   const deleteObject = (objectId: string) => { if (tool !== "delete") return; updateScene(scene.id, (target) => { target.objects = target.objects.filter((object) => object.id !== objectId); }); };
   const cycleObjective = (objectiveId: string) => updateScene(scene.id, (target) => {
@@ -226,9 +230,8 @@ export default function WarTable() {
   };
   const resetOperation = () => { if (!window.confirm("현재 작전 데이터를 초기화할까요?")) return; checkpoint(); setOperation(freshOperation()); setSelectedIds([]); };
 
-  const toggleSecondary = (role: SecondaryRole) => patchPlayer(editing.id, { secondaryRoles: editing.secondaryRoles.includes(role) ? editing.secondaryRoles.filter((item) => item !== role) : [...editing.secondaryRoles, role] });
   const placedCount = Object.keys(scene.positions).length;
-  const visibleObjects = scene.objects.filter((object) => object.type === "moveArrow" || object.type === "attackArrow" ? layers.arrows : object.type === "defense" ? layers.zones : object.type === "text" ? layers.text : layers.markers);
+  const visibleObjects = scene.objects;
   const stepObjects = visibleObjects.filter((object) => object.type === "step");
   const objectiveCounts = OBJECTIVE_META.reduce((counts, objective) => {
     counts[scene.objectiveOwners?.[objective.id] ?? "neutral"] += 1;
@@ -275,24 +278,16 @@ export default function WarTable() {
           {OBJECTIVE_META.map((objective) => { const owner = scene.objectiveOwners?.[objective.id] ?? "neutral"; const point = objective[mapVariant]; return <button type="button" key={objective.id} className={`capture-objective owner-${owner}`} style={{ left: `${point.x}%`, top: `${point.y}%` }} onClick={() => cycleObjective(objective.id)} aria-label={`${objective.location} ${objective.label}: ${owner === "neutral" ? "중립" : owner === "lucia" ? "루시아팀" : "이안팀"}`} title={`${objective.location} ${objective.label} · 클릭하여 점령 상태 변경`}><span>{objective.label}</span></button>; })}
           <svg className="tactical-svg" viewBox="0 0 1000 1000" preserveAspectRatio="none" aria-label="전술 오브젝트 레이어">
             <defs><marker id="move-head" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#55cfff" /></marker><marker id="attack-head" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#ff5353" /></marker></defs>
-            {visibleObjects.filter((object) => ["moveArrow", "attackArrow", "defense"].includes(object.type)).map((object) => object.type === "defense" ? <rect key={object.id} className="tactical-object defense-zone" onClick={() => deleteObject(object.id)} x={Math.min(object.x, object.x2 ?? object.x) * 1000} y={Math.min(object.y, object.y2 ?? object.y) * 1000} width={Math.abs((object.x2 ?? object.x) - object.x) * 1000} height={Math.abs((object.y2 ?? object.y) - object.y) * 1000} /> : <line key={object.id} className={`tactical-object arrow-${object.type}`} onClick={() => deleteObject(object.id)} x1={object.x * 1000} y1={object.y * 1000} x2={(object.x2 ?? object.x) * 1000} y2={(object.y2 ?? object.y) * 1000} markerEnd={`url(#${object.type === "moveArrow" ? "move-head" : "attack-head"})`} />)}
+            {visibleObjects.filter((object) => ["moveArrow", "attackArrow", "defense"].includes(object.type)).map((object) => <line key={object.id} className={`tactical-object ${object.type === "defense" ? "defense-line" : `arrow-${object.type}`}`} onClick={() => deleteObject(object.id)} x1={object.x * 1000} y1={object.y * 1000} x2={(object.x2 ?? object.x) * 1000} y2={(object.y2 ?? object.y) * 1000} markerEnd={object.type === "defense" ? undefined : `url(#${object.type === "moveArrow" ? "move-head" : "attack-head"})`} />)}
           </svg>
-          {visibleObjects.filter((object) => ["rally", "step", "text"].includes(object.type)).map((object) => <button type="button" key={object.id} className={`tactical-object map-marker marker-${object.type}`} style={{ left: `${object.x * 100}%`, top: `${object.y * 100}%` }} onClick={() => deleteObject(object.id)}><span>{object.type === "rally" ? "R" : object.type === "step" ? `S${stepObjects.findIndex((item) => item.id === object.id) + 1}` : object.text}</span></button>)}
-          {layers.players && operation.players.filter((player) => scene.positions[String(player.id)] && (roleFilter === "all" || player.primaryRole === roleFilter)).map((player) => { const pos = scene.positions[String(player.id)]; const tooltip = `${player.nickname} · ${ROLE_LABEL[player.primaryRole]}${player.secondaryRoles.length ? ` · ${player.secondaryRoles.map((role) => SECONDARY_LABEL[role]).join("/")}` : ""}`; return <button type="button" key={player.id} className={`player-token role-${player.primaryRole} ${selectedIds.includes(player.id) ? "selected" : ""}`} style={{ left: `${pos.x * 100}%`, top: `${pos.y * 100}%` }} onPointerDown={(event) => handleTokenPointerDown(event, player.id)} aria-label={tooltip} data-tooltip={tooltip}><UnitRoleIcon role={player.primaryRole} /><span className="token-num">{String(player.id).padStart(2, "0")}</span></button>; })}
+          {visibleObjects.filter((object) => ["rally", "step", "text"].includes(object.type)).map((object) => <button type="button" key={object.id} className={`tactical-object map-marker marker-${object.type}`} style={{ left: `${object.x * 100}%`, top: `${object.y * 100}%` }} onClick={() => deleteObject(object.id)}><span>{object.type === "rally" ? "⚔" : object.type === "step" ? `S${stepObjects.findIndex((item) => item.id === object.id) + 1}` : object.text}</span></button>)}
+          {operation.players.filter((player) => scene.positions[String(player.id)] && (roleFilter === "all" || player.primaryRole === roleFilter)).map((player) => { const pos = scene.positions[String(player.id)]; const isRally = player.secondaryRoles.includes("rally"); const tooltip = `${player.nickname} · ${ROLE_LABEL[player.primaryRole]}${player.secondaryRoles.length ? ` · ${player.secondaryRoles.map((role) => SECONDARY_LABEL[role]).join("/")}` : ""}`; return <button type="button" key={player.id} className={`player-token role-${player.primaryRole} ${isRally ? "is-rally" : ""} ${selectedIds.includes(player.id) ? "selected" : ""}`} style={{ left: `${pos.x * 100}%`, top: `${pos.y * 100}%` }} onPointerDown={(event) => handleTokenPointerDown(event, player.id)} aria-label={tooltip} data-tooltip={tooltip}><UnitRoleIcon role={player.primaryRole} isRally={isRally} />{!isRally && <span className="token-num">{String(player.id).padStart(2, "0")}</span>}</button>; })}
           <div className="map-note"><span>{mapVariant === "tactical" ? "TACTICAL OVERVIEW" : "FIELD REFERENCE"}</span><strong>{mapVariant === "tactical" ? "헤이나펄 전술 맵" : "헤이나펄 실전 지형"}</strong><small>{TOOL_META.find((item) => item.id === tool)?.hint}</small></div><div className="map-coordinates"><span>GRID A-01</span><span>생명의 반석 기준 작전도</span><span>GRID H-09</span></div>
         </section>
 
         <aside className="inspector-panel panel">
-          <div className="panel-heading"><div><span className="eyebrow">TACTICAL CONTROL</span><h2>WAR TOOLS</h2></div><span className="count-badge">{scene.objects.length} OBJ</span></div>
-          <div className="tool-grid">{TOOL_META.map((item) => <button type="button" key={item.id} className={tool === item.id ? "active" : ""} onClick={() => setTool(item.id)} title={item.hint}><span>{item.glyph}</span>{item.label}</button>)}</div>
-          {tool === "text" && <><label className="field-label" htmlFor="text-draft">텍스트 내용</label><input id="text-draft" className="text-input" value={textDraft} onChange={(event) => setTextDraft(event.target.value)} maxLength={40} /></>}
-          <div className="section-rule" /><div className="sub-heading"><span>PLAYER EDIT</span><b>#{String(editing.id).padStart(2, "0")}</b></div>
-          <label className="field-label" htmlFor="nickname">닉네임</label><input id="nickname" className="text-input" value={editing.nickname} maxLength={28} onChange={(event) => patchPlayer(editing.id, { nickname: event.target.value })} />
-          <div className="role-options compact">{(Object.keys(ROLE_LABEL) as PrimaryRole[]).map((role) => <button type="button" key={role} className={`role-option role-${role} ${editing.primaryRole === role ? "selected" : ""}`} onClick={() => patchPlayer(editing.id, { primaryRole: role })}><span>{role === "infantry" ? "▣" : role === "cavalry" ? "◆" : "◎"}</span>{ROLE_LABEL[role]}</button>)}</div>
-          <div className="secondary-options">{(Object.keys(SECONDARY_LABEL) as SecondaryRole[]).map((role) => <label key={role} className={editing.secondaryRoles.includes(role) ? "checked" : ""}><input type="checkbox" checked={editing.secondaryRoles.includes(role)} onChange={() => toggleSecondary(role)} /><span>{SECONDARY_LABEL[role]}</span></label>)}</div>
-          <div className="section-rule" /><div className="sub-heading"><span>LAYER FILTER</span><b>{visibleObjects.length}</b></div>
-          <div className="objective-legend"><span className="owner-neutral">중립 {objectiveCounts.neutral}</span><span className="owner-lucia">루시아 {objectiveCounts.lucia}</span><span className="owner-ian">이안 {objectiveCounts.ian}</span><small>지도 거점을 클릭해 점령 상태를 변경하세요.</small></div>
-          <div className="layer-list">{(Object.keys(layers) as Array<keyof typeof layers>).map((layer) => <label key={layer}><input type="checkbox" checked={layers[layer]} onChange={() => setLayers((current) => ({ ...current, [layer]: !current[layer] }))} /><span>{({ players: "플레이어", arrows: "화살표", zones: "방어구역", markers: "집결·스테프", text: "텍스트" })[layer]}</span></label>)}</div>
+          <div className="panel-heading"><div><span className="eyebrow">TACTICAL CONTROL</span><h2>핵심 작전 도구</h2></div></div>
+          <div className="tool-grid">{TOOL_META.map((item) => <button type="button" key={item.id} className={`${tool === item.id ? "active" : ""} tool-${item.id}`} onClick={() => setTool((current) => current === item.id ? "select" : item.id)} title={item.hint}><span>{item.glyph}</span>{item.label}</button>)}</div>
         </aside>
       </section>
 

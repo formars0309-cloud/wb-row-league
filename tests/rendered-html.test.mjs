@@ -33,13 +33,19 @@ test("server-renders the Heinapel War Table", async () => {
   assert.match(html, /<title>Heinapel War Table v0\.1<\/title>/i);
   assert.match(html, /<main class="war-shell map-focus">/i);
   assert.match(html, /PLAYER ROSTER/);
-  assert.match(html, /WAR TOOLS/);
+  assert.match(html, /핵심 작전 도구/);
   assert.match(html, /OPERATION TIMELINE/);
   assert.match(html, /전술 맵/);
   assert.match(html, /실전 맵/);
   assert.match(html, /생명의 반석/);
   assert.equal((html.match(/class="player-row\b/g) ?? []).length, 35);
-  assert.equal((html.match(/class="capture-objective owner-neutral"/g) ?? []).length, 8);
+  assert.equal((html.match(/class="capture-objective owner-neutral"/g) ?? []).length, 12);
+  assert.equal((html.match(/>전망대<\/span>/g) ?? []).length, 4);
+  assert.match(html, /공격 라인/);
+  assert.match(html, /방어 라인/);
+  assert.match(html, />집결<\/button>/);
+  assert.match(html, />삭제<\/button>/);
+  assert.doesNotMatch(html, /PLAYER EDIT|LAYER FILTER/);
   assert.doesNotMatch(html, /Your site is taking shape|Building your site/);
 });
 
@@ -55,9 +61,10 @@ test("keeps the interactive operation features and map assets wired", async () =
       stat(new URL("../public/og.png", import.meta.url)),
     ]);
 
-  assert.match(warTable, /const STORAGE_KEY = "heinapel-war-table-v0\.2"/);
+  assert.match(warTable, /const STORAGE_KEY = "heinapel-war-table-v0\.3"/);
   assert.match(warTable, /const OBJECTIVE_META = \[/);
   assert.match(warTable, /\["핫떠그", "infantry"\]/);
+  assert.match(warTable, /const RALLY_PLAYERS = new Set\(\["\[WB\] 진 수", "벌꿀오소리"\]\)/);
   assert.match(warTable, /function UnitRoleIcon/);
   assert.match(warTable, /current === "neutral" \? "lucia"/);
   assert.match(warTable, /localStorage\.setItem\(STORAGE_KEY/);
@@ -65,6 +72,8 @@ test("keeps the interactive operation features and map assets wired", async () =
   assert.match(warTable, /type MapVariant = "tactical" \| "field"/);
   assert.match(theme, /url\('\/maps\/heinapel-tactical-clean\.png'\)/);
   assert.match(theme, /url\('\/maps\/heinapel-field\.png'\)/);
+  assert.match(theme, /background-size: 170% 100%/);
+  assert.match(theme, /\.player-token\.is-rally/);
   assert.match(theme, /content: attr\(data-tooltip\)/);
   assert.match(page, /return <WarTable \/>/);
   assert.match(layout, /title: "Heinapel War Table v0\.1"/);
