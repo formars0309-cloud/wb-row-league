@@ -39,7 +39,7 @@ const PLAYER_SOURCE: Array<[string, PrimaryRole]> = [
   ["Junkhun", "infantry"], ["욘 두 Yondu", "infantry"], ["[WB] 구너(마구니)", "ranged"], ["최산수", "ranged"],
   ["마 젤 란(달의금)", "infantry"], ["바르니", "ranged"], ["무 잔 Muzan", "cavalry"], ["파리스", "infantry"],
   ["벙커", "ranged"], ["산삼맨", "infantry"], ["불개", "ranged"], ["[WB] ᴵᴿᴼᴺ 곡곡이", "ranged"],
-  ["냥 신 (마스터)", "cavalry"], ["[WB] ᴵᴿᴼᴺ Maha", "cavalry"], ["[WB] 진 수", "infantry"], ["[WB] ᴵᴿᴼᴺ 조롱말 (HALO)", "infantry"],
+  ["냥 신 (마스터)", "cavalry"], ["[WB] ᴵᴿᴼᴺ Maha", "cavalry"], ["[WB] 진 수", "infantry"], ["[WB] ᴵᴿᴼᴺ 조롱말 (HALO)", "cavalry"],
   ["늑대장군", "infantry"], ["핫떠그", "infantry"], ["[WB] ᴵᴿᴼᴺ TESLA", "ranged"], ["오늘은일찍자야지", "cavalry"],
   ["대장군 뽀로링", "infantry"], ["서틸로", "infantry"], ["예리", "infantry"], ["Kingsway", "ranged"],
   ["햄찌", "ranged"], ["몽클", "infantry"], ["SIGH", "ranged"], ["[WB] 스누피Tank", "infantry"],
