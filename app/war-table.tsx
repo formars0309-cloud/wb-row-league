@@ -101,9 +101,10 @@ const MISSION_MIRROR_PATTERN = new RegExp([...MISSION_MIRROR.keys()].sort((a, b)
 const MISSION_SIDE_LABEL: Record<MissionSide, string> = { ian: "이안", lucia: "루시아" };
 // 카드는 내용 길이에 따라 높이가 달라져, 맵 밖으로 나가지 않게 넉넉한 공칭 크기로만 잡아 둔다.
 const MISSION_CARD_SIZE = { width: .27, height: .36 };
-const STAFF_ORDER: Partial<Record<PrimaryRole, string>> = {
+const STAFF_ORDER: Record<PrimaryRole, string> = {
   infantry: "첫 스타팅 때 각자 맡은 라인에서 STAFF 사용",
   ranged: "상대 진영에 페어리 드래곤이 처음 소환되기 전, 약속된 장소에서 STAFF 사용",
+  cavalry: "스테프 자율 사용",
 };
 const DEFAULT_SCENE_EVENTS: SceneEvents = { fairyDragon: "", lifeStone: "", fairyDragonPosition: "northwest" };
 const SCENE_TIMES = ["60:00", "55:00", "52:00", "46:00", "42:00"];
@@ -636,7 +637,7 @@ export default function WarTable() {
               <button type="button" className="mission-card-close" onClick={() => closeMissionCard(card.playerId)} aria-label={`${player.nickname} 임무 카드 닫기`}>×</button>
             </div>
             {orders ? <div className="mission-card-body">
-              {STAFF_ORDER[player.primaryRole] && <p className="mission-staff"><b>STAFF</b>{STAFF_ORDER[player.primaryRole]}</p>}
+              <p className="mission-staff"><b>STAFF</b>{STAFF_ORDER[player.primaryRole]}</p>
               {roles.length > 0 && <div className="mission-roles">{roles.map((role) => <span key={role.key} className="mission-role"><b>{role.label}</b>{role.place}</span>)}</div>}
               <ol className="mission-units">{orders.map((text, index) => <li key={index} className={`mission-unit ${missionEmphasis(text)}`}><i>{index + 1}</i><span>{text}</span></li>)}</ol>
             </div> : <p className="mission-empty">임무표에 배정된 부대가 없습니다<small>{player.lineup === "reserve" ? "예비 편성" : "시트 미배정"}</small></p>}
