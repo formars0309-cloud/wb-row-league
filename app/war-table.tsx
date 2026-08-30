@@ -21,7 +21,7 @@ const TOOL_META: Array<{ id: Tool; label: string; glyph: string; hint: string }>
   { id: "attackArrow", label: "공격 라인", glyph: "➤", hint: "드래그로 공격 라인 표시" },
   { id: "defense", label: "방어 라인", glyph: "╱", hint: "드래그로 방어 라인 표시" },
   { id: "rally", label: "집결", glyph: "⚔", hint: "클릭해 집결 지점 표시" },
-  { id: "delete", label: "삭제", glyph: "×", hint: "오브젝트 클릭" },
+  { id: "delete", label: "지우개", glyph: "", hint: "지울 오브젝트를 클릭" },
 ];
 const RALLY_PLAYERS = new Set(["[WB] 진 수", "벌꿀오소리"]);
 const RESERVE_PLAYERS = new Set(["코다마", "[WB] 스누피Tank", "[WB] 이천상", "몽클"]);
@@ -96,6 +96,16 @@ function UnitRoleIcon({ unitRole, isRally = false }: { unitRole: PrimaryRole; is
   );
 }
 
+function EraserIcon() {
+  return (
+    <svg className="eraser-icon" viewBox="0 0 32 32" aria-hidden="true">
+      <path className="eraser-body" d="m5.2 20.1 12-12a3.1 3.1 0 0 1 4.4 0l5.2 5.2a3.1 3.1 0 0 1 0 4.4L16.5 28H11l-5.8-5.8a1.5 1.5 0 0 1 0-2.1Z" />
+      <path className="eraser-tip" d="m5.2 20.1 5.7-5.7 8.7 8.7-4.9 4.9H11l-5.8-5.8a1.5 1.5 0 0 1 0-2.1Z" />
+      <path className="eraser-line" d="m10.9 14.4 8.7 8.7" />
+    </svg>
+  );
+}
+
 export default function WarTable() {
   const [operation, setOperation] = useState<Operation>(freshOperation);
   const [ready, setReady] = useState(false);
@@ -105,7 +115,7 @@ export default function WarTable() {
   const [drawPoints, setDrawPoints] = useState<Point[]>([]);
   const [roleFilter, setRoleFilter] = useState<"all" | PrimaryRole>("all");
   const [mapVariant, setMapVariant] = useState<MapVariant>("tactical");
-  const [mapFocus, setMapFocus] = useState(true);
+  const [mapFocus, setMapFocus] = useState(false);
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
   const mapRef = useRef<HTMLElement>(null);
@@ -117,12 +127,15 @@ export default function WarTable() {
 
   const scene = operation.scenes.find((item) => item.id === operation.activeSceneId) ?? operation.scenes[0];
   const editing = operation.players.find((player) => player.id === editingId) ?? operation.players[0];
-  const counts = useMemo(() => ({
-    infantry: operation.players.filter((p) => p.primaryRole === "infantry").length,
-    cavalry: operation.players.filter((p) => p.primaryRole === "cavalry").length,
-    ranged: operation.players.filter((p) => p.primaryRole === "ranged").length,
-    rally: operation.players.filter((p) => p.secondaryRoles.includes("rally")).length,
-  }), [operation.players]);
+  const counts = useMemo(() => {
+    const starters = operation.players.filter((player) => player.lineup === "starter");
+    return {
+      infantry: starters.filter((player) => player.primaryRole === "infantry").length,
+      cavalry: starters.filter((player) => player.primaryRole === "cavalry").length,
+      ranged: starters.filter((player) => player.primaryRole === "ranged").length,
+      rally: starters.filter((player) => player.secondaryRoles.includes("rally")).length,
+    };
+  }, [operation.players]);
 
   useEffect(() => {
     queueMicrotask(() => {
@@ -292,7 +305,7 @@ export default function WarTable() {
   }, { neutral: 0, lucia: 0, ian: 0 } as Record<ObjectiveOwner, number>);
 
   return (
-    <main className={`war-shell ${mapFocus ? "map-focus" : ""}`}>
+    <main className={`war-shell${mapFocus ? " map-focus" : ""}`}>
       <header className="topbar">
         <div className="brand-block"><span className="brand-mark">H</span><div><h1>HEINAPEL <span>WAR TABLE</span></h1><input aria-label="작전명" value={operation.name} onChange={(event) => commit((draft) => { draft.name = event.target.value; return draft; })} /></div></div>
         <div className="battle-clock"><span>{scene.name}</span><strong>{scene.time} · {placedCount}/{operation.players.length} DEPLOYED</strong></div>
@@ -307,7 +320,6 @@ export default function WarTable() {
         <aside className="roster-panel panel">
           <div className="panel-heading"><div><span className="eyebrow">BLUE FORCE</span><h2>PLAYER ROSTER</h2></div><span className="count-badge">{operation.players.length} / {operation.players.length}</span></div>
           <div className="roster-controls">
-            <div className="role-summary"><span className="legend-infantry">보병 {counts.infantry}</span><span className="legend-cavalry">기병 {counts.cavalry}</span><span className="legend-ranged">원거리 {counts.ranged}</span><span className="legend-rally">집결 {counts.rally}</span></div>
             <select aria-label="역할 필터" value={roleFilter} onChange={(event) => setRoleFilter(event.target.value as "all" | PrimaryRole)}><option value="all">전체 역할</option><option value="infantry">보병</option><option value="cavalry">기병</option><option value="ranged">원거리</option></select>
           </div>
           <div className="roster-list" aria-label={`${operation.players.length}명 플레이어 명단`}>
@@ -341,7 +353,7 @@ export default function WarTable() {
 
         <aside className="inspector-panel panel">
           <div className="panel-heading"><div><span className="eyebrow">TACTICAL CONTROL</span><h2>핵심 작전 도구</h2></div></div>
-          <div className="tool-grid">{TOOL_META.map((item) => <button type="button" key={item.id} className={`${tool === item.id ? "active" : ""} tool-${item.id}`} onClick={() => setTool((current) => current === item.id ? "select" : item.id)} title={item.hint}><span>{item.glyph}</span>{item.label}</button>)}</div>
+          <div className="tool-grid">{TOOL_META.map((item) => <button type="button" key={item.id} className={`${tool === item.id ? "active" : ""} tool-${item.id}`} onClick={() => setTool((current) => current === item.id ? "select" : item.id)} title={item.hint}>{item.id === "delete" ? <EraserIcon /> : <span>{item.glyph}</span>}{item.label}</button>)}</div>
           <div className="assignment-panel">
             <div className="assignment-player"><span>SELECTED PLAYER</span><strong className={playerNameClass(editing)}>{editing.nickname}</strong><small>명단에서 아이디를 선택한 뒤 역할을 지정하세요.</small></div>
             <div className="assignment-heading">편성</div>
@@ -357,6 +369,15 @@ export default function WarTable() {
             <div className="assignment-grid two-column">
               <button type="button" className={`assignment-button command-rally ${editing.secondaryRoles.includes("rally") ? "active" : ""}`} onClick={() => toggleCommandRole("rally")}><UnitRoleIcon unitRole="infantry" isRally />집결장</button>
               <button type="button" className={`assignment-button command-garrison ${editing.secondaryRoles.includes("garrison") ? "active" : ""}`} onClick={() => toggleCommandRole("garrison")}><span className="command-glyph">♜</span>주둔장</button>
+            </div>
+            <div className="role-count-board">
+              <div className="assignment-heading">병종 현황 · 주전 기준</div>
+              <div className="role-count-grid">
+                <div className="role-count-tile role-infantry"><UnitRoleIcon unitRole="infantry" /><strong>{counts.infantry}</strong><small>보병</small></div>
+                <div className="role-count-tile role-cavalry"><UnitRoleIcon unitRole="cavalry" /><strong>{counts.cavalry}</strong><small>기병</small></div>
+                <div className="role-count-tile role-ranged"><UnitRoleIcon unitRole="ranged" /><strong>{counts.ranged}</strong><small>원거리</small></div>
+                <div className="role-count-tile role-count-rally"><UnitRoleIcon unitRole="infantry" isRally /><strong>{counts.rally}</strong><small>집결장</small></div>
+              </div>
             </div>
           </div>
         </aside>

@@ -31,7 +31,7 @@ test("server-renders the Heinapel War Table", async () => {
   const html = await response.text();
   assert.match(html, /<html lang="ko">/i);
   assert.match(html, /<title>Heinapel War Table v0\.1<\/title>/i);
-  assert.match(html, /<main class="war-shell map-focus">/i);
+  assert.match(html, /<main class="war-shell">/i);
   assert.match(html, /PLAYER ROSTER/);
   assert.match(html, /핵심 작전 도구/);
   assert.match(html, /OPERATION TIMELINE/);
@@ -41,12 +41,14 @@ test("server-renders the Heinapel War Table", async () => {
   assert.equal((html.match(/class="player-row\b/g) ?? []).length, 35);
   assert.equal((html.match(/class="lineup-badge starter"/g) ?? []).length, 31);
   assert.equal((html.match(/class="lineup-badge reserve"/g) ?? []).length, 4);
+  assert.equal((html.match(/class="role-count-tile\b/g) ?? []).length, 4);
+  assert.doesNotMatch(html, /class="role-summary"/);
   assert.equal((html.match(/class="capture-objective owner-neutral"/g) ?? []).length, 12);
   assert.equal((html.match(/>전망대<\/span>/g) ?? []).length, 4);
   assert.match(html, /공격 라인/);
   assert.match(html, /방어 라인/);
   assert.match(html, />집결<\/button>/);
-  assert.match(html, />삭제<\/button>/);
+  assert.match(html, />지우개<\/button>/);
   assert.match(html, />주전<\/button>/);
   assert.match(html, />예비<\/button>/);
   assert.match(html, />집결장<\/button>/);
@@ -74,7 +76,9 @@ test("keeps the interactive operation features and map assets wired", async () =
   assert.match(warTable, /const RESERVE_PLAYERS = new Set\(\["코다마", "\[WB\] 스누피Tank", "\[WB\] 이천상", "몽클"\]\)/);
   assert.match(warTable, /type LineupStatus = "starter" \| "reserve"/);
   assert.match(warTable, /const patchPlayer =/);
+  assert.match(warTable, /filter\(\(player\) => player\.lineup === "starter"\)/);
   assert.match(warTable, /function UnitRoleIcon/);
+  assert.match(warTable, /function EraserIcon/);
   assert.match(warTable, /function smoothPath\(points: Point\[\]\)/);
   assert.match(warTable, /onPointerMove=\{handleMapPointerMove\}/);
   assert.match(warTable, /points: Point\[\]/);

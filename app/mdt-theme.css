@@ -364,7 +364,7 @@ body {
   margin-top: 14px;
 }
 .tool-grid button {
-  min-height: 82px;
+  min-height: 72px;
   gap: 7px;
   border-width: 2px;
   font-size: 13px;
@@ -378,8 +378,32 @@ body {
   color: #ff4b4b;
   text-shadow: 0 0 10px rgba(255, 75, 75, 0.55);
 }
-.tool-grid .tool-delete span {
-  font-size: 36px;
+.tool-grid .eraser-icon {
+  width: 35px;
+  height: 35px;
+  overflow: visible;
+  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.6));
+  transform: rotate(-5deg);
+}
+.eraser-body {
+  fill: currentColor;
+  stroke: #111417;
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+}
+.eraser-tip {
+  fill: #d77b78;
+  stroke: #111417;
+  stroke-width: 1.2;
+  stroke-linejoin: round;
+}
+.eraser-line {
+  fill: none;
+  stroke: #202326;
+  stroke-width: 1.4;
+}
+.tool-grid .tool-delete.active .eraser-tip {
+  fill: #ff8d85;
 }
 
 .defense-line {
@@ -430,29 +454,16 @@ body {
   grid-template-columns: 250px minmax(610px, 1fr) 320px;
 }
 .roster-controls {
-  height: 58px;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 78px;
+  height: 42px;
+  display: flex;
+  justify-content: flex-end;
   align-items: center;
+  padding: 0 6px;
 }
-.roster-controls .role-summary {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 5px 8px;
-  padding: 7px 8px;
-  border: 0;
-  font-size: 8px;
-  font-weight: 800;
-  line-height: 1;
-}
-.role-summary .legend-infantry { color: #67adf2; }
-.role-summary .legend-cavalry { color: #75bd8d; }
-.role-summary .legend-ranged { color: #c38cff; }
-.role-summary .legend-rally { color: #ff4b4b; }
 .roster-controls select {
-  width: 73px;
+  width: 112px;
   height: 30px;
-  margin-right: 5px;
+  margin-right: 0;
 }
 .player-row {
   min-height: 40px;
@@ -501,12 +512,12 @@ body {
 }
 
 .assignment-panel {
-  margin-top: 18px;
-  padding-top: 16px;
+  margin-top: 12px;
+  padding-top: 10px;
   border-top: 1px solid #3b3e43;
 }
 .assignment-player {
-  padding: 12px;
+  padding: 9px 11px;
   border: 1px solid #3a3d42;
   border-left: 3px solid #d7b56d;
   background: linear-gradient(105deg, rgba(215, 181, 109, 0.1), rgba(21, 23, 25, 0.9));
@@ -522,7 +533,7 @@ body {
   letter-spacing: 0.12em;
 }
 .assignment-player > strong {
-  margin-top: 7px;
+  margin-top: 5px;
   overflow: hidden;
   color: #eee9df;
   font-size: 15px;
@@ -535,13 +546,13 @@ body {
 .assignment-player > strong.name-ranged { color: #c38cff; }
 .assignment-player > strong.name-rally { color: #ff4b4b; }
 .assignment-player > small {
-  margin-top: 6px;
+  margin-top: 4px;
   color: #8c8e8b;
   font-size: 9px;
   line-height: 1.35;
 }
 .assignment-heading {
-  margin: 14px 1px 7px;
+  margin: 9px 1px 5px;
   color: #a9a79f;
   font: 800 10px/1 ui-monospace, monospace;
   letter-spacing: 0.1em;
@@ -553,7 +564,7 @@ body {
 .assignment-grid.two-column { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .assignment-grid.three-column { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .assignment-button {
-  min-height: 62px;
+  min-height: 54px;
   display: grid;
   place-items: center;
   align-content: center;
@@ -596,4 +607,105 @@ body {
 .assignment-button .command-glyph {
   color: #ffc65c;
   font-size: 30px;
+}
+
+.role-count-board {
+  margin-top: 8px;
+  padding-top: 1px;
+  border-top: 1px solid #34373b;
+}
+.role-count-board .assignment-heading {
+  margin-top: 7px;
+}
+.role-count-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.role-count-tile {
+  min-height: 80px;
+  display: grid;
+  grid-template-columns: 44px 1fr;
+  grid-template-rows: 1fr auto;
+  align-items: center;
+  padding: 9px 9px 8px;
+  border: 1px solid color-mix(in srgb, var(--role-color) 43%, #34373b);
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--role-color) 7%, #17191c);
+}
+.role-count-tile .unit-role-icon {
+  width: 38px;
+  height: 38px;
+}
+.role-count-tile strong {
+  color: var(--role-color);
+  font: 900 36px/1 ui-monospace, monospace;
+  text-align: center;
+}
+.role-count-tile small {
+  grid-column: 1 / -1;
+  color: #b7b5ae;
+  font-size: 11px;
+  font-weight: 800;
+  text-align: center;
+}
+.role-count-tile.role-count-rally {
+  --role-color: #ff4b4b;
+}
+.role-count-tile.role-count-rally .rally-unit-icon {
+  fill: #ff4b4b;
+  stroke: #3b080b;
+}
+
+/* High-visibility operation timeline */
+.timeline-shell {
+  grid-template-columns: 190px minmax(0, 1fr) 210px;
+  gap: 16px;
+  padding: 0 16px;
+}
+.timeline-title span {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.11em;
+}
+.timeline-title strong {
+  margin-top: 5px;
+  font-size: 14px;
+  font-weight: 800;
+}
+.scene-strip {
+  gap: 7px;
+  padding: 7px 0;
+}
+.scene-strip > button {
+  min-width: 150px;
+  height: 54px;
+}
+.scene-strip > button > i {
+  width: 35px;
+  font-size: 12px;
+  font-weight: 800;
+}
+.scene-strip > button > span {
+  padding: 0 11px;
+  gap: 4px;
+}
+.scene-strip b {
+  font-size: 14px;
+  font-weight: 800;
+}
+.scene-strip small {
+  font-size: 10px;
+}
+.footer-actions button {
+  min-width: 52px;
+  height: 38px;
+  padding: 0 10px;
+  font-size: 11px;
+  font-weight: 800;
+}
+.footer-actions span {
+  padding: 10px 12px;
+  font-size: 11px;
+  font-weight: 800;
 }
