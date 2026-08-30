@@ -374,6 +374,13 @@ body {
   font-size: 30px;
   line-height: 1;
 }
+.tool-grid .tool-memo span {
+  color: #f2ce5f;
+  text-shadow: 0 0 10px rgba(242, 206, 95, 0.5);
+}
+.tool-grid .tool-delete {
+  grid-column: 1 / -1;
+}
 .tool-grid .tool-rally span {
   color: #ff4b4b;
   text-shadow: 0 0 10px rgba(255, 75, 75, 0.55);

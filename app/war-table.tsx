@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 type PrimaryRole = "infantry" | "cavalry" | "ranged";
 type SecondaryRole = "garrison" | "rally" | "blocker";
 type LineupStatus = "starter" | "reserve";
-type Tool = "select" | "moveArrow" | "attackArrow" | "defense" | "rally" | "step" | "text" | "delete";
+type Tool = "select" | "moveArrow" | "attackArrow" | "defense" | "rally" | "step" | "text" | "memo" | "delete";
 type ObjectiveOwner = "neutral" | "lucia" | "ian";
 type MapVariant = "tactical" | "field";
 type FairyDragonPosition = "northwest" | "southeast";
@@ -24,6 +24,7 @@ const TOOL_META: Array<{ id: Tool; label: string; glyph: string; hint: string }>
   { id: "attackArrow", label: "공격 라인", glyph: "➤", hint: "드래그로 공격 라인 표시" },
   { id: "defense", label: "방어 라인", glyph: "╱", hint: "드래그로 방어 라인 표시" },
   { id: "rally", label: "집결", glyph: "⚔", hint: "클릭해 집결 지점 표시" },
+  { id: "memo", label: "메모", glyph: "▤", hint: "드래그로 영역을 잡고 메모를 입력" },
   { id: "delete", label: "지우개", glyph: "", hint: "지울 오브젝트를 클릭" },
 ];
 const RALLY_PLAYERS = new Set(["[WB] 진 수", "벌꿀오소리"]);
@@ -46,6 +47,7 @@ const INITIAL_PLAYERS: Player[] = PLAYER_SOURCE.map(([nickname, primaryRole], in
   secondaryRoles: RALLY_PLAYERS.has(nickname) ? ["rally"] : [],
   lineup: RESERVE_PLAYERS.has(nickname) ? "reserve" : "starter",
 }));
+const MEMO_MIN_SIZE = { width: .11, height: .075 };
 const DEFAULT_SCENE_EVENTS: SceneEvents = { fairyDragon: "", lifeStone: "", fairyDragonPosition: "northwest" };
 const SCENE_TIMES = ["60:00", "55:00", "52:00", "46:00", "42:00"];
 const STARTING_POINT_CENTER: Record<MapVariant, Record<"lucia" | "ian", Point>> = {
@@ -98,6 +100,13 @@ function smoothPath(points: Point[]) {
   const last = scaled[scaled.length - 1];
   return `${path} L ${last.x} ${last.y}`;
 }
+function fitAxis(value: number, size: number) { return Math.min(Math.max(.01, value), .99 - size); }
+function memoRect(start: Point, end: Point) {
+  const width = Math.min(Math.max(Math.abs(end.x - start.x), MEMO_MIN_SIZE.width), .98);
+  const height = Math.min(Math.max(Math.abs(end.y - start.y), MEMO_MIN_SIZE.height), .98);
+  return { left: fitAxis(Math.min(start.x, end.x), width), top: fitAxis(Math.min(start.y, end.y), height), width, height };
+}
+function memoSpan(object: TacticalObject) { return { width: Math.abs((object.x2 ?? object.x) - object.x), height: Math.abs((object.y2 ?? object.y) - object.y) }; }
 function playerNameClass(player: Player) {
   if (player.secondaryRoles.includes("rally")) return "name-rally";
   if (player.secondaryRoles.includes("garrison")) return "name-garrison";
@@ -133,6 +142,7 @@ export default function WarTable() {
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [tool, setTool] = useState<Tool>("select");
   const [drawPoints, setDrawPoints] = useState<Point[]>([]);
+  const [memoDraft, setMemoDraft] = useState<{ id: string; text: string } | null>(null);
   const [roleFilter, setRoleFilter] = useState<"all" | PrimaryRole>("all");
   const [mapVariant, setMapVariant] = useState<MapVariant>("tactical");
   const [mapFocus, setMapFocus] = useState(false);
@@ -145,8 +155,11 @@ export default function WarTable() {
   const futureRef = useRef<Operation[]>([]);
   const dragRef = useRef<null | { startClient: Point; sceneId: string; initial: Record<string, Point> }>(null);
   const drawPointsRef = useRef<Point[]>([]);
+  const memoInputRef = useRef<HTMLTextAreaElement>(null);
+  const memoDragRef = useRef<null | { id: string; sceneId: string; text: string; startClient: Point; origin: Point; size: { width: number; height: number }; moved: boolean }>(null);
 
   const scene = operation.scenes.find((item) => item.id === operation.activeSceneId) ?? operation.scenes[0];
+  const editingMemoId = memoDraft?.id ?? null;
   const editing = operation.players.find((player) => player.id === editingId) ?? operation.players[0];
   const counts = useMemo(() => {
     const starters = operation.players.filter((player) => player.lineup === "starter");
@@ -211,16 +224,37 @@ export default function WarTable() {
 
   useEffect(() => {
     const move = (event: PointerEvent) => {
-      const active = dragRef.current; const rect = mapRef.current?.getBoundingClientRect(); if (!active || !rect) return;
+      const rect = mapRef.current?.getBoundingClientRect(); if (!rect) return;
+      const memo = memoDragRef.current;
+      if (memo) {
+        const moveX = (event.clientX - memo.startClient.x) / rect.width; const moveY = (event.clientY - memo.startClient.y) / rect.height;
+        if (!memo.moved && Math.hypot(moveX, moveY) < .004) return;
+        memo.moved = true;
+        const x = fitAxis(memo.origin.x + moveX, memo.size.width); const y = fitAxis(memo.origin.y + moveY, memo.size.height);
+        setOperation((current) => ({ ...current, scenes: current.scenes.map((item) => item.id !== memo.sceneId ? item : {
+          ...item, objects: item.objects.map((object) => object.id !== memo.id ? object : { ...object, x, y, x2: x + memo.size.width, y2: y + memo.size.height }),
+        }) }));
+        return;
+      }
+      const active = dragRef.current; if (!active) return;
       const dx = (event.clientX - active.startClient.x) / rect.width; const dy = (event.clientY - active.startClient.y) / rect.height;
       setOperation((current) => ({ ...current, scenes: current.scenes.map((item) => item.id !== active.sceneId ? item : {
         ...item, positions: { ...item.positions, ...Object.fromEntries(Object.entries(active.initial).map(([id, pos]) => [id, { x: clamp(pos.x + dx), y: clamp(pos.y + dy) }])) },
       }) }));
     };
-    const up = () => { dragRef.current = null; };
+    const up = () => {
+      dragRef.current = null;
+      const memo = memoDragRef.current; memoDragRef.current = null;
+      if (memo && !memo.moved) setMemoDraft({ id: memo.id, text: memo.text });
+    };
     window.addEventListener("pointermove", move); window.addEventListener("pointerup", up);
     return () => { window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up); };
   }, []);
+
+  useEffect(() => {
+    const node = memoInputRef.current; if (!editingMemoId || !node) return;
+    node.focus(); node.setSelectionRange(node.value.length, node.value.length);
+  }, [editingMemoId]);
 
   const handleTokenPointerDown = (event: React.PointerEvent, playerId: number) => {
     event.stopPropagation();
@@ -240,7 +274,7 @@ export default function WarTable() {
   const handleMapPointerDown = (event: React.PointerEvent<HTMLElement>) => {
     const origin = event.target as Element;
     if (origin.closest(".player-token,.capture-objective,.map-toolbar")) return;
-    if (tool === "delete" && origin.closest(".tactical-object")) return;
+    if ((tool === "delete" || tool === "select") && origin.closest(".tactical-object")) return;
     const point = pointFromClient(event.clientX, event.clientY);
     if (tool === "select") {
       const unplaced = selectedIds.length === 1 && !scene.positions[String(selectedIds[0])];
@@ -248,7 +282,7 @@ export default function WarTable() {
       else setSelectedIds([]);
       return;
     }
-    if (["attackArrow", "defense"].includes(tool)) {
+    if (["attackArrow", "defense", "memo"].includes(tool)) {
       drawPointsRef.current = [point];
       setDrawPoints([point]);
       try { event.currentTarget.setPointerCapture(event.pointerId); } catch { /* Synthetic pointer events do not own capture. */ }
@@ -264,16 +298,28 @@ export default function WarTable() {
     draft.players = draft.players.map((player) => player.id === id ? { ...player, ...patch } : player); return draft;
   });
   const handleMapPointerMove = (event: React.PointerEvent<HTMLElement>) => {
-    if (!drawPointsRef.current.length || !["attackArrow", "defense"].includes(tool)) return;
+    if (!drawPointsRef.current.length || !["attackArrow", "defense", "memo"].includes(tool)) return;
     const point = pointFromClient(event.clientX, event.clientY);
+    if (tool === "memo") { drawPointsRef.current = [drawPointsRef.current[0], point]; setDrawPoints(drawPointsRef.current); return; }
     const previous = drawPointsRef.current[drawPointsRef.current.length - 1];
     if (Math.hypot(point.x - previous.x, point.y - previous.y) < .003) return;
     drawPointsRef.current = [...drawPointsRef.current, point];
     setDrawPoints(drawPointsRef.current);
   };
   const handleMapPointerUp = (event: React.PointerEvent<HTMLElement>) => {
-    if (!drawPointsRef.current.length || !["attackArrow", "defense"].includes(tool)) return;
+    if (!drawPointsRef.current.length || !["attackArrow", "defense", "memo"].includes(tool)) return;
     const end = pointFromClient(event.clientX, event.clientY);
+    if (tool === "memo") {
+      const area = memoRect(drawPointsRef.current[0], end);
+      const note: TacticalObject = { id: uid("memo"), type: "memo", x: area.left, y: area.top, x2: area.left + area.width, y2: area.top + area.height, text: "" };
+      updateScene(scene.id, (target) => { target.objects.push(note); });
+      setMemoDraft({ id: note.id, text: "" });
+      setTool("select");
+      drawPointsRef.current = [];
+      setDrawPoints([]);
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+      return;
+    }
     const points = [...drawPointsRef.current];
     const previous = points[points.length - 1];
     if (Math.hypot(end.x - previous.x, end.y - previous.y) >= .003) points.push(end);
@@ -289,6 +335,23 @@ export default function WarTable() {
   };
   const cancelMapDrawing = () => { drawPointsRef.current = []; setDrawPoints([]); };
   const deleteObject = (objectId: string) => { if (tool !== "delete") return; updateScene(scene.id, (target) => { target.objects = target.objects.filter((object) => object.id !== objectId); }); };
+  const finishMemoEdit = (save: boolean) => {
+    const draft = memoDraft; if (!draft) return;
+    setMemoDraft(null);
+    updateScene(scene.id, (target) => {
+      const note = target.objects.find((object) => object.id === draft.id); if (!note) return;
+      if (save) note.text = draft.text.trim();
+      // A note with nothing on it is just clutter, so it never survives the edit.
+      if (!note.text?.trim()) target.objects = target.objects.filter((object) => object.id !== draft.id);
+    });
+  };
+  const handleMemoPointerDown = (event: React.PointerEvent, note: TacticalObject) => {
+    event.stopPropagation();
+    if (tool === "delete") { deleteObject(note.id); return; }
+    if (tool !== "select" || memoDraft?.id === note.id) return;
+    checkpoint();
+    memoDragRef.current = { id: note.id, sceneId: scene.id, text: note.text ?? "", startClient: { x: event.clientX, y: event.clientY }, origin: { x: note.x, y: note.y }, size: memoSpan(note), moved: false };
+  };
   const cycleObjective = (objectiveId: string) => updateScene(scene.id, (target) => {
     const current = target.objectiveOwners?.[objectiveId] ?? "neutral";
     const next: ObjectiveOwner = current === "neutral" ? "lucia" : current === "lucia" ? "ian" : "neutral";
@@ -301,7 +364,7 @@ export default function WarTable() {
     const next = { ...clone(source), id, name: index < SCENE_TIMES.length ? ["START", "루브라이트", "포탈", "페어리 드래곤", "생명석"][index] : `SCENE ${String(index + 1).padStart(2, "0")}`, time, events: { ...clone(source.events), fairyDragonPosition: source.events.fairyDragonPosition === "northwest" ? "southeast" : "northwest" } };
     draft.scenes.push(next); draft.activeSceneId = id; return draft;
   });
-  const switchScene = (sceneId: string) => { setOperation((current) => ({ ...current, activeSceneId: sceneId })); setSelectedIds([]); };
+  const switchScene = (sceneId: string) => { setOperation((current) => ({ ...current, activeSceneId: sceneId })); setSelectedIds([]); setMemoDraft(null); };
   const removeScene = (sceneId: string) => {
     if (operation.scenes.length === 1 || !window.confirm("이 장면을 타임라인에서 삭제할까요?")) return;
     commit((draft) => {
@@ -334,11 +397,11 @@ export default function WarTable() {
   };
   const importJson = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]; if (!file) return;
-    try { const parsed = JSON.parse(await file.text()) as Operation; if (parsed.version !== 1 || parsed.players?.length !== INITIAL_PLAYERS.length || !parsed.scenes?.length) throw new Error(); parsed.players = parsed.players.map((player) => ({ ...player, lineup: player.lineup ?? (RESERVE_PLAYERS.has(player.nickname) ? "reserve" : "starter") })); parsed.scenes = parsed.scenes.map(normalizeScene); checkpoint(); setOperation(parsed); setSelectedIds([]); }
+    try { const parsed = JSON.parse(await file.text()) as Operation; if (parsed.version !== 1 || parsed.players?.length !== INITIAL_PLAYERS.length || !parsed.scenes?.length) throw new Error(); parsed.players = parsed.players.map((player) => ({ ...player, lineup: player.lineup ?? (RESERVE_PLAYERS.has(player.nickname) ? "reserve" : "starter") })); parsed.scenes = parsed.scenes.map(normalizeScene); checkpoint(); setOperation(parsed); setSelectedIds([]); setMemoDraft(null); }
     catch { window.alert("Heinapel War Table v0.1 JSON 파일이 아닙니다."); }
     event.target.value = "";
   };
-  const resetOperation = () => { if (!window.confirm("현재 작전 데이터를 초기화할까요?")) return; checkpoint(); setOperation(freshOperation()); setSelectedIds([]); setSceneDraft(null); };
+  const resetOperation = () => { if (!window.confirm("현재 작전 데이터를 초기화할까요?")) return; checkpoint(); setOperation(freshOperation()); setSelectedIds([]); setSceneDraft(null); setMemoDraft(null); };
   const toggleCommandRole = (role: "rally" | "garrison") => {
     const secondaryRoles = editing.secondaryRoles.includes(role)
       ? editing.secondaryRoles.filter((item) => item !== role)
@@ -418,6 +481,8 @@ export default function WarTable() {
             {visibleObjects.filter((object) => ["moveArrow", "attackArrow", "defense"].includes(object.type)).map((object) => object.points?.length ? <path key={object.id} className={`tactical-object freehand-path ${object.type === "defense" ? "defense-line" : `arrow-${object.type}`}`} onClick={() => deleteObject(object.id)} d={smoothPath(object.points)} markerEnd={object.type === "defense" ? undefined : `url(#${object.type === "moveArrow" ? "move-head" : "attack-head"})`} /> : <line key={object.id} className={`tactical-object ${object.type === "defense" ? "defense-line" : `arrow-${object.type}`}`} onClick={() => deleteObject(object.id)} x1={object.x * 1000} y1={object.y * 1000} x2={(object.x2 ?? object.x) * 1000} y2={(object.y2 ?? object.y) * 1000} markerEnd={object.type === "defense" ? undefined : `url(#${object.type === "moveArrow" ? "move-head" : "attack-head"})`} />)}
             {drawPoints.length > 1 && <path className={`draw-preview freehand-path ${tool === "defense" ? "defense-line" : "arrow-attackArrow"}`} d={smoothPath(drawPoints)} markerEnd={tool === "attackArrow" ? "url(#attack-head)" : undefined} />}
           </svg>
+          {tool === "memo" && drawPoints.length > 1 && (() => { const area = memoRect(drawPoints[0], drawPoints[1]); return <div className="memo-preview" style={{ left: `${area.left * 100}%`, top: `${area.top * 100}%`, width: `${area.width * 100}%`, height: `${area.height * 100}%` }} />; })()}
+          {visibleObjects.filter((object) => object.type === "memo").map((note) => { const span = memoSpan(note); const isEditing = memoDraft?.id === note.id; return <div key={note.id} className={`tactical-object map-memo${isEditing ? " is-editing" : ""}`} style={{ left: `${note.x * 100}%`, top: `${note.y * 100}%`, width: `${span.width * 100}%`, height: `${span.height * 100}%` }}>{isEditing ? <textarea ref={memoInputRef} aria-label="메모 내용" placeholder="메모를 입력하세요" value={memoDraft.text} onChange={(event) => setMemoDraft({ id: note.id, text: event.target.value })} onBlur={() => finishMemoEdit(true)} onKeyDown={(event) => { if (event.key === "Escape") { event.preventDefault(); finishMemoEdit(false); } }} /> : <button type="button" className="memo-face" onPointerDown={(event) => handleMemoPointerDown(event, note)} onClick={(event) => { if (event.detail !== 0) return; if (tool === "delete") deleteObject(note.id); else if (tool === "select") setMemoDraft({ id: note.id, text: note.text ?? "" }); }} title={tool === "delete" ? "클릭해 메모 삭제" : "클릭해 메모 수정 · 드래그로 이동"}><span className={note.text ? "" : "is-placeholder"}>{note.text || "메모 입력"}</span></button>}</div>; })}
           {visibleObjects.filter((object) => object.type === "attackArrow").map((object, index) => { const origin = object.points?.[0] ?? { x: object.x, y: object.y }; return <span key={`${object.id}-order`} className="attack-line-order" style={{ left: `${origin.x * 100}%`, top: `${origin.y * 100}%` }} aria-hidden="true">{index + 1}</span>; })}
           {visibleObjects.filter((object) => ["rally", "step", "text"].includes(object.type)).map((object) => <button type="button" key={object.id} className={`tactical-object map-marker marker-${object.type}`} style={{ left: `${object.x * 100}%`, top: `${object.y * 100}%` }} onClick={() => deleteObject(object.id)}><span>{object.type === "rally" ? "⚔" : object.type === "step" ? `S${stepObjects.findIndex((item) => item.id === object.id) + 1}` : object.text}</span></button>)}
           {operation.players.filter((player) => scene.positions[String(player.id)] && (roleFilter === "all" || player.primaryRole === roleFilter)).map((player) => { const pos = scene.positions[String(player.id)]; const isRally = player.secondaryRoles.includes("rally"); const tooltip = `${player.nickname} · ${ROLE_LABEL[player.primaryRole]}${player.secondaryRoles.length ? ` · ${player.secondaryRoles.map((role) => SECONDARY_LABEL[role]).join("/")}` : ""}`; return <button type="button" key={player.id} className={`player-token role-${player.primaryRole} ${isRally ? "is-rally" : ""} ${selectedIds.includes(player.id) ? "selected" : ""}`} style={{ left: `${pos.x * 100}%`, top: `${pos.y * 100}%` }} onPointerDown={(event) => handleTokenPointerDown(event, player.id)} aria-label={tooltip} data-tooltip={tooltip}><UnitRoleIcon unitRole={player.primaryRole} isRally={isRally} />{!isRally && <span className="token-num">{String(player.id).padStart(2, "0")}</span>}</button>; })}
