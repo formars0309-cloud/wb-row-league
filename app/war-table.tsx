@@ -13,7 +13,7 @@ type TacticalObject = { id: string; type: Exclude<Tool, "select" | "delete">; x:
 type Scene = { id: string; name: string; time: string; positions: Record<string, Point>; objects: TacticalObject[]; objectiveOwners?: Record<string, ObjectiveOwner> };
 type Operation = { version: 1; name: string; players: Player[]; scenes: Scene[]; activeSceneId: string; updatedAt: string };
 
-const STORAGE_KEY = "heinapel-war-table-v0.1";
+const STORAGE_KEY = "heinapel-war-table-v0.2";
 const ROLE_LABEL: Record<PrimaryRole, string> = { infantry: "보병", cavalry: "기병", ranged: "원거리" };
 const SECONDARY_LABEL: Record<SecondaryRole, string> = { garrison: "주둔장", rally: "집결장", blocker: "블로커" };
 const TOOL_META: Array<{ id: Tool; label: string; glyph: string; hint: string }> = [
@@ -27,27 +27,27 @@ const TOOL_META: Array<{ id: Tool; label: string; glyph: string; hint: string }>
   { id: "delete", label: "삭제", glyph: "×", hint: "오브젝트 클릭" },
 ];
 const PLAYER_SOURCE: Array<[string, PrimaryRole]> = [
-  ["[WB] ᵂᴮ Elega", "infantry"], ["glen fiddich", "infantry"], ["늑대장군", "infantry"], ["바르니", "ranged"],
-  ["대장군 뽀로링", "infantry"], ["예리", "infantry"], ["냥 신 (마스터)", "cavalry"], ["[WB] ᴵᴿᴼᴺ 곡곡이", "ranged"],
-  ["벙커", "ranged"], ["햄찌", "ranged"], ["[WB] 구너(마구니)", "ranged"], ["[WB] ᴵᴿᴼᴺ Maha", "cavalry"],
-  ["무 잔 Muzan", "cavalry"], ["서틸로", "infantry"], ["최산수", "ranged"], ["오늘은일찍자야지", "cavalry"],
-  ["[WB] 진 수", "infantry"], ["SIGH", "ranged"], ["[WB] 이천상", "ranged"], ["[WB] 스누피Tank", "infantry"],
-  ["[WB] ᴵᴿᴼᴺ TESLA", "ranged"], ["THOR", "ranged"], ["욘 두 Yondu", "infantry"], ["5000", "ranged"],
-  ["코다마", "infantry"], ["핫떠그", "cavalry"], ["Kingsway", "ranged"], ["불개", "ranged"],
-  ["벌꿀오소리", "infantry"], ["Junkhun", "infantry"],
+  ["[WB] ᵂᴮ Elega", "infantry"], ["5000", "ranged"], ["glen fiddich", "infantry"], ["압 수", "infantry"],
+  ["Junkhun", "infantry"], ["욘 두 Yondu", "infantry"], ["[WB] 구너(마구니)", "ranged"], ["최산수", "ranged"],
+  ["마 젤 란(달의금)", "infantry"], ["바르니", "ranged"], ["무 잔 Muzan", "cavalry"], ["파리스", "infantry"],
+  ["벙커", "ranged"], ["산삼맨", "infantry"], ["불개", "ranged"], ["[WB] ᴵᴿᴼᴺ 곡곡이", "ranged"],
+  ["냥 신 (마스터)", "cavalry"], ["[WB] ᴵᴿᴼᴺ Maha", "cavalry"], ["[WB] 진 수", "infantry"], ["[WB] ᴵᴿᴼᴺ 조롱말 (HALO)", "infantry"],
+  ["늑대장군", "infantry"], ["핫떠그", "infantry"], ["[WB] ᴵᴿᴼᴺ TESLA", "ranged"], ["오늘은일찍자야지", "cavalry"],
+  ["대장군 뽀로링", "infantry"], ["서틸로", "infantry"], ["예리", "infantry"], ["Kingsway", "ranged"],
+  ["햄찌", "ranged"], ["몽클", "infantry"], ["SIGH", "ranged"], ["[WB] 스누피Tank", "infantry"],
+  ["[WB] 이천상", "ranged"], ["코다마", "infantry"], ["벌꿀오소리", "infantry"],
 ];
 const INITIAL_PLAYERS: Player[] = PLAYER_SOURCE.map(([nickname, primaryRole], index) => ({ id: index + 1, nickname, primaryRole, secondaryRoles: [] }));
 const SCENE_TIMES = ["60:00", "55:00", "52:00", "46:00", "42:00"];
 const OBJECTIVE_META = [
-  { id: "northwest", label: "북서 거점", tactical: { x: 28, y: 39 }, field: { x: 33, y: 54 } },
-  { id: "north", label: "북부 거점", tactical: { x: 57, y: 9 }, field: { x: 57, y: 16 } },
-  { id: "north-center", label: "북중앙 거점", tactical: { x: 53, y: 21 }, field: { x: 53, y: 27 } },
-  { id: "east", label: "동부 거점", tactical: { x: 77, y: 38 }, field: { x: 68, y: 40 } },
-  { id: "west", label: "서부 거점", tactical: { x: 25, y: 63 }, field: { x: 34, y: 75 } },
-  { id: "west-south", label: "서남 외곽 거점", tactical: { x: 43, y: 70 }, field: { x: 43, y: 82 } },
-  { id: "southwest", label: "남서 거점", tactical: { x: 22, y: 65 }, field: { x: 47, y: 69 } },
-  { id: "southeast", label: "남동 거점", tactical: { x: 80, y: 59 }, field: { x: 68, y: 74 } },
-  { id: "south", label: "남부 거점", tactical: { x: 71, y: 62 }, field: { x: 61, y: 76 } },
+  { id: "spirit-west", label: "영목", location: "서쪽", tactical: { x: 27.9, y: 39.3 }, field: { x: 32.8, y: 54.2 } },
+  { id: "spirit-north", label: "영목", location: "북쪽", tactical: { x: 57.5, y: 10.3 }, field: { x: 57, y: 16.3 } },
+  { id: "spirit-east", label: "영목", location: "동쪽", tactical: { x: 77.3, y: 38.1 }, field: { x: 67.5, y: 40 } },
+  { id: "spirit-south", label: "영목", location: "남쪽", tactical: { x: 43.3, y: 71.3 }, field: { x: 43.2, y: 81.6 } },
+  { id: "hall-northeast", label: "전당", location: "1시", tactical: { x: 71.1, y: 11.3 }, field: { x: 67, y: 21 } },
+  { id: "hall-southwest", label: "전당", location: "7시", tactical: { x: 24.8, y: 61.6 }, field: { x: 33, y: 75 } },
+  { id: "hall-north", label: "전당", location: "생명의 반석 12시", tactical: { x: 53.5, y: 18.9 }, field: { x: 53.2, y: 27.3 } },
+  { id: "hall-south", label: "전당", location: "생명의 반석 6시", tactical: { x: 47.7, y: 50.6 }, field: { x: 47.2, y: 68.5 } },
 ] as const;
 
 function freshOperation(): Operation {
@@ -59,6 +59,16 @@ function clamp(value: number) { return Math.max(0.025, Math.min(0.975, value)); 
 function uid(prefix: string) { return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`; }
 
 function RolePill({ role }: { role: PrimaryRole }) { return <span className={`role-pill role-${role}`}>{ROLE_LABEL[role]}</span>; }
+
+function UnitRoleIcon({ role }: { role: PrimaryRole }) {
+  return (
+    <svg className="unit-role-icon" viewBox="0 0 24 24" aria-hidden="true">
+      {role === "infantry" && <path d="M12 2 20 5v6c0 5.2-3.4 9.1-8 11-4.6-1.9-8-5.8-8-11V5l8-3Z" />}
+      {role === "cavalry" && <><path d="M6 19h13v3H5v-2l1-1Zm3-1c0-2.2.9-4 2.6-5.3L10 10l2-6 2.4 2.5L19 8l-2.2 3.6c.8 1.4 1.2 3 1.2 4.9V18H9Z" /><circle cx="14.8" cy="9.5" r="1" className="unit-icon-cutout" /></>}
+      {role === "ranged" && <><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="3" className="unit-icon-cutout" /></>}
+    </svg>
+  );
+}
 
 export default function WarTable() {
   const [operation, setOperation] = useState<Operation>(freshOperation);
@@ -94,7 +104,7 @@ export default function WarTable() {
         const raw = localStorage.getItem(STORAGE_KEY);
         if (raw) {
           const saved = JSON.parse(raw) as Operation;
-          if (saved.version === 1 && saved.players?.length === 30 && saved.scenes?.length) setOperation(saved);
+          if (saved.version === 1 && saved.players?.length === INITIAL_PLAYERS.length && saved.scenes?.length) setOperation(saved);
         }
       } catch { localStorage.removeItem(STORAGE_KEY); }
       setReady(true);
@@ -210,7 +220,7 @@ export default function WarTable() {
   };
   const importJson = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]; if (!file) return;
-    try { const parsed = JSON.parse(await file.text()) as Operation; if (parsed.version !== 1 || parsed.players?.length !== 30 || !parsed.scenes?.length) throw new Error(); checkpoint(); setOperation(parsed); setSelectedIds([]); }
+    try { const parsed = JSON.parse(await file.text()) as Operation; if (parsed.version !== 1 || parsed.players?.length !== INITIAL_PLAYERS.length || !parsed.scenes?.length) throw new Error(); checkpoint(); setOperation(parsed); setSelectedIds([]); }
     catch { window.alert("Heinapel War Table v0.1 JSON 파일이 아닙니다."); }
     event.target.value = "";
   };
@@ -229,7 +239,7 @@ export default function WarTable() {
     <main className={`war-shell ${mapFocus ? "map-focus" : ""}`}>
       <header className="topbar">
         <div className="brand-block"><span className="brand-mark">H</span><div><h1>HEINAPEL <span>WAR TABLE</span></h1><input aria-label="작전명" value={operation.name} onChange={(event) => commit((draft) => { draft.name = event.target.value; return draft; })} /></div></div>
-        <div className="battle-clock"><span>{scene.name}</span><strong>{scene.time} · {placedCount}/30 DEPLOYED</strong></div>
+        <div className="battle-clock"><span>{scene.name}</span><strong>{scene.time} · {placedCount}/{operation.players.length} DEPLOYED</strong></div>
         <div className="header-actions">
           <button type="button" onClick={undo} disabled={!canUndo} title="실행 취소">↶</button><button type="button" onClick={redo} disabled={!canRedo} title="다시 실행">↷</button>
           <button type="button" onClick={exportJson}>JSON ↓</button><button type="button" onClick={() => importRef.current?.click()}>JSON ↑</button><input ref={importRef} className="visually-hidden" type="file" accept="application/json" onChange={importJson} />
@@ -239,12 +249,12 @@ export default function WarTable() {
 
       <section className="workspace-grid">
         <aside className="roster-panel panel">
-          <div className="panel-heading"><div><span className="eyebrow">BLUE FORCE</span><h2>PLAYER ROSTER</h2></div><span className="count-badge">30 / 30</span></div>
+          <div className="panel-heading"><div><span className="eyebrow">BLUE FORCE</span><h2>PLAYER ROSTER</h2></div><span className="count-badge">{operation.players.length} / {operation.players.length}</span></div>
           <div className="roster-controls">
             <div className="role-summary"><span className="dot infantry" /> {counts.infantry}<span className="dot cavalry" /> {counts.cavalry}<span className="dot ranged" /> {counts.ranged}</div>
             <select aria-label="역할 필터" value={roleFilter} onChange={(event) => setRoleFilter(event.target.value as "all" | PrimaryRole)}><option value="all">전체 역할</option><option value="infantry">보병</option><option value="cavalry">기병</option><option value="ranged">원거리</option></select>
           </div>
-          <div className="roster-list" aria-label="30명 플레이어 명단">
+          <div className="roster-list" aria-label={`${operation.players.length}명 플레이어 명단`}>
             {operation.players.filter((player) => roleFilter === "all" || player.primaryRole === roleFilter).map((player) => (
               <button draggable type="button" key={player.id} className={`player-row ${editingId === player.id ? "is-active" : ""} ${scene.positions[String(player.id)] ? "is-placed" : ""}`} onDragStart={(event) => handleRosterDrag(event, player.id)} onClick={() => { setEditingId(player.id); if (!scene.positions[String(player.id)]) setSelectedIds([player.id]); }}>
                 <span className="player-num">{String(player.id).padStart(2, "0")}</span><span className="player-copy"><strong>{player.nickname}</strong><RolePill role={player.primaryRole} /></span><span className="edit-glyph">{scene.positions[String(player.id)] ? "●" : "⋮⋮"}</span>
@@ -257,18 +267,18 @@ export default function WarTable() {
           <div className="map-image-layer" /><div className="map-grid-lines" />
           <div className="map-toolbar" onPointerDown={(event) => event.stopPropagation()}>
             <div className="map-switcher" aria-label="지도 선택"><button type="button" className={mapVariant === "tactical" ? "active" : ""} onClick={() => setMapVariant("tactical")}>전술 맵</button><button type="button" className={mapVariant === "field" ? "active" : ""} onClick={() => setMapVariant("field")}>실전 맵</button></div>
-            <div className="map-toolbar-stats"><span>배치 <b>{placedCount}/30</b></span><span>중립 <b>{objectiveCounts.neutral}</b></span><span className="stat-lucia">루시아 <b>{objectiveCounts.lucia}</b></span><span className="stat-ian">이안 <b>{objectiveCounts.ian}</b></span></div>
+            <div className="map-toolbar-stats"><span>배치 <b>{placedCount}/{operation.players.length}</b></span><span>중립 <b>{objectiveCounts.neutral}</b></span><span className="stat-lucia">루시아 <b>{objectiveCounts.lucia}</b></span><span className="stat-ian">이안 <b>{objectiveCounts.ian}</b></span></div>
             <button type="button" className="panel-toggle" onClick={() => setMapFocus((current) => !current)}>{mapFocus ? "편집 패널 열기" : "지도 크게 보기"}</button>
           </div>
-          <div className="home-zone home-lucia"><span>루시아팀 본진 · 30 CASTLES</span></div><div className="home-zone home-ian"><span>이안팀 본진 · 30 CASTLES</span></div>
+          <div className="home-zone home-lucia" role="img" aria-label="루시아팀 스타팅 포인트" /><div className="home-zone home-ian" role="img" aria-label="이안팀 스타팅 포인트" />
           <div className="lifestone-anchor" aria-label="생명의 반석, 생명석 스폰 지점"><span>◆</span><strong>생명의 반석</strong><small>생명석 스폰</small></div>
-          {OBJECTIVE_META.map((objective, index) => { const owner = scene.objectiveOwners?.[objective.id] ?? "neutral"; const point = objective[mapVariant]; return <button type="button" key={objective.id} className={`capture-objective owner-${owner}`} style={{ left: `${point.x}%`, top: `${point.y}%` }} onClick={() => cycleObjective(objective.id)} aria-label={`${objective.label}: ${owner === "neutral" ? "중립" : owner === "lucia" ? "루시아팀" : "이안팀"}`} title={`${objective.label} · 클릭하여 점령 상태 변경`}><b>{String(index + 1).padStart(2, "0")}</b><span>{objective.label}</span></button>; })}
+          {OBJECTIVE_META.map((objective) => { const owner = scene.objectiveOwners?.[objective.id] ?? "neutral"; const point = objective[mapVariant]; return <button type="button" key={objective.id} className={`capture-objective owner-${owner}`} style={{ left: `${point.x}%`, top: `${point.y}%` }} onClick={() => cycleObjective(objective.id)} aria-label={`${objective.location} ${objective.label}: ${owner === "neutral" ? "중립" : owner === "lucia" ? "루시아팀" : "이안팀"}`} title={`${objective.location} ${objective.label} · 클릭하여 점령 상태 변경`}><span>{objective.label}</span></button>; })}
           <svg className="tactical-svg" viewBox="0 0 1000 1000" preserveAspectRatio="none" aria-label="전술 오브젝트 레이어">
             <defs><marker id="move-head" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#55cfff" /></marker><marker id="attack-head" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#ff5353" /></marker></defs>
             {visibleObjects.filter((object) => ["moveArrow", "attackArrow", "defense"].includes(object.type)).map((object) => object.type === "defense" ? <rect key={object.id} className="tactical-object defense-zone" onClick={() => deleteObject(object.id)} x={Math.min(object.x, object.x2 ?? object.x) * 1000} y={Math.min(object.y, object.y2 ?? object.y) * 1000} width={Math.abs((object.x2 ?? object.x) - object.x) * 1000} height={Math.abs((object.y2 ?? object.y) - object.y) * 1000} /> : <line key={object.id} className={`tactical-object arrow-${object.type}`} onClick={() => deleteObject(object.id)} x1={object.x * 1000} y1={object.y * 1000} x2={(object.x2 ?? object.x) * 1000} y2={(object.y2 ?? object.y) * 1000} markerEnd={`url(#${object.type === "moveArrow" ? "move-head" : "attack-head"})`} />)}
           </svg>
           {visibleObjects.filter((object) => ["rally", "step", "text"].includes(object.type)).map((object) => <button type="button" key={object.id} className={`tactical-object map-marker marker-${object.type}`} style={{ left: `${object.x * 100}%`, top: `${object.y * 100}%` }} onClick={() => deleteObject(object.id)}><span>{object.type === "rally" ? "R" : object.type === "step" ? `S${stepObjects.findIndex((item) => item.id === object.id) + 1}` : object.text}</span></button>)}
-          {layers.players && operation.players.filter((player) => scene.positions[String(player.id)] && (roleFilter === "all" || player.primaryRole === roleFilter)).map((player) => { const pos = scene.positions[String(player.id)]; return <button type="button" key={player.id} className={`player-token role-${player.primaryRole} ${selectedIds.includes(player.id) ? "selected" : ""}`} style={{ left: `${pos.x * 100}%`, top: `${pos.y * 100}%` }} onPointerDown={(event) => handleTokenPointerDown(event, player.id)} aria-label={`${player.nickname} ${ROLE_LABEL[player.primaryRole]} 말`}><span className="token-num">{String(player.id).padStart(2, "0")}</span><span className="token-copy"><strong>{player.nickname}</strong><small>{ROLE_LABEL[player.primaryRole]}{player.secondaryRoles.length ? ` · ${player.secondaryRoles.map((role) => SECONDARY_LABEL[role]).join("/")}` : ""}</small></span></button>; })}
+          {layers.players && operation.players.filter((player) => scene.positions[String(player.id)] && (roleFilter === "all" || player.primaryRole === roleFilter)).map((player) => { const pos = scene.positions[String(player.id)]; const tooltip = `${player.nickname} · ${ROLE_LABEL[player.primaryRole]}${player.secondaryRoles.length ? ` · ${player.secondaryRoles.map((role) => SECONDARY_LABEL[role]).join("/")}` : ""}`; return <button type="button" key={player.id} className={`player-token role-${player.primaryRole} ${selectedIds.includes(player.id) ? "selected" : ""}`} style={{ left: `${pos.x * 100}%`, top: `${pos.y * 100}%` }} onPointerDown={(event) => handleTokenPointerDown(event, player.id)} aria-label={tooltip} data-tooltip={tooltip}><UnitRoleIcon role={player.primaryRole} /><span className="token-num">{String(player.id).padStart(2, "0")}</span></button>; })}
           <div className="map-note"><span>{mapVariant === "tactical" ? "TACTICAL OVERVIEW" : "FIELD REFERENCE"}</span><strong>{mapVariant === "tactical" ? "헤이나펄 전술 맵" : "헤이나펄 실전 지형"}</strong><small>{TOOL_META.find((item) => item.id === tool)?.hint}</small></div><div className="map-coordinates"><span>GRID A-01</span><span>생명의 반석 기준 작전도</span><span>GRID H-09</span></div>
         </section>
 

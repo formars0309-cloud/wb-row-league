@@ -187,3 +187,146 @@ body {
 .scene-strip > button.active { border-color: #9e8353; background: linear-gradient(#302b21, #1a1815); box-shadow: inset 0 0 0 1px rgba(215, 181, 109, 0.14); }
 .scene-strip > button.active i, .scene-strip > button.active b { color: #dfc27f; }
 .footer-actions span { border-color: #6f6248; border-radius: 2px; color: #d8bd7d; background: #211e18; }
+
+/* Map alignment and compact unit markers */
+.map-tactical .map-image-layer {
+  background-image: linear-gradient(rgba(7, 9, 10, 0.02), rgba(7, 9, 10, 0.08)), url('/maps/heinapel-tactical-clean.png');
+}
+
+.home-zone {
+  width: 15%;
+  height: auto;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  border: 0;
+  border-radius: 50%;
+  box-shadow: none;
+}
+.home-zone::before { display: none; }
+.home-lucia {
+  background: radial-gradient(circle, rgba(51, 221, 244, 0.34) 0 35%, rgba(51, 221, 244, 0.16) 52%, transparent 72%);
+}
+.home-ian {
+  background: radial-gradient(circle, rgba(255, 216, 42, 0.34) 0 35%, rgba(255, 216, 42, 0.16) 52%, transparent 72%);
+}
+.map-tactical .home-lucia { left: 43.4%; top: 19.4%; width: 15%; height: auto; }
+.map-tactical .home-ian { left: 61.2%; top: 55.8%; width: 15%; height: auto; }
+.map-field .home-lucia { left: 43%; top: 35%; width: 15%; height: auto; }
+.map-field .home-ian { left: 55.5%; top: 65%; width: 15%; height: auto; }
+.map-tactical .lifestone-anchor { left: 50.8%; top: 34.3%; }
+
+.capture-objective {
+  width: auto;
+  min-width: 44px;
+  height: 22px;
+  padding: 0 8px;
+  transform: translate(-50%, -50%);
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  background: rgba(16, 18, 21, 0.94);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.72);
+  transition: transform 0.12s ease, background-color 0.12s ease;
+}
+.capture-objective::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  width: 1px;
+  height: 8px;
+  background: currentColor;
+  opacity: 0.82;
+}
+.capture-objective:hover {
+  z-index: 9;
+  transform: translate(-50%, -50%) scale(1.06);
+  background: #25282c;
+}
+.capture-objective b { display: none; }
+.capture-objective span {
+  position: static;
+  display: block;
+  padding: 0;
+  transform: none;
+  border: 0;
+  background: transparent;
+  color: currentColor;
+  font: 800 9px ui-monospace, monospace;
+  letter-spacing: 0.08em;
+}
+.capture-objective:hover span { display: block; }
+.capture-objective.owner-neutral { color: #f0eee7; background: rgba(19, 21, 24, 0.94); }
+.capture-objective.owner-lucia { color: #78c9ff; background: rgba(18, 45, 62, 0.94); }
+.capture-objective.owner-ian { color: #ffe16a; background: rgba(60, 51, 19, 0.94); }
+
+.player-token {
+  width: 38px;
+  height: 38px;
+  max-width: none;
+  transform: translate(-50%, -50%);
+  display: grid;
+  place-items: center;
+  overflow: visible;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  box-shadow: none;
+  color: var(--role-color);
+}
+.player-token::before { display: none; }
+.player-token::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 7px);
+  z-index: 20;
+  width: max-content;
+  max-width: 220px;
+  padding: 5px 8px;
+  transform: translate(-50%, 3px);
+  border: 1px solid color-mix(in srgb, var(--role-color) 70%, #fff 10%);
+  border-radius: 3px;
+  background: rgba(10, 13, 16, 0.96);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.68);
+  color: #f5f2e9;
+  opacity: 0;
+  pointer-events: none;
+  white-space: nowrap;
+  font: 800 9px ui-monospace, monospace;
+  transition: opacity 0.12s ease, transform 0.12s ease;
+}
+.player-token:hover::after,
+.player-token:focus-visible::after {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+.player-token:hover { border-color: transparent; }
+.player-token.selected {
+  outline: 2px solid #f3d487;
+  outline-offset: 2px;
+  box-shadow: 0 0 13px rgba(243, 212, 135, 0.46);
+}
+.unit-role-icon {
+  width: 36px;
+  height: 36px;
+  overflow: visible;
+  fill: color-mix(in srgb, var(--role-color) 76%, #dce9ed 24%);
+  stroke: rgba(6, 10, 12, 0.92);
+  stroke-width: 1.6;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 3px 3px rgba(0, 0, 0, 0.68));
+}
+.unit-icon-cutout { fill: #101418; stroke: none; }
+.player-token.role-ranged .unit-role-icon { width: 32px; height: 32px; }
+.player-token .token-num {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: auto;
+  display: grid;
+  place-items: center;
+  background: transparent;
+  color: #fff;
+  text-shadow: 0 1px 3px #000, 0 0 3px #000;
+  font: 900 7px ui-monospace, monospace;
+}

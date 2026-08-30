@@ -38,8 +38,8 @@ test("server-renders the Heinapel War Table", async () => {
   assert.match(html, /전술 맵/);
   assert.match(html, /실전 맵/);
   assert.match(html, /생명의 반석/);
-  assert.equal((html.match(/class="player-row\b/g) ?? []).length, 30);
-  assert.equal((html.match(/class="capture-objective owner-neutral"/g) ?? []).length, 9);
+  assert.equal((html.match(/class="player-row\b/g) ?? []).length, 35);
+  assert.equal((html.match(/class="capture-objective owner-neutral"/g) ?? []).length, 8);
   assert.doesNotMatch(html, /Your site is taking shape|Building your site/);
 });
 
@@ -50,19 +50,22 @@ test("keeps the interactive operation features and map assets wired", async () =
       readFile(new URL("../app/mdt-theme.css", import.meta.url), "utf8"),
       readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
       readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
-      stat(new URL("../public/maps/heinapel-tactical.png", import.meta.url)),
+      stat(new URL("../public/maps/heinapel-tactical-clean.png", import.meta.url)),
       stat(new URL("../public/maps/heinapel-field.png", import.meta.url)),
       stat(new URL("../public/og.png", import.meta.url)),
     ]);
 
-  assert.match(warTable, /const STORAGE_KEY = "heinapel-war-table-v0\.1"/);
+  assert.match(warTable, /const STORAGE_KEY = "heinapel-war-table-v0\.2"/);
   assert.match(warTable, /const OBJECTIVE_META = \[/);
+  assert.match(warTable, /\["핫떠그", "infantry"\]/);
+  assert.match(warTable, /function UnitRoleIcon/);
   assert.match(warTable, /current === "neutral" \? "lucia"/);
   assert.match(warTable, /localStorage\.setItem\(STORAGE_KEY/);
   assert.match(warTable, /anchor\.download = "heinapel-operation\.json"/);
   assert.match(warTable, /type MapVariant = "tactical" \| "field"/);
-  assert.match(theme, /url\('\/maps\/heinapel-tactical\.png'\)/);
+  assert.match(theme, /url\('\/maps\/heinapel-tactical-clean\.png'\)/);
   assert.match(theme, /url\('\/maps\/heinapel-field\.png'\)/);
+  assert.match(theme, /content: attr\(data-tooltip\)/);
   assert.match(page, /return <WarTable \/>/);
   assert.match(layout, /title: "Heinapel War Table v0\.1"/);
   assert.ok(tacticalMap.size > 0);
