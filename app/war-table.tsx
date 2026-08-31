@@ -109,22 +109,22 @@ const STAFF_ORDER: Record<PrimaryRole, string> = {
 const DEFAULT_SCENE_EVENTS: SceneEvents = { fairyDragon: "", lifeStone: "", fairyDragonPosition: "northwest" };
 const SCENE_TIMES = ["60:00", "55:00", "52:00", "46:00", "42:00"];
 const STARTING_POINT_CENTER: Record<MapVariant, Record<"lucia" | "ian", Point>> = {
-  tactical: { lucia: { x: .392, y: .268 }, ian: { x: .612, y: .558 } },
-  field: { lucia: { x: .342, y: .42 }, ian: { x: .594, y: .65 } },
+  tactical: { lucia: { x: .4044, y: .2294 }, ian: { x: .6265, y: .5193 } },
+  field: { lucia: { x: .3793, y: .3673 }, ian: { x: .6313, y: .5973 } },
 };
 const OBJECTIVE_META = [
-  { id: "spirit-west", label: "영목", location: "서쪽", tactical: { x: 27.9, y: 39.3 }, field: { x: 20.8, y: 54.2 } },
-  { id: "spirit-north", label: "영목", location: "북쪽", tactical: { x: 57.5, y: 10.3 }, field: { x: 61.9, y: 16.3 } },
-  { id: "spirit-east", label: "영목", location: "동쪽", tactical: { x: 77.3, y: 38.1 }, field: { x: 79.8, y: 40 } },
-  { id: "spirit-south", label: "영목", location: "남쪽", tactical: { x: 43.3, y: 71.3 }, field: { x: 38.4, y: 81.6 } },
-  { id: "hall-northeast", label: "전당", location: "1시", tactical: { x: 71.1, y: 11.3 }, field: { x: 78.9, y: 21 } },
-  { id: "hall-southwest", label: "전당", location: "7시", tactical: { x: 24.8, y: 61.6 }, field: { x: 21.1, y: 75 } },
-  { id: "hall-north", label: "전당", location: "생명의 반석 12시", tactical: { x: 53.5, y: 18.9 }, field: { x: 55.4, y: 27.3 } },
-  { id: "hall-south", label: "전당", location: "생명의 반석 6시", tactical: { x: 47.7, y: 50.6 }, field: { x: 45.2, y: 68.5 } },
-  { id: "lookout-lucia-west", label: "전망대", location: "루시아 스타팅 후방 서쪽", tactical: { x: 28.1, y: 15 }, field: { x: 21.8, y: 23.4 } },
-  { id: "lookout-lucia-east", label: "전망대", location: "루시아 스타팅 후방 동쪽", tactical: { x: 36.4, y: 13.3 }, field: { x: 33.7, y: 22.2 } },
-  { id: "lookout-ian-west", label: "전망대", location: "이안 스타팅 후방 서쪽", tactical: { x: 70.6, y: 60.2 }, field: { x: 69.6, y: 75.8 } },
-  { id: "lookout-ian-east", label: "전망대", location: "이안 스타팅 후방 동쪽", tactical: { x: 80.2, y: 57.2 }, field: { x: 79.8, y: 73.4 } },
+  { id: "spirit-west", label: "영목", location: "서쪽", tactical: { x: 26.92, y: 37.76 }, field: { x: 21.03, y: 55.33 } },
+  { id: "spirit-north", label: "영목", location: "북쪽", tactical: { x: 58.56, y: 5.38 }, field: { x: 62.28, y: 15.58 } },
+  { id: "spirit-east", label: "영목", location: "동쪽", tactical: { x: 76.17, y: 37.1 }, field: { x: 80.03, y: 41.13 } },
+  { id: "spirit-south", label: "영목", location: "남쪽", tactical: { x: 44.53, y: 69.48 }, field: { x: 38.78, y: 80.88 } },
+  { id: "hall-northeast", label: "전당", location: "1시", tactical: { x: 74.63, y: 11.9 }, field: { x: 79.43, y: 21.23 } },
+  { id: "hall-southwest", label: "전당", location: "7시", tactical: { x: 28.46, y: 62.96 }, field: { x: 21.63, y: 75.22 } },
+  { id: "hall-north", label: "전당", location: "생명의 반석 12시", tactical: { x: 54.52, y: 21.32 }, field: { x: 55.63, y: 27.63 } },
+  { id: "hall-south", label: "전당", location: "생명의 반석 6시", tactical: { x: 48.58, y: 53.54 }, field: { x: 45.43, y: 68.83 } },
+  { id: "lookout-lucia-west", label: "전망대", location: "루시아 스타팅 후방 서쪽", tactical: { x: 25.44, y: 15.49 }, field: { x: 21.53, y: 23.23 } },
+  { id: "lookout-lucia-east", label: "전망대", location: "루시아 스타팅 후방 동쪽", tactical: { x: 34.44, y: 13.42 }, field: { x: 32.58, y: 21.43 } },
+  { id: "lookout-ian-west", label: "전망대", location: "이안 스타팅 후방 서쪽", tactical: { x: 68.66, y: 61.44 }, field: { x: 68.48, y: 75.03 } },
+  { id: "lookout-ian-east", label: "전망대", location: "이안 스타팅 후방 동쪽", tactical: { x: 77.66, y: 59.37 }, field: { x: 79.53, y: 73.23 } },
 ] as const;
 
 function freshOperation(): Operation {
@@ -179,8 +179,8 @@ const RALLY_LEADER_ALIAS: Array<[string, string]> = [["진수님", "[WB] 진 수
 // 적 진영 앞 골짜기 입구. 거점 아이콘이 없는 지형이라 좌표를 직접 잡았다.
 // 전술 맵 값은 지도 원본에서 실측했고, 실전 맵 값은 거점 12쌍의 변위로 환산한 추정치다.
 const ENEMY_GATE: Record<MissionSide, Record<MapVariant, Point>> = {
-  ian: { tactical: { x: .390, y: .388 }, field: { x: .349, y: .526 } },
-  lucia: { tactical: { x: .640, y: .350 }, field: { x: .651, y: .433 } },
+  ian: { tactical: { x: .3903, y: .3933 }, field: { x: .3543, y: .5288 } },
+  lucia: { tactical: { x: .6406, y: .3553 }, field: { x: .6563, y: .4358 } },
 };
 function objectivePoint(id: string, variant: MapVariant): Point | null {
   const found = OBJECTIVE_META.find((item) => item.id === id);

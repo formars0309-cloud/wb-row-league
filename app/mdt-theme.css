@@ -138,7 +138,7 @@ body {
 .map-field .home-lucia { left: 38%; top: 31%; width: 14%; height: 18%; color: #58dcf0; }
 .map-field .home-ian { left: 50%; top: 56%; width: 14%; height: 18%; color: #f0d221; }
 .map-tactical .lifestone-anchor { left: 50.5%; top: 39%; }
-.map-field .lifestone-anchor { left: 50%; top: 48%; }
+.map-field .lifestone-anchor { left: 50.53%; top: 48.23%; }
 .lifestone-anchor::before { width: 47px; height: 47px; background: radial-gradient(circle, rgba(215, 181, 109, 0.2), rgba(17, 19, 20, 0.65) 57%, transparent 60%); border-color: rgba(225, 196, 130, 0.65); box-shadow: 0 2px 10px rgba(0, 0, 0, 0.55); }
 .lifestone-anchor::after { width: 35px; height: 35px; border-color: #d7b56d; }
 .lifestone-anchor span { width: 32px; height: 32px; color: #e0bd71; font-size: 12px; }
@@ -209,11 +209,11 @@ body {
 .home-ian {
   background: radial-gradient(circle, rgba(255, 216, 42, 0.34) 0 35%, rgba(255, 216, 42, 0.16) 52%, transparent 72%);
 }
-.map-tactical .home-lucia { left: 43.4%; top: 19.4%; width: 15%; height: auto; }
-.map-tactical .home-ian { left: 61.2%; top: 55.8%; width: 15%; height: auto; }
+.map-tactical .home-lucia { left: 42.72%; top: 19.25%; width: 15%; height: auto; }
+.map-tactical .home-ian { left: 60.37%; top: 55.62%; width: 15%; height: auto; }
 .map-field .home-lucia { left: 43%; top: 35%; width: 15%; height: auto; }
 .map-field .home-ian { left: 55.5%; top: 65%; width: 15%; height: auto; }
-.map-tactical .lifestone-anchor { left: 50.8%; top: 34.3%; }
+.map-tactical .lifestone-anchor { left: 51.55%; top: 37.43%; }
 
 .capture-objective {
   width: auto;
@@ -340,8 +340,8 @@ body {
   background-size: 170% 100%;
   background-position: center;
 }
-.map-field .home-lucia { left: 38.1%; top: 35%; }
-.map-field .home-ian { left: 59.4%; top: 65%; }
+.map-field .home-lucia { left: 39.88%; top: 33.23%; }
+.map-field .home-ian { left: 61.18%; top: 63.23%; }
 
 .inspector-panel {
   padding: 16px;
@@ -1058,10 +1058,10 @@ body {
   text-align: center;
   text-shadow: 0 2px 5px #000;
 }
-.map-tactical .fairy-dragon-anchor.position-northwest { left: 32.3%; top: 19%; }
-.map-field .fairy-dragon-anchor.position-northwest { left: 27.8%; top: 26%; }
-.map-tactical .fairy-dragon-anchor.position-southeast { left: 75.4%; top: 52.5%; }
-.map-field .fairy-dragon-anchor.position-southeast { left: 74.7%; top: 69.5%; }
+.map-tactical .fairy-dragon-anchor.position-northwest { left: 29.91%; top: 20.63%; }
+.map-field .fairy-dragon-anchor.position-northwest { left: 27.08%; top: 26.48%; }
+.map-tactical .fairy-dragon-anchor.position-southeast { left: 73.18%; top: 54.24%; }
+.map-field .fairy-dragon-anchor.position-southeast { left: 73.98%; top: 69.97%; }
 .fairy-dragon-anchor > span {
   position: relative;
   z-index: 1;
