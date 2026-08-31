@@ -106,6 +106,36 @@ const STAFF_ORDER: Record<PrimaryRole, string> = {
   ranged: "상대 진영에 페어리 드래곤이 처음 소환되기 전, 약속된 장소에서 STAFF 사용",
   cavalry: "스테프 자율 사용",
 };
+// 게임 내 전투 위치 번호. 이안 진영 배치를 기준으로 읽었고 루시아는 정확히 그 거울상이다.
+const SLOT_SOURCE: Array<[string, number]> = [
+  ["무 잔 Muzan", 1], ["[WB] ᴵᴿᴼᴺ TESLA", 2], ["[WB] ᴵᴿᴼᴺ Maha", 3], ["바르니", 4], ["SIGH", 5],
+  ["벌꿀오소리", 6], ["파리스", 7], ["냥 신 (마스터)", 8], ["햄찌", 9], ["Junkhun", 10],
+  ["예리", 11], ["핫떠그", 12], ["불개", 13], ["오늘은일찍자야지", 14], ["최산수", 15],
+  ["Kingsway", 16], ["glen fiddich", 17], ["[WB] ᴵᴿᴼᴺ 조롱말 (HALO)", 18], ["[WB] 구너(마구니)", 19], ["압 수", 20],
+  ["[WB] ᴵᴿᴼᴺ 곡곡이", 21], ["마 젤 란(달의금)", 22], ["서틸로", 23], ["욘 두 Yondu", 24], ["[WB] 진 수", 25],
+  ["대장군 뽀로링", 26], ["벙커", 27], ["5000", 28], ["늑대장군", 29], ["[WB] ᵂᴮ Elega", 30],
+];
+const SLOT_BY_NICKNAME = new Map(SLOT_SOURCE);
+// 진형은 마름모 격자다. 행마다 5·6·7·7·5칸이고, 한 행 안에서 한 칸씩 SLOT_STEP_ALONG,
+// 다음 행으로 넘어갈 때 SLOT_STEP_ROW 만큼 이동한다. 값은 게임 화면 비율을 옮긴 것.
+const SLOT_ROWS = [5, 6, 7, 7, 5];
+const SLOT_STEP_ALONG = { x: -.0256, y: .0195 };
+const SLOT_STEP_ROW = { x: .0245, y: .0282 };
+const SLOT_POINTS = (() => {
+  const list: Array<{ slot: number; x: number; y: number }> = [];
+  let first = 1;
+  SLOT_ROWS.forEach((count, row) => {
+    for (let index = 0; index < count; index += 1) list.push({
+      slot: first + index,
+      x: index * SLOT_STEP_ALONG.x + row * SLOT_STEP_ROW.x,
+      y: index * SLOT_STEP_ALONG.y + row * SLOT_STEP_ROW.y,
+    });
+    first += count;
+  });
+  const cx = list.reduce((sum, item) => sum + item.x, 0) / list.length;
+  const cy = list.reduce((sum, item) => sum + item.y, 0) / list.length;
+  return new Map(list.map((item) => [item.slot, { x: item.x - cx, y: item.y - cy }]));
+})();
 const DEFAULT_SCENE_EVENTS: SceneEvents = { fairyDragon: "", lifeStone: "", fairyDragonPosition: "northwest" };
 const SCENE_TIMES = ["60:00", "55:00", "52:00", "46:00", "42:00"];
 const STARTING_POINT_CENTER: Record<MapVariant, Record<"lucia" | "ian", Point>> = {
@@ -243,6 +273,13 @@ function missionCommandRoles(orders: string[]) {
     roles.push({ key: text, label, place: place || "위치 미상", tone });
   });
   return roles;
+}
+function slotPoint(slot: number, side: MissionSide, variant: MapVariant): Point | null {
+  const offset = SLOT_POINTS.get(slot);
+  if (!offset) return null;
+  const center = STARTING_POINT_CENTER[variant][side];
+  const turn = side === "ian" ? 1 : -1;
+  return { x: clamp(center.x + offset.x * turn), y: clamp(center.y + offset.y * turn) };
 }
 function playerNameClass(player: Player) {
   if (player.secondaryRoles.includes("rally")) return "name-rally";
@@ -479,6 +516,16 @@ export default function WarTable() {
   });
   const closeMissionCard = (playerId: number) => commit((draft) => { draft.cards = (draft.cards ?? []).filter((card) => card.playerId !== playerId); return draft; });
   const closeAllMissionCards = () => commit((draft) => { draft.cards = []; return draft; });
+  const deployOne = (playerId: number, side: MissionSide) => commit((draft) => {
+    const player = draft.players.find((item) => item.id === playerId);
+    const slot = player && SLOT_BY_NICKNAME.get(player.nickname);
+    const spot = slot ? slotPoint(slot, side, mapVariant) : null;
+    const target = draft.scenes.find((item) => item.id === scene.id);
+    if (!spot || !target) return draft;
+    draft.side = side;
+    target.positions[String(playerId)] = spot;
+    return draft;
+  });
   const toggleMissionRoute = (playerId: number) => commit((draft) => {
     draft.cards = (draft.cards ?? []).map((card) => card.playerId === playerId ? { ...card, route: !card.route } : card);
     return draft;
@@ -604,22 +651,24 @@ export default function WarTable() {
       : [...editing.secondaryRoles.filter((item) => item !== "rally" && item !== "garrison"), role];
     patchPlayer(editing.id, { secondaryRoles });
   };
-  const deployStarters = (side: "lucia" | "ian") => {
+  const deployStarters = (side: MissionSide) => {
     const starters = operation.players.filter((player) => player.lineup === "starter");
     const center = STARTING_POINT_CENTER[mapVariant][side];
-    const columns = 7;
-    const rows = Math.ceil(starters.length / columns);
+    // 번호가 없는 사람은 진형 아래에 한 줄로 세워 배치에서 빠지지 않게 한다.
+    const unnumbered = starters.filter((player) => !SLOT_BY_NICKNAME.has(player.nickname));
     commit((draft) => {
       const target = draft.scenes.find((item) => item.id === scene.id);
       if (!target) return draft;
       draft.side = side;
-      starters.forEach((player, index) => {
-        const row = Math.floor(index / columns);
-        const column = index % columns;
-        const rowCount = Math.min(columns, starters.length - row * columns);
+      starters.forEach((player) => {
+        const slot = SLOT_BY_NICKNAME.get(player.nickname);
+        const spot = slot ? slotPoint(slot, side, mapVariant) : null;
+        if (spot) { target.positions[String(player.id)] = spot; return; }
+        const index = unnumbered.indexOf(player);
+        const turn = side === "ian" ? 1 : -1;
         target.positions[String(player.id)] = {
-          x: clamp(center.x + (column - (rowCount - 1) / 2) * .025),
-          y: clamp(center.y + (row - (rows - 1) / 2) * .04),
+          x: clamp(center.x + (index - (unnumbered.length - 1) / 2) * .026 * turn),
+          y: clamp(center.y + .135 * turn),
         };
       });
       return draft;
@@ -659,7 +708,7 @@ export default function WarTable() {
           <div className="roster-list" aria-label={`플레이어 명단 ${visiblePlayers.length}명 표시 · 총 ${operation.players.length}명`}>
             {visiblePlayers.map((player) => (
               <button draggable type="button" key={player.id} className={`player-row ${editingId === player.id ? "is-active" : ""} ${scene.positions[String(player.id)] ? "is-placed" : ""}`} onDragStart={(event) => handleRosterDrag(event, player.id)} onClick={() => { setEditingId(player.id); openMissionCard(player.id); if (!scene.positions[String(player.id)]) setSelectedIds([player.id]); }}>
-                <span className="player-num">{String(player.id).padStart(2, "0")}</span><span className="player-copy"><strong className={playerNameClass(player)}>{player.nickname}</strong><span className={`lineup-badge ${player.lineup}`}>{player.lineup === "reserve" ? "예비" : "주전"}</span></span><span className="edit-glyph">{scene.positions[String(player.id)] ? "●" : "⋮⋮"}</span>
+                <span className="player-num">{SLOT_BY_NICKNAME.get(player.nickname) ?? "—"}</span><span className="player-copy"><strong className={playerNameClass(player)}>{player.nickname}</strong><span className={`lineup-badge ${player.lineup}`}>{player.lineup === "reserve" ? "예비" : "주전"}</span></span><span className="edit-glyph">{scene.positions[String(player.id)] ? "●" : "⋮⋮"}</span>
               </button>
             ))}
           </div>
@@ -692,7 +741,7 @@ export default function WarTable() {
           {openMissionBriefs.map(({ card, player, orders, roles, gaps }) => <div key={card.playerId} className={`tactical-object mission-card side-${missionSide} role-${player.primaryRole}`} style={{ left: `${card.x * 100}%`, top: `${card.y * 100}%` }} onPointerDown={(event) => { if (tool === "delete") { event.stopPropagation(); closeMissionCard(card.playerId); } }}>
             <div className="mission-card-head" onPointerDown={(event) => handleCardPointerDown(event, card)}>
               <UnitRoleIcon unitRole={player.primaryRole} isRally={player.secondaryRoles.includes("rally")} />
-              <strong className="mission-card-name">{player.nickname}</strong>
+              <strong className="mission-card-name">{SLOT_BY_NICKNAME.has(player.nickname) && <b className="mission-card-slot">{SLOT_BY_NICKNAME.get(player.nickname)}</b>}{player.nickname}</strong>
               <div className="mission-card-actions">
                 {orders && <button type="button" className={`mission-card-route ${card.route ? "active" : ""}`} aria-pressed={!!card.route} onClick={() => toggleMissionRoute(card.playerId)} title={`${player.nickname} 부대 목적지를 지도에 표시`}>경로</button>}
                 <button type="button" className="mission-card-close" onClick={() => closeMissionCard(card.playerId)} aria-label={`${player.nickname} 임무 카드 닫기`}>×</button>
@@ -703,12 +752,13 @@ export default function WarTable() {
               {roles.length > 0 && <div className="mission-roles">{roles.map((role) => <span key={role.key} className="mission-role"><b>{role.label}</b>{role.place}</span>)}</div>}
               <ol className="mission-units">{orders.map((text, index) => <li key={index} className={`mission-unit ${missionEmphasis(text)}`}><i>{index + 1}</i><span>{text}</span></li>)}</ol>
               {card.route && gaps.length > 0 && <p className="mission-route-gap">{gaps.join("·")}부대는 임무표에 목적지가 없어 지도에 표시할 수 없습니다</p>}
+              {SLOT_BY_NICKNAME.has(player.nickname) && <div className="mission-deploy"><span>{SLOT_BY_NICKNAME.get(player.nickname)}번 자리로</span>{(Object.keys(MISSION_SIDE_LABEL) as MissionSide[]).map((side) => <button type="button" key={side} className={`deploy-${side}`} onClick={() => deployOne(card.playerId, side)}>{MISSION_SIDE_LABEL[side]} 배치</button>)}</div>}
             </div> : <p className="mission-empty">임무표에 배정된 부대가 없습니다<small>{player.lineup === "reserve" ? "예비 편성" : "시트 미배정"}</small></p>}
           </div>)}
           {visibleObjects.filter((object) => object.type === "memo").map((note) => { const span = memoSpan(note); const isEditing = memoDraft?.id === note.id; return <div key={note.id} className={`tactical-object map-memo${isEditing ? " is-editing" : ""}`} style={{ left: `${note.x * 100}%`, top: `${note.y * 100}%`, width: `${span.width * 100}%`, height: `${span.height * 100}%` }}>{isEditing ? <textarea ref={memoInputRef} aria-label="메모 내용" placeholder="메모를 입력하세요" value={memoDraft.text} onChange={(event) => setMemoDraft({ id: note.id, text: event.target.value })} onBlur={() => finishMemoEdit(true)} onKeyDown={(event) => { if (event.key === "Escape") { event.preventDefault(); finishMemoEdit(false); } }} /> : <button type="button" className="memo-face" onPointerDown={(event) => handleMemoPointerDown(event, note)} onClick={(event) => { if (event.detail !== 0) return; if (tool === "delete") deleteObject(note.id); else if (tool === "select") setMemoDraft({ id: note.id, text: note.text ?? "" }); }} title={tool === "delete" ? "클릭해 메모 삭제" : "클릭해 메모 수정 · 드래그로 이동"}><span className={note.text ? "" : "is-placeholder"}>{note.text || "메모 입력"}</span></button>}</div>; })}
           {visibleObjects.filter((object) => object.type === "attackArrow").map((object, index) => { const origin = object.points?.[0] ?? { x: object.x, y: object.y }; return <span key={`${object.id}-order`} className="attack-line-order" style={{ left: `${origin.x * 100}%`, top: `${origin.y * 100}%` }} aria-hidden="true">{index + 1}</span>; })}
           {visibleObjects.filter((object) => ["rally", "step", "text"].includes(object.type)).map((object) => <button type="button" key={object.id} className={`tactical-object map-marker marker-${object.type}`} style={{ left: `${object.x * 100}%`, top: `${object.y * 100}%` }} onClick={() => deleteObject(object.id)}><span>{object.type === "rally" ? "⚔" : object.type === "step" ? `S${stepObjects.findIndex((item) => item.id === object.id) + 1}` : object.text}</span></button>)}
-          {operation.players.filter((player) => scene.positions[String(player.id)] && (roleFilter === "all" || player.primaryRole === roleFilter)).map((player) => { const pos = scene.positions[String(player.id)]; const isRally = player.secondaryRoles.includes("rally"); const tooltip = `${player.nickname} · ${ROLE_LABEL[player.primaryRole]}${player.secondaryRoles.length ? ` · ${player.secondaryRoles.map((role) => SECONDARY_LABEL[role]).join("/")}` : ""}`; return <button type="button" key={player.id} className={`player-token role-${player.primaryRole} ${isRally ? "is-rally" : ""} ${selectedIds.includes(player.id) ? "selected" : ""}`} style={{ left: `${pos.x * 100}%`, top: `${pos.y * 100}%` }} onPointerDown={(event) => handleTokenPointerDown(event, player.id)} aria-label={tooltip} data-tooltip={tooltip}><UnitRoleIcon unitRole={player.primaryRole} isRally={isRally} />{!isRally && <span className="token-num">{String(player.id).padStart(2, "0")}</span>}</button>; })}
+          {operation.players.filter((player) => scene.positions[String(player.id)] && (roleFilter === "all" || player.primaryRole === roleFilter)).map((player) => { const pos = scene.positions[String(player.id)]; const isRally = player.secondaryRoles.includes("rally"); const tooltip = `${player.nickname} · ${ROLE_LABEL[player.primaryRole]}${player.secondaryRoles.length ? ` · ${player.secondaryRoles.map((role) => SECONDARY_LABEL[role]).join("/")}` : ""}`; return <button type="button" key={player.id} className={`player-token role-${player.primaryRole} ${isRally ? "is-rally" : ""} ${selectedIds.includes(player.id) ? "selected" : ""}`} style={{ left: `${pos.x * 100}%`, top: `${pos.y * 100}%` }} onPointerDown={(event) => handleTokenPointerDown(event, player.id)} aria-label={tooltip} data-tooltip={tooltip}><UnitRoleIcon unitRole={player.primaryRole} isRally={isRally} /><span className="token-num">{SLOT_BY_NICKNAME.get(player.nickname) ?? "·"}</span></button>; })}
           <div className="map-note"><span>{mapVariant === "tactical" ? "TACTICAL OVERVIEW" : "FIELD REFERENCE"}</span><strong>{mapVariant === "tactical" ? "헤이나펄 전술 맵" : "헤이나펄 실전 지형"}</strong><small>{TOOL_META.find((item) => item.id === tool)?.hint}</small></div><div className="map-coordinates"><span>GRID A-01</span><span>생명의 반석 기준 작전도</span><span>GRID H-09</span></div>
         </section>
 
