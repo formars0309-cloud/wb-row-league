@@ -701,6 +701,14 @@ body {
   filter: drop-shadow(0 0 5px rgba(0, 0, 0, 0.8));
 }
 .mission-route.side-lucia { stroke: #5cb8ff; }
+/* 고정 거점이 아니라 아군 목적지 주변으로 도는 부대라, 같은 실선을 옅게 긋고 배지를 속 빈 형태로 둔다. */
+.mission-route.is-roaming { opacity: 0.5; }
+.mission-route-tag.is-roaming {
+  background: rgba(12, 15, 18, 0.88);
+  border-color: #f0c463;
+  color: #f0c463;
+}
+.mission-route-tag.is-roaming.side-lucia { border-color: #5cb8ff; color: #5cb8ff; }
 .mission-route-tag {
   position: absolute;
   z-index: 4;
