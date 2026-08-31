@@ -1,6 +1,9 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import "./mdt-theme.css";
+
+// 모바일 조회 화면이 있으니 기기 폭에 맞춰야 한다.
+export const viewport: Viewport = { width: "device-width", initialScale: 1, themeColor: "#0f1114" };
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"),

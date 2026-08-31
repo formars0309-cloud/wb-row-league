@@ -1348,3 +1348,69 @@ body {
   background: #30291d;
   color: #f0d392;
 }
+
+/* Mobile: read-only briefing so a member can find their own orders on a phone. */
+.mobile-shell {
+  --side: #f0c463;
+  --side-ink: #f8ead0;
+  --side-line: rgba(240, 196, 99, 0.4);
+  --side-wash: rgba(240, 196, 99, 0.12);
+  min-height: 100vh;
+  padding: 12px 12px 40px;
+  background: #0f1114;
+  color: #ddd9d1;
+  font-family: "Noto Sans KR", Arial, sans-serif;
+}
+.mobile-shell.side-lucia {
+  --side: #5cb8ff;
+  --side-ink: #dcefff;
+  --side-line: rgba(92, 184, 255, 0.4);
+  --side-wash: rgba(92, 184, 255, 0.12);
+}
+.mobile-top { display: flex; align-items: center; gap: 10px; padding: 6px 2px 12px; }
+.mobile-top > span { color: #8d8b85; font: 700 10px ui-monospace, monospace; letter-spacing: 0.12em; }
+.mobile-top > strong { color: var(--side-ink); font-size: 16px; }
+.mobile-back { flex: 0 0 auto; width: 34px; height: 34px; border: 1px solid #3c3f44; border-radius: 6px; background: #191c20; color: #cfcdc6; font-size: 20px; line-height: 1; cursor: pointer; }
+.mobile-who { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; }
+.mobile-who b { flex: 0 0 auto; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: var(--side); color: #10130f; font: 900 14px ui-monospace, monospace; }
+.mobile-who span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 17px; font-weight: 800; }
+.mobile-side { flex: 0 0 auto; display: flex; gap: 4px; }
+.mobile-side button { padding: 7px 9px; border: 1px solid #3c3f44; border-radius: 6px; background: #191c20; color: #8d8b85; font-size: 12px; font-weight: 800; cursor: pointer; }
+.mobile-side button.active { border-color: var(--side); background: var(--side-wash); color: var(--side); }
+.mobile-search { display: block; margin-bottom: 10px; }
+.mobile-search input { width: 100%; height: 44px; padding: 0 14px; border: 1px solid #3c3f44; border-radius: 8px; outline: 0; background: #191c20; color: #e6e3db; font-size: 16px; }
+.mobile-search input:focus { border-color: var(--side); }
+.mobile-list { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.mobile-list button { width: 100%; display: grid; grid-template-columns: 34px 1fr auto; align-items: center; gap: 10px; padding: 11px 12px; border: 1px solid #2f3237; border-radius: 8px; background: #17191c; color: inherit; text-align: left; cursor: pointer; }
+.mobile-list b { display: grid; place-items: center; height: 26px; border-radius: 6px; background: rgba(255, 255, 255, 0.07); color: var(--side); font: 900 13px ui-monospace, monospace; }
+.mobile-list b.is-reserve { color: #6d7075; }
+.mobile-list span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; font-weight: 700; }
+.mobile-list small { color: #8b8983; font-size: 11px; }
+.mobile-none { padding: 24px; color: #8b8983; text-align: center; }
+.mobile-meta { margin: 0 2px 12px; color: #9a988f; font-size: 13px; }
+.mobile-map { position: relative; aspect-ratio: 1.25; margin-bottom: 12px; border: 1px solid #2f3237; border-radius: 8px; overflow: hidden; }
+.mobile-map-art { position: absolute; inset: 0; background-image: linear-gradient(rgba(7, 9, 10, 0.12), rgba(7, 9, 10, 0.2)), url("/maps/heinapel-tactical-clean.png"); background-size: 100% 100%; }
+.mobile-map svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.mobile-map line { stroke: var(--side); stroke-width: 3; vector-effect: non-scaling-stroke; }
+.mobile-map line.is-roaming { opacity: 0.5; }
+.mobile-map marker path { fill: var(--side); }
+.mobile-objective { position: absolute; transform: translate(-50%, -50%); padding: 2px 4px; border-radius: 3px; background: rgba(9, 12, 14, 0.72); color: #cfcdc6; font-size: 8px; white-space: nowrap; }
+.mobile-home { position: absolute; transform: translate(-50%, -50%); display: grid; place-items: center; width: 26px; height: 26px; border: 2px solid #10130f; border-radius: 50%; background: var(--side); color: #10130f; font: 900 12px ui-monospace, monospace; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.7); }
+.mobile-tag { position: absolute; transform: translate(-50%, -50%); min-width: 20px; padding: 2px 5px; border: 1px solid #10130f; border-radius: 10px; background: var(--side); color: #10130f; font: 900 10px ui-monospace, monospace; text-align: center; }
+.mobile-tag.is-roaming { background: rgba(12, 15, 18, 0.9); border-color: var(--side); color: var(--side); }
+.mobile-staff { display: flex; align-items: baseline; gap: 8px; margin: 0 0 8px; padding: 11px 12px; border: 1px solid var(--side-line); border-radius: 8px; background: var(--side-wash); color: var(--side-ink); font-size: 14px; line-height: 1.45; word-break: keep-all; }
+.mobile-staff b { flex: 0 0 auto; padding: 3px 7px; border-radius: 4px; background: var(--side); color: #10130f; font: 900 11px ui-monospace, monospace; }
+.mobile-roles { display: grid; gap: 6px; margin-bottom: 8px; }
+.mobile-roles span { display: flex; align-items: baseline; gap: 8px; padding: 10px 12px; border-left: 3px solid var(--side); border-radius: 6px; background: var(--side-wash); color: var(--side-ink); font-size: 14px; word-break: keep-all; }
+.mobile-roles b { flex: 0 0 auto; color: var(--side); font-weight: 900; }
+.mobile-units { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.mobile-units li { display: grid; grid-template-columns: 26px 1fr; align-items: center; gap: 10px; padding: 12px; border: 1px solid #2b2f34; border-radius: 8px; background: #191c20; font-size: 15px; line-height: 1.4; word-break: keep-all; }
+.mobile-units i { display: grid; place-items: center; height: 24px; border-radius: 5px; background: rgba(255, 255, 255, 0.07); color: var(--side); font: 900 13px ui-monospace, monospace; font-style: normal; }
+.mobile-units li.is-key { border-color: var(--side-line); background: var(--side-wash); }
+.mobile-units li.is-key span { color: var(--side-ink); font-weight: 700; }
+.mobile-units li.is-key i { background: var(--side); color: #10130f; }
+.mobile-units li.is-muted { background: #16181b; }
+.mobile-units li.is-muted span { color: #85837d; }
+.mobile-foot { margin: 12px 2px 0; color: #7f8288; font-size: 11px; }
+.mobile-empty { margin: 0; padding: 28px 14px; border: 1px dashed var(--side-line); border-radius: 8px; color: #9a988f; font-size: 14px; text-align: center; }
+.mobile-empty small { display: block; margin-top: 6px; color: #74777c; font-size: 12px; }

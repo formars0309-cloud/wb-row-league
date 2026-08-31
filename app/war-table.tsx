@@ -274,6 +274,24 @@ function missionCommandRoles(orders: string[]) {
   });
   return roles;
 }
+type MissionRoute = { target: string; to: Point; units: number[]; roaming: boolean };
+function buildMissionPlan(orders: string[] | null, side: MissionSide, variant: MapVariant) {
+  const byTarget = new Map<string, { point: Point; units: number[] }>();
+  const roaming: number[] = [];
+  const gaps: number[] = [];
+  (orders ?? []).forEach((text, index) => {
+    const targets = missionTargets(text, side, variant);
+    if (targets.length) { targets.forEach(({ key, point }) => byTarget.set(key, { point, units: [...(byTarget.get(key)?.units ?? []), index + 1] })); return; }
+    if (missionTone(text) === "field") roaming.push(index + 1); else gaps.push(index + 1);
+  });
+  const routes: MissionRoute[] = [...byTarget].map(([target, { point, units }]) => ({ target, to: point, units, roaming: false }));
+  // 필드전투·긴급 주유는 고정 거점이 없어, 그 사람 다른 부대들이 선 자리의 한가운데로 보낸다.
+  if (roaming.length && routes.length) {
+    const to = { x: routes.reduce((sum, route) => sum + route.to.x, 0) / routes.length, y: routes.reduce((sum, route) => sum + route.to.y, 0) / routes.length };
+    routes.push({ target: "roaming", to, units: roaming, roaming: true });
+  } else if (roaming.length) gaps.push(...roaming);
+  return { routes, gaps: gaps.sort((a, b) => a - b) };
+}
 function slotPoint(slot: number, side: MissionSide, variant: MapVariant): Point | null {
   const offset = SLOT_POINTS.get(slot);
   if (!offset) return null;
@@ -306,6 +324,90 @@ function EraserIcon() {
       <path className="eraser-tip" d="m5.2 20.1 5.7-5.7 8.7 8.7-4.9 4.9H11l-5.8-5.8a1.5 1.5 0 0 1 0-2.1Z" />
       <path className="eraser-line" d="m10.9 14.4 8.7 8.7" />
     </svg>
+  );
+}
+
+// 모바일은 조직자의 편집본을 공유받을 수 없어(작전 데이터는 각자 브라우저에 저장된다)
+// 코드에 박힌 명단·임무·번호만 읽는 조회 전용 화면이다.
+const MOBILE_PICK_KEY = "heinapel-mobile-player";
+function MobileBriefing() {
+  const [side, setSide] = useState<MissionSide>("ian");
+  const [pickedId, setPickedId] = useState<number | null>(null);
+  const [query, setQuery] = useState("");
+
+  useEffect(() => {
+    // 저장된 선택은 첫 렌더 뒤에 반영한다. 작전판 본체가 쓰는 방식과 같다.
+    queueMicrotask(() => {
+      try {
+        const saved = Number(localStorage.getItem(MOBILE_PICK_KEY));
+        if (saved && INITIAL_PLAYERS.some((player) => player.id === saved)) setPickedId(saved);
+      } catch { /* 사생활 모드에서는 그냥 고르게 둔다. */ }
+    });
+  }, []);
+  const pick = (id: number) => {
+    setPickedId(id);
+    try { localStorage.setItem(MOBILE_PICK_KEY, String(id)); } catch { /* 저장 실패는 조회를 막지 않는다. */ }
+  };
+
+  const player = INITIAL_PLAYERS.find((item) => item.id === pickedId) ?? null;
+  const needle = query.trim().toLowerCase();
+  const matches = INITIAL_PLAYERS.filter((item) => !needle || item.nickname.toLowerCase().includes(needle));
+
+  if (!player) return (
+    <div className="mobile-shell">
+      <header className="mobile-top"><span>HEINAPEL WAR TABLE</span><strong>내 임무 확인</strong></header>
+      <label className="mobile-search"><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="닉네임 검색" aria-label="닉네임 검색" /></label>
+      <ul className="mobile-list">
+        {matches.map((item) => {
+          const slot = SLOT_BY_NICKNAME.get(item.nickname);
+          return <li key={item.id}><button type="button" onClick={() => pick(item.id)}>
+            <b className={slot ? "" : "is-reserve"}>{slot ?? "—"}</b>
+            <span className={playerNameClass(item)}>{item.nickname}</span>
+            <small>{ROLE_LABEL[item.primaryRole]}{item.lineup === "reserve" ? " · 예비" : ""}</small>
+          </button></li>;
+        })}
+        {matches.length === 0 && <li className="mobile-none">검색 결과가 없습니다</li>}
+      </ul>
+    </div>
+  );
+
+  const slot = SLOT_BY_NICKNAME.get(player.nickname);
+  const orders = MISSION_BY_NICKNAME.get(player.nickname)?.map((text) => mirrorMission(text, side)) ?? null;
+  const roles = orders ? missionCommandRoles(orders) : [];
+  const home = slot ? slotPoint(slot, side, "tactical") : null;
+  const plan = buildMissionPlan(orders, side, "tactical");
+  const routes = home ? plan.routes : [];
+
+  return (
+    <div className={`mobile-shell side-${side}`}>
+      <header className="mobile-top">
+        <button type="button" className="mobile-back" onClick={() => { setPickedId(null); setQuery(""); }} aria-label="다른 사람 고르기">‹</button>
+        <div className="mobile-who">{slot && <b>{slot}</b>}<span className={playerNameClass(player)}>{player.nickname}</span></div>
+        <div className="mobile-side">{(Object.keys(MISSION_SIDE_LABEL) as MissionSide[]).map((item) => <button type="button" key={item} className={side === item ? "active" : ""} aria-pressed={side === item} onClick={() => setSide(item)}>{MISSION_SIDE_LABEL[item]}</button>)}</div>
+      </header>
+
+      <p className="mobile-meta">{ROLE_LABEL[player.primaryRole]} · {player.lineup === "reserve" ? "예비" : "주전"}{roles.map((role) => ` · ${role.label}`).join("")}</p>
+
+      {home && (
+        <div className="mobile-map">
+          <div className="mobile-map-art" />
+          <svg viewBox="0 0 1000 1000" preserveAspectRatio="none" aria-label="내 자리와 부대 목적지">
+            <defs><marker id="mobile-head" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" /></marker></defs>
+            {routes.map((route) => <line key={route.target} className={route.roaming ? "is-roaming" : ""} x1={home.x * 1000} y1={home.y * 1000} x2={route.to.x * 1000} y2={route.to.y * 1000} markerEnd="url(#mobile-head)" />)}
+          </svg>
+          {OBJECTIVE_META.map((objective) => <span key={objective.id} className="mobile-objective" style={{ left: `${objective.tactical.x}%`, top: `${objective.tactical.y}%` }}>{objective.label}</span>)}
+          {routes.map((route) => { const at = .8; return <span key={route.target} className={`mobile-tag${route.roaming ? " is-roaming" : ""}`} style={{ left: `${(home.x + (route.to.x - home.x) * at) * 100}%`, top: `${(home.y + (route.to.y - home.y) * at) * 100}%` }}>{route.units.join("·")}</span>; })}
+          <span className="mobile-home" style={{ left: `${home.x * 100}%`, top: `${home.y * 100}%` }}>{slot}</span>
+        </div>
+      )}
+
+      {orders ? <>
+        <p className="mobile-staff"><b>STAFF</b>{STAFF_ORDER[player.primaryRole]}</p>
+        {roles.length > 0 && <div className="mobile-roles">{roles.map((role) => <span key={role.key}><b>{role.label}</b>{role.place}</span>)}</div>}
+        <ol className="mobile-units">{orders.map((text, index) => <li key={index} className={missionEmphasis(text)}><i>{index + 1}</i><span>{text}</span></li>)}</ol>
+        <p className="mobile-foot">{MISSION_SIDE_LABEL[side]} 진영 기준{side === "lucia" ? " · 이안 기준 임무표에서 좌우 환산" : ""}</p>
+      </> : <p className="mobile-empty">임무표에 배정된 부대가 없습니다<small>{player.lineup === "reserve" ? "예비 편성" : "시트 미배정"}</small></p>}
+    </div>
   );
 }
 
@@ -344,21 +446,9 @@ export default function WarTable() {
     const orders = MISSION_BY_NICKNAME.get(player.nickname)?.map((text) => mirrorMission(text, missionSide)) ?? null;
     const roles = orders ? missionCommandRoles(orders) : [];
     const origin = scene.positions[String(player.id)] ?? STARTING_POINT_CENTER[mapVariant][missionSide];
-    const byTarget = new Map<string, { point: Point; units: number[] }>();
-    const roaming: number[] = [];
-    const gaps: number[] = [];
-    (orders ?? []).forEach((text, index) => {
-      const targets = missionTargets(text, missionSide, mapVariant);
-      if (targets.length) { targets.forEach(({ key, point }) => byTarget.set(key, { point, units: [...(byTarget.get(key)?.units ?? []), index + 1] })); return; }
-      if (missionTone(text) === "field") roaming.push(index + 1); else gaps.push(index + 1);
-    });
-    const routes = [...byTarget].map(([key, { point, units }]) => ({ key: `${card.playerId}-${key}`, nickname: player.nickname, from: origin, to: point, units, roaming: false }));
-    // 필드전투·긴급 주유는 고정 거점이 없어, 그 사람 다른 부대들이 선 자리의 한가운데로 보낸다.
-    if (roaming.length && routes.length) {
-      const to = { x: routes.reduce((sum, route) => sum + route.to.x, 0) / routes.length, y: routes.reduce((sum, route) => sum + route.to.y, 0) / routes.length };
-      routes.push({ key: `${card.playerId}-roaming`, nickname: player.nickname, from: origin, to, units: roaming, roaming: true });
-    } else if (roaming.length) gaps.push(...roaming);
-    return { card, player, orders, roles, routes, gaps: gaps.sort((a, b) => a - b) };
+    const plan = buildMissionPlan(orders, missionSide, mapVariant);
+    const routes = plan.routes.map((route) => ({ ...route, key: `${card.playerId}-${route.target}`, nickname: player.nickname, from: origin }));
+    return { card, player, orders, roles, routes, gaps: plan.gaps };
   }).filter((brief) => brief !== null);
   const missionRoutes = openMissionBriefs.filter((brief) => brief.card.route).flatMap((brief) => brief.routes);
   const counts = useMemo(() => {
@@ -688,6 +778,7 @@ export default function WarTable() {
   }, { neutral: 0, lucia: 0, ian: 0 } as Record<ObjectiveOwner, number>);
 
   return (
+    <>
     <main className={`war-shell${mapFocus ? " map-focus" : ""}`}>
       <header className="topbar">
         <div className="brand-block"><span className="brand-mark">H</span><div><h1>HEINAPEL <span>WAR TABLE</span></h1><input aria-label="작전명" value={operation.name} onChange={(event) => commit((draft) => { draft.name = event.target.value; return draft; })} /></div></div>
@@ -821,7 +912,8 @@ export default function WarTable() {
           <div className="scene-editor-actions"><button type="button" onClick={() => setSceneDraft(null)}>취소</button><button type="submit">장면 저장</button></div>
         </form>}
       </footer>
-      <div className="desktop-only">이 작전판은 1180px 이상의 PC 화면에 최적화되어 있습니다.</div>
     </main>
+    <MobileBriefing />
+    </>
   );
 }
