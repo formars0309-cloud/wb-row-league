@@ -176,29 +176,40 @@ function memoRect(start: Point, end: Point) {
 }
 function memoSpan(object: TacticalObject) { return { width: Math.abs((object.x2 ?? object.x) - object.x), height: Math.abs((object.y2 ?? object.y) - object.y) }; }
 const RALLY_LEADER_ALIAS: Array<[string, string]> = [["진수님", "[WB] 진 수"], ["오소리님", "벌꿀오소리"]];
+// 적 진영 앞 골짜기 입구. 거점 아이콘이 없는 지형이라 좌표를 직접 잡았다.
+// 전술 맵 값은 지도 원본에서 실측했고, 실전 맵 값은 거점 12쌍의 변위로 환산한 추정치다.
+const ENEMY_GATE: Record<MissionSide, Record<MapVariant, Point>> = {
+  ian: { tactical: { x: .390, y: .388 }, field: { x: .349, y: .526 } },
+  lucia: { tactical: { x: .640, y: .350 }, field: { x: .651, y: .433 } },
+};
 function objectivePoint(id: string, variant: MapVariant): Point | null {
   const found = OBJECTIVE_META.find((item) => item.id === id);
   if (!found) return null;
   const point = found[variant];
   return { x: point.x / 100, y: point.y / 100 };
 }
-function missionTargetIds(text: string, side: MissionSide, followed = false): string[] {
+function missionTargets(text: string, side: MissionSide, variant: MapVariant, followed = false): Array<{ key: string; point: Point }> {
   // 집결 탑승은 그 집결장이 서는 자리로 따라간다.
   if (!followed && text.includes("집결 탑승")) {
     const alias = RALLY_LEADER_ALIAS.find(([label]) => text.includes(label));
     const leader = alias && MISSION_BY_NICKNAME.get(alias[1]);
     if (!leader) return [];
     const rally = leader.map((order) => mirrorMission(order, side)).find((order) => order.includes("집결"));
-    return rally ? missionTargetIds(rally, side, true) : [];
+    return rally ? missionTargets(rally, side, variant, true) : [];
   }
-  if (text.includes("전망대")) return ["lookout-lucia-west", "lookout-lucia-east", "lookout-ian-west", "lookout-ian-east"];
-  if (text.includes("9시")) return ["spirit-west"];
-  if (text.includes("3시")) return ["spirit-east"];
-  if (text.includes("12시")) return [text.includes("목명") ? "hall-north" : "spirit-north"];
-  if (text.includes("6시")) return [text.includes("군왕") ? "hall-south" : "spirit-south"];
-  if (text.includes("1시")) return ["hall-northeast"];
-  if (text.includes("7시")) return ["hall-southwest"];
-  return [];
+  // 입구는 거점이 아니라 지형이라 시계 표기보다 먼저 걸러야 한다.
+  if (text.includes("입구")) return [{ key: "enemy-gate", point: ENEMY_GATE[side][variant] }];
+  const ids = (() => {
+    if (text.includes("전망대")) return ["lookout-lucia-west", "lookout-lucia-east", "lookout-ian-west", "lookout-ian-east"];
+    if (text.includes("9시")) return ["spirit-west"];
+    if (text.includes("3시")) return ["spirit-east"];
+    if (text.includes("12시")) return [text.includes("목명") ? "hall-north" : "spirit-north"];
+    if (text.includes("6시")) return [text.includes("군왕") ? "hall-south" : "spirit-south"];
+    if (text.includes("1시")) return ["hall-northeast"];
+    if (text.includes("7시")) return ["hall-southwest"];
+    return [];
+  })();
+  return ids.map((id) => { const point = objectivePoint(id, variant); return point ? { key: id, point } : null; }).filter((target) => target !== null);
 }
 function mirrorMission(text: string, side: MissionSide) {
   return side === "ian" ? text : text.replace(MISSION_MIRROR_PATTERN, (token) => MISSION_MIRROR.get(token) ?? token);
@@ -296,18 +307,15 @@ export default function WarTable() {
     const orders = MISSION_BY_NICKNAME.get(player.nickname)?.map((text) => mirrorMission(text, missionSide)) ?? null;
     const roles = orders ? missionCommandRoles(orders) : [];
     const origin = scene.positions[String(player.id)] ?? STARTING_POINT_CENTER[mapVariant][missionSide];
-    const byTarget = new Map<string, number[]>();
+    const byTarget = new Map<string, { point: Point; units: number[] }>();
     const roaming: number[] = [];
     const gaps: number[] = [];
     (orders ?? []).forEach((text, index) => {
-      const ids = missionTargetIds(text, missionSide);
-      if (ids.length) { ids.forEach((id) => byTarget.set(id, [...(byTarget.get(id) ?? []), index + 1])); return; }
+      const targets = missionTargets(text, missionSide, mapVariant);
+      if (targets.length) { targets.forEach(({ key, point }) => byTarget.set(key, { point, units: [...(byTarget.get(key)?.units ?? []), index + 1] })); return; }
       if (missionTone(text) === "field") roaming.push(index + 1); else gaps.push(index + 1);
     });
-    const routes = [...byTarget].map(([id, units]) => {
-      const to = objectivePoint(id, mapVariant);
-      return to ? { key: `${card.playerId}-${id}`, nickname: player.nickname, from: origin, to, units, roaming: false } : null;
-    }).filter((route) => route !== null);
+    const routes = [...byTarget].map(([key, { point, units }]) => ({ key: `${card.playerId}-${key}`, nickname: player.nickname, from: origin, to: point, units, roaming: false }));
     // 필드전투·긴급 주유는 고정 거점이 없어, 그 사람 다른 부대들이 선 자리의 한가운데로 보낸다.
     if (roaming.length && routes.length) {
       const to = { x: routes.reduce((sum, route) => sum + route.to.x, 0) / routes.length, y: routes.reduce((sum, route) => sum + route.to.y, 0) / routes.length };
