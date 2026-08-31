@@ -10,7 +10,7 @@ type ObjectiveOwner = "neutral" | "lucia" | "ian";
 type MapVariant = "tactical" | "field";
 type MissionSide = "ian" | "lucia";
 type MissionOrders = [string, string, string, string, string];
-type MissionCard = { playerId: number; x: number; y: number };
+type MissionCard = { playerId: number; x: number; y: number; route?: boolean };
 type MissionTone = "rally" | "garrison" | "roam" | "join" | "block" | "field" | "hold";
 type FairyDragonPosition = "northwest" | "southeast";
 type Point = { x: number; y: number };
@@ -175,6 +175,31 @@ function memoRect(start: Point, end: Point) {
   return { left: fitAxis(Math.min(start.x, end.x), width), top: fitAxis(Math.min(start.y, end.y), height), width, height };
 }
 function memoSpan(object: TacticalObject) { return { width: Math.abs((object.x2 ?? object.x) - object.x), height: Math.abs((object.y2 ?? object.y) - object.y) }; }
+const RALLY_LEADER_ALIAS: Array<[string, string]> = [["진수님", "[WB] 진 수"], ["오소리님", "벌꿀오소리"]];
+function objectivePoint(id: string, variant: MapVariant): Point | null {
+  const found = OBJECTIVE_META.find((item) => item.id === id);
+  if (!found) return null;
+  const point = found[variant];
+  return { x: point.x / 100, y: point.y / 100 };
+}
+function missionTargetIds(text: string, side: MissionSide, followed = false): string[] {
+  // 집결 탑승은 그 집결장이 서는 자리로 따라간다.
+  if (!followed && text.includes("집결 탑승")) {
+    const alias = RALLY_LEADER_ALIAS.find(([label]) => text.includes(label));
+    const leader = alias && MISSION_BY_NICKNAME.get(alias[1]);
+    if (!leader) return [];
+    const rally = leader.map((order) => mirrorMission(order, side)).find((order) => order.includes("집결"));
+    return rally ? missionTargetIds(rally, side, true) : [];
+  }
+  if (text.includes("전망대")) return side === "ian" ? ["lookout-ian-west", "lookout-ian-east"] : ["lookout-lucia-west", "lookout-lucia-east"];
+  if (text.includes("9시")) return ["spirit-west"];
+  if (text.includes("3시")) return ["spirit-east"];
+  if (text.includes("12시")) return [text.includes("목명") ? "hall-north" : "spirit-north"];
+  if (text.includes("6시")) return [text.includes("군왕") ? "hall-south" : "spirit-south"];
+  if (text.includes("1시")) return ["hall-northeast"];
+  if (text.includes("7시")) return ["hall-southwest"];
+  return [];
+}
 function mirrorMission(text: string, side: MissionSide) {
   return side === "ian" ? text : text.replace(MISSION_MIRROR_PATTERN, (token) => MISSION_MIRROR.get(token) ?? token);
 }
@@ -271,6 +296,15 @@ export default function WarTable() {
     const orders = MISSION_BY_NICKNAME.get(player.nickname)?.map((text) => mirrorMission(text, missionSide)) ?? null;
     return { card, player, orders, roles: orders ? missionCommandRoles(orders) : [] };
   }).filter((brief) => brief !== null);
+  const missionRoutes = openMissionBriefs.filter((brief) => brief.card.route && brief.orders).flatMap(({ card, player, orders }) => {
+    const origin = scene.positions[String(player.id)] ?? STARTING_POINT_CENTER[mapVariant][missionSide];
+    const byTarget = new Map<string, number[]>();
+    orders!.forEach((text, index) => missionTargetIds(text, missionSide).forEach((id) => byTarget.set(id, [...(byTarget.get(id) ?? []), index + 1])));
+    return [...byTarget].map(([id, units]) => {
+      const to = objectivePoint(id, mapVariant);
+      return to ? { key: `${card.playerId}-${id}`, nickname: player.nickname, from: origin, to, units } : null;
+    }).filter((route) => route !== null);
+  });
   const counts = useMemo(() => {
     const starters = operation.players.filter((player) => player.lineup === "starter");
     return {
@@ -426,6 +460,10 @@ export default function WarTable() {
   });
   const closeMissionCard = (playerId: number) => commit((draft) => { draft.cards = (draft.cards ?? []).filter((card) => card.playerId !== playerId); return draft; });
   const closeAllMissionCards = () => commit((draft) => { draft.cards = []; return draft; });
+  const toggleMissionRoute = (playerId: number) => commit((draft) => {
+    draft.cards = (draft.cards ?? []).map((card) => card.playerId === playerId ? { ...card, route: !card.route } : card);
+    return draft;
+  });
   const handleCardPointerDown = (event: React.PointerEvent, card: MissionCard) => {
     if (tool === "delete") { event.stopPropagation(); closeMissionCard(card.playerId); return; }
     if (tool !== "select") return;
@@ -625,21 +663,27 @@ export default function WarTable() {
           {scene.events.lifeStone && <div className="lifestone-anchor" aria-label={`생명의 반석, ${scene.events.lifeStone}`}><span>◆</span><strong>생명의 반석</strong><small>{scene.events.lifeStone}</small></div>}
           {OBJECTIVE_META.map((objective) => { const owner = scene.objectiveOwners?.[objective.id] ?? "neutral"; const point = objective[mapVariant]; return <button type="button" key={objective.id} className={`capture-objective owner-${owner}`} style={{ left: `${point.x}%`, top: `${point.y}%` }} onClick={() => cycleObjective(objective.id)} aria-label={`${objective.location} ${objective.label}: ${owner === "neutral" ? "중립" : owner === "lucia" ? "루시아팀" : "이안팀"}`} title={`${objective.location} ${objective.label} · 클릭하여 점령 상태 변경`}><span>{objective.label}</span></button>; })}
           <svg className="tactical-svg" viewBox="0 0 1000 1000" preserveAspectRatio="none" aria-label="전술 오브젝트 레이어">
-            <defs><marker id="move-head" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#55cfff" /></marker><marker id="attack-head" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#ff5353" /></marker></defs>
+            <defs><marker id="move-head" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#55cfff" /></marker><marker id="attack-head" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#ff5353" /></marker><marker id="route-head-ian" markerWidth="10" markerHeight="10" refX="7" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#f0c463" /></marker><marker id="route-head-lucia" markerWidth="10" markerHeight="10" refX="7" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#5cb8ff" /></marker></defs>
+            {missionRoutes.map((route) => <line key={route.key} className={`mission-route side-${missionSide}`} x1={route.from.x * 1000} y1={route.from.y * 1000} x2={route.to.x * 1000} y2={route.to.y * 1000} markerEnd={`url(#route-head-${missionSide})`} />)}
             {visibleObjects.filter((object) => ["moveArrow", "attackArrow", "defense"].includes(object.type)).map((object) => object.points?.length ? <path key={object.id} className={`tactical-object freehand-path ${object.type === "defense" ? "defense-line" : `arrow-${object.type}`}`} onClick={() => deleteObject(object.id)} d={smoothPath(object.points)} markerEnd={object.type === "defense" ? undefined : `url(#${object.type === "moveArrow" ? "move-head" : "attack-head"})`} /> : <line key={object.id} className={`tactical-object ${object.type === "defense" ? "defense-line" : `arrow-${object.type}`}`} onClick={() => deleteObject(object.id)} x1={object.x * 1000} y1={object.y * 1000} x2={(object.x2 ?? object.x) * 1000} y2={(object.y2 ?? object.y) * 1000} markerEnd={object.type === "defense" ? undefined : `url(#${object.type === "moveArrow" ? "move-head" : "attack-head"})`} />)}
             {drawPoints.length > 1 && <path className={`draw-preview freehand-path ${tool === "defense" ? "defense-line" : "arrow-attackArrow"}`} d={smoothPath(drawPoints)} markerEnd={tool === "attackArrow" ? "url(#attack-head)" : undefined} />}
           </svg>
+          {missionRoutes.map((route) => { const at = .82; const x = route.from.x + (route.to.x - route.from.x) * at; const y = route.from.y + (route.to.y - route.from.y) * at; return <span key={`${route.key}-tag`} className={`mission-route-tag side-${missionSide}`} style={{ left: `${x * 100}%`, top: `${y * 100}%` }} title={`${route.nickname} · ${route.units.join(", ")}부대`}>{route.units.join("·")}</span>; })}
           {tool === "memo" && drawPoints.length > 1 && (() => { const area = memoRect(drawPoints[0], drawPoints[1]); return <div className="memo-preview" style={{ left: `${area.left * 100}%`, top: `${area.top * 100}%`, width: `${area.width * 100}%`, height: `${area.height * 100}%` }} />; })()}
           {openMissionBriefs.map(({ card, player, orders, roles }) => <div key={card.playerId} className={`tactical-object mission-card side-${missionSide} role-${player.primaryRole}`} style={{ left: `${card.x * 100}%`, top: `${card.y * 100}%` }} onPointerDown={(event) => { if (tool === "delete") { event.stopPropagation(); closeMissionCard(card.playerId); } }}>
             <div className="mission-card-head" onPointerDown={(event) => handleCardPointerDown(event, card)}>
               <UnitRoleIcon unitRole={player.primaryRole} isRally={player.secondaryRoles.includes("rally")} />
               <strong className="mission-card-name">{player.nickname}</strong>
-              <button type="button" className="mission-card-close" onClick={() => closeMissionCard(card.playerId)} aria-label={`${player.nickname} 임무 카드 닫기`}>×</button>
+              <div className="mission-card-actions">
+                {orders && <button type="button" className={`mission-card-route ${card.route ? "active" : ""}`} aria-pressed={!!card.route} onClick={() => toggleMissionRoute(card.playerId)} title={`${player.nickname} 부대 목적지를 지도에 표시`}>경로</button>}
+                <button type="button" className="mission-card-close" onClick={() => closeMissionCard(card.playerId)} aria-label={`${player.nickname} 임무 카드 닫기`}>×</button>
+              </div>
             </div>
-            {orders ? <div className="mission-card-body">
+            {orders ? <div className="mission-card-body" onClick={() => { if (tool === "select") toggleMissionRoute(card.playerId); }} role="presentation">
               <p className="mission-staff"><b>STAFF</b>{STAFF_ORDER[player.primaryRole]}</p>
               {roles.length > 0 && <div className="mission-roles">{roles.map((role) => <span key={role.key} className="mission-role"><b>{role.label}</b>{role.place}</span>)}</div>}
               <ol className="mission-units">{orders.map((text, index) => <li key={index} className={`mission-unit ${missionEmphasis(text)}`}><i>{index + 1}</i><span>{text}</span></li>)}</ol>
+              {card.route && (() => { const gaps = orders.map((text, index) => missionTargetIds(text, missionSide).length ? 0 : index + 1).filter(Boolean); return gaps.length ? <p className="mission-route-gap">{gaps.join("·")}부대는 임무표에 목적지가 없어 지도에 표시할 수 없습니다</p> : null; })()}
             </div> : <p className="mission-empty">임무표에 배정된 부대가 없습니다<small>{player.lineup === "reserve" ? "예비 편성" : "시트 미배정"}</small></p>}
           </div>)}
           {visibleObjects.filter((object) => object.type === "memo").map((note) => { const span = memoSpan(note); const isEditing = memoDraft?.id === note.id; return <div key={note.id} className={`tactical-object map-memo${isEditing ? " is-editing" : ""}`} style={{ left: `${note.x * 100}%`, top: `${note.y * 100}%`, width: `${span.width * 100}%`, height: `${span.height * 100}%` }}>{isEditing ? <textarea ref={memoInputRef} aria-label="메모 내용" placeholder="메모를 입력하세요" value={memoDraft.text} onChange={(event) => setMemoDraft({ id: note.id, text: event.target.value })} onBlur={() => finishMemoEdit(true)} onKeyDown={(event) => { if (event.key === "Escape") { event.preventDefault(); finishMemoEdit(false); } }} /> : <button type="button" className="memo-face" onPointerDown={(event) => handleMemoPointerDown(event, note)} onClick={(event) => { if (event.detail !== 0) return; if (tool === "delete") deleteObject(note.id); else if (tool === "select") setMemoDraft({ id: note.id, text: note.text ?? "" }); }} title={tool === "delete" ? "클릭해 메모 삭제" : "클릭해 메모 수정 · 드래그로 이동"}><span className={note.text ? "" : "is-placeholder"}>{note.text || "메모 입력"}</span></button>}</div>; })}

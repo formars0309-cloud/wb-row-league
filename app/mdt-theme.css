@@ -652,7 +652,7 @@ body {
 .map-panel.tool-select .mission-card, .map-panel.tool-delete .mission-card { pointer-events: auto; }
 .mission-card-head {
   display: grid;
-  grid-template-columns: 26px 1fr 22px;
+  grid-template-columns: 26px 1fr auto;
   align-items: center;
   gap: 9px;
   padding: 9px 10px;
@@ -661,7 +661,66 @@ body {
   cursor: grab;
 }
 .mission-card-head:active { cursor: grabbing; }
-.map-panel.tool-delete .mission-card-head, .map-panel.tool-delete .mission-card-close { cursor: not-allowed; }
+.map-panel.tool-delete .mission-card-head, .map-panel.tool-delete .mission-card-actions { display: flex; align-items: center; gap: 5px; }
+.mission-card-route {
+  height: 22px;
+  padding: 0 8px;
+  border: 1px solid var(--side-line);
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--side);
+  font-size: 10px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.mission-card-route:hover { background: var(--side-wash); }
+.mission-card-route.active { background: var(--side); border-color: var(--side); color: #10130f; }
+.map-panel.tool-delete .mission-card-route { cursor: not-allowed; }
+.mission-card-body { cursor: pointer; }
+.map-panel.tool-delete .mission-card-body { cursor: not-allowed; }
+
+.mission-route-gap {
+  margin: 0;
+  padding: 7px 9px;
+  border: 1px dashed var(--side-line);
+  border-radius: 3px;
+  color: #a09e97;
+  font-size: 11px;
+  line-height: 1.35;
+  word-break: keep-all;
+}
+
+/* Route lines: where a card's five 부대 are actually going. */
+.mission-route {
+  fill: none;
+  stroke: #f0c463;
+  stroke-width: 5;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+  filter: drop-shadow(0 0 5px rgba(0, 0, 0, 0.8));
+}
+.mission-route.side-lucia { stroke: #5cb8ff; }
+.mission-route-tag {
+  position: absolute;
+  z-index: 4;
+  transform: translate(-50%, -50%);
+  display: grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border: 1px solid #10130f;
+  border-radius: 10px;
+  background: #f0c463;
+  color: #10130f;
+  pointer-events: none;
+  font: 900 10px ui-monospace, monospace;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
+}
+.mission-route-tag.side-lucia { background: #5cb8ff; }
+
+.mission-card-close { cursor: not-allowed; }
 .mission-card-head .unit-role-icon { width: 24px; height: 24px; }
 .mission-card-name {
   min-width: 0;
