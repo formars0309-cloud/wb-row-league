@@ -29,8 +29,8 @@ const escort = ({ lead, gained, next, units, nextUnits, burn }) => [
   ["집결이 터지면", `거점에 ${burn}부대 다 갈아 넣고 유령으로 복귀. ${lead}님 집결과 다시 같이 출발할 준비. ${next}님 집결이 목표일 때도 마찬가지.`],
 ];
 const NORTH = { lead: "테슬라", gained: ["3시 치료 획득 후", "테슬라님 담당 거점(이안 기준 3시 치료)을 아군이 얻었으면"], next: "오소리" };
-// 남쪽 오더 원문은 "진수님 담당 거점 (이안 기준 3시 치료)"이지만 진수님 담당은 7시 축복이라 시계 위치는 적지 않는다.
-const SOUTH = { lead: "진수", gained: ["진수님 거점 획득 후", "진수님이 담당한 거점을 아군이 얻었으면"], next: "예리" };
+// 남쪽 기병대의 기준 거점은 수정본(2026-09-08)대로 이안 기준 7시 축복의 전당.
+const SOUTH = { lead: "진수", gained: ["7시 축복 획득 후", "진수님 담당 거점(이안 기준 7시 축복의 전당)을 아군이 얻었으면"], next: "예리" };
 const FOOT_NORTH = "무잔님·오일자님·TOMAS SHELBY님은 이안 기준 북쪽 기병대입니다. 추가 오더가 필요하면 무잔님이 마이크로 통솔해 주세요.";
 const FOOT_SOUTH = "조롱말님·MAHA님·마스터님·늑대장군님은 이안 기준 남쪽 기병대입니다. 추가 오더가 필요하면 조롱말님이 마이크로 통솔해 주세요.";
 const FOOT_LOOKOUT = "전망대 팀 · 엘레가님 · 5000님 · 보수님";
@@ -60,7 +60,7 @@ const CARDS = [
     ["생명석 젠 1분 전", "생명석 터치 준비. 생명석 쪽에 5부대 활용."],
     ...escort({ ...SOUTH, units: 5, nextUnits: 5, burn: 5 }),
   ] },
-  { file: "기병대-MAHA", slot: 25, name: "[WB] ᴵᴿᴼᴺ Maha", role: "cavalry", note: "남쪽 기병대 · 은신 집결", common: CAVALRY_COMMON, foot: FOOT_SOUTH, steps: [
+  { file: "기병대-MAHA", slot: 19, name: "[WB] ᴵᴿᴼᴺ Maha", role: "cavalry", note: "남쪽 기병대 · 은신 집결", common: CAVALRY_COMMON, foot: FOOT_SOUTH, steps: [
     ["시작과 동시에", "적 전망대(이안 기준 아래쪽 전망대)에 은신 기병 집결. 전망대를 얻기 전까지는 계속 걸어 주세요. 필드는 4부대만 운용."],
     RUN, PET, ...escort({ ...SOUTH, units: 4, nextUnits: 4, burn: 4 }),
   ] },

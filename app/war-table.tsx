@@ -31,7 +31,7 @@ const TOOL_META: Array<{ id: Tool; label: string; glyph: string; hint: string }>
   { id: "memo", label: "메모", glyph: "▤", hint: "드래그로 영역을 잡고 메모를 입력" },
   { id: "delete", label: "지우개", glyph: "", hint: "지울 오브젝트를 클릭" },
 ];
-const RALLY_PLAYERS = new Set(["[WB] 진 수", "벌꿀오소리"]);
+const RALLY_PLAYERS = new Set(["[WB] 진 수", "마법공주간달프"]);
 const GARRISON_PLAYERS = new Set(["glen fiddich", "욘 두 Yondu", "[WB] ᴵᴿᴼᴺ TESLA", "예리", "핫떠그", "Junkhun", "압 수"]);
 // 게임 내 전투 위치 번호(2026-09-08 스크린샷). 이안 진영 배치를 기준으로 읽었고 루시아는 정확히 그 거울상이다.
 // 이 30명이 곧 주전이다. 번호가 없는 로스터는 예비.
@@ -39,8 +39,8 @@ const SLOT_SOURCE: Array<[string, number]> = [
   ["무 잔 Muzan", 1], ["마법공주간달프", 2], ["바르니", 3], ["SIGH", 4], ["냥 신 (마스터)", 5],
   ["[WB] ᴵᴿᴼᴺ TESLA", 6], ["TOMAS SHELBY", 13], ["[WB] 구너(마구니)", 8], ["불개", 9], ["glen fiddich", 10],
   ["예리", 11], ["핫떠그", 12], ["오늘은일찍자야지", 7], ["압 수", 14], ["Kingsway", 15],
-  ["욘 두 Yondu", 16], ["[WB] 진 수", 17], ["[WB] ᴵᴿᴼᴺ 조롱말 (HALO)", 18], ["산삼맨", 19], ["[WB] ᴵᴿᴼᴺ 곡곡이", 20],
-  ["벙커", 21], ["파리스", 22], ["서틸로", 23], ["Junkhun", 24], ["[WB] ᴵᴿᴼᴺ Maha", 25],
+  ["욘 두 Yondu", 16], ["[WB] 진 수", 17], ["[WB] ᴵᴿᴼᴺ 조롱말 (HALO)", 18], ["산삼맨", 25], ["[WB] ᴵᴿᴼᴺ 곡곡이", 20],
+  ["벙커", 21], ["파리스", 22], ["서틸로", 23], ["Junkhun", 24], ["[WB] ᴵᴿᴼᴺ Maha", 19],
   ["[WB] ᵂᴮ Elega", 26], ["5000", 27], ["보 수", 28], ["햄찌", 29], ["늑대장군", 30],
 ];
 const SLOT_BY_NICKNAME = new Map(SLOT_SOURCE);
@@ -50,13 +50,13 @@ const PLAYER_SOURCE: Array<[string, PrimaryRole]> = [
   ["마 젤 란(달의금)", "infantry"], ["바르니", "ranged"], ["무 잔 Muzan", "cavalry"], ["파리스", "infantry"],
   ["벙커", "ranged"], ["산삼맨", "infantry"], ["불개", "ranged"], ["[WB] ᴵᴿᴼᴺ 곡곡이", "ranged"],
   ["냥 신 (마스터)", "cavalry"], ["[WB] ᴵᴿᴼᴺ Maha", "cavalry"], ["[WB] 진 수", "infantry"], ["[WB] ᴵᴿᴼᴺ 조롱말 (HALO)", "cavalry"],
-  ["늑대장군", "infantry"], ["핫떠그", "infantry"], ["[WB] ᴵᴿᴼᴺ TESLA", "ranged"], ["오늘은일찍자야지", "cavalry"],
+  ["늑대장군", "cavalry"], ["핫떠그", "infantry"], ["[WB] ᴵᴿᴼᴺ TESLA", "ranged"], ["오늘은일찍자야지", "cavalry"],
   ["대장군 뽀로링", "infantry"], ["서틸로", "infantry"], ["예리", "infantry"], ["Kingsway", "ranged"],
   ["햄찌", "ranged"], ["몽클", "infantry"], ["SIGH", "ranged"], ["[WB] 스누피Tank", "infantry"],
-  ["[WB] 이천상", "ranged"], ["코다마", "infantry"], ["벌꿀오소리", "infantry"],
+  ["[WB] 이천상", "ranged"], ["코다마", "infantry"], ["마법공주간달프", "infantry"],
   ["ᴵᴿᴼᴺ 핫 짱 구", "infantry"], ["THOR", "infantry"], ["알나인티", "infantry"],
-  // 2026-09-08 게임 명단에 새로 보인 3명. 임무표 시트에 아직 없어 간달프·보 수는 보병으로 가정. SHELBY는 북쪽 기병대.
-  ["마법공주간달프", "infantry"], ["TOMAS SHELBY", "cavalry"], ["보 수", "infantry"],
+  // 2026-09-08 게임 명단에 새로 보인 2명. 임무표 시트에 아직 없어 보 수는 보병으로 가정. SHELBY는 북쪽 기병대.
+  ["TOMAS SHELBY", "cavalry"], ["보 수", "infantry"],
 ];
 function defaultCommandRoles(nickname: string): SecondaryRole[] {
   if (RALLY_PLAYERS.has(nickname)) return ["rally"];
@@ -104,7 +104,7 @@ const MISSION_SOURCE: Array<[string, MissionOrders]> = [
   ["5000", ["3시 치료 주유", "1시 천무 획득시 주유", "오소리님 집결 탑승", "필드전투보병 or 긴급 주유", "필드전투보병 or 긴급 주유"]],
   ["파리스", ["3시 치료 주유", "1시 천무 획득시 주유", "오소리님 집결 탑승", "필드전투보병 or 긴급 주유", "필드전투보병 or 긴급 주유"]],
   ["마 젤 란(달의금)", ["3시 치료 주유", "1시 천무 획득시 주유", "오소리님 집결 탑승", "필드전투보병 or 긴급 주유", "필드전투보병 or 긴급 주유"]],
-  ["벌꿀오소리", ["1시 천무 전당 집결장", "필드전투보병 or 긴급 주유", "필드전투보병 or 긴급 주유", "필드전투보병 or 긴급 주유", "필드전투보병 or 긴급 주유"]],
+  ["마법공주간달프", ["1시 천무 전당 집결장", "필드전투보병 or 긴급 주유", "필드전투보병 or 긴급 주유", "필드전투보병 or 긴급 주유", "필드전투보병 or 긴급 주유"]],
 ];
 const MISSION_BY_NICKNAME = new Map(MISSION_SOURCE);
 // 맵을 180도 돌린 관계라 시계 위치와 진영 거점 이름이 짝을 이뤄 바뀐다.
@@ -167,15 +167,23 @@ function freshOperation(): Operation {
 function clone<T>(value: T): T { return JSON.parse(JSON.stringify(value)) as T; }
 function clamp(value: number) { return Math.max(0.025, Math.min(0.975, value)); }
 function uid(prefix: string) { return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`; }
+// 게임에서 닉네임을 바꾼 사람. 저장본의 옛 이름을 새 이름으로 옮기고, 새 이름으로 이미 붙어 있던 중복 항목은 버린다.
+const RENAMED = new Map([["벌꿀오소리", "마법공주간달프"]]);
 function mergePlayers(saved: Player[]): Player[] {
-  const merged = saved.map((player) => ({
-    ...player,
-    // 주전 여부는 게임 배치 명단이 정한다. 저장본이 옛 명단이어도 현재 번호표로 다시 맞춘다.
-    lineup: SLOT_BY_NICKNAME.has(player.nickname) ? "starter" : "reserve",
-    secondaryRoles: player.secondaryRoles?.length ? player.secondaryRoles : defaultCommandRoles(player.nickname),
-  }));
-  const known = new Set(merged.map((player) => player.nickname));
-  INITIAL_PLAYERS.forEach((player) => { if (!known.has(player.nickname)) merged.push({ ...player }); });
+  const seen = new Set<string>();
+  const merged = saved.flatMap((player): Player[] => {
+    const nickname = RENAMED.get(player.nickname) ?? player.nickname;
+    if (seen.has(nickname)) return [];
+    seen.add(nickname);
+    return [{
+      ...player,
+      nickname,
+      // 주전 여부는 게임 배치 명단이 정한다. 저장본이 옛 명단이어도 현재 번호표로 다시 맞춘다.
+      lineup: SLOT_BY_NICKNAME.has(nickname) ? "starter" : "reserve",
+      secondaryRoles: player.secondaryRoles?.length ? player.secondaryRoles : defaultCommandRoles(nickname),
+    }];
+  });
+  INITIAL_PLAYERS.forEach((player) => { if (!seen.has(player.nickname)) merged.push({ ...player }); });
   return merged;
 }
 function normalizeScene(item: Scene, index: number): Scene {
