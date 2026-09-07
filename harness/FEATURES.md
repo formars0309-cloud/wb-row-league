@@ -33,6 +33,9 @@ vinext(Next 호환) + React 19 + Cloudflare Workers 배포 형태. 소스는 `ap
 - [x] 원본 저장소 이력 이전 및 origin/main 동기화
   - 검증: `git status -sb` = `## main...origin/main`, 워킹트리 clean. 조율자 메모: lint·build·tests 통과
 
+- [x] 지휘부 오더(2026-09-08) 임무 브리프 30인 — 작전판 카드·폰 화면 표시, PNG 카드 30장, `app/roster.ts` 단일 출처
+  - 검증: `npm test` — roster.ts 브리프 30개 카운트, RALLY_PLAYERS·번호표 패턴 검증 통과
+
 ## 남은 단위
 
 다음 일감은 조율자가 추가.

@@ -1,15 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { MISSION_BRIEFS, PLAYER_SOURCE, SLOT_SOURCE, hasStaffOrder, type Brief, type MissionOrders, type PrimaryRole } from "./roster";
 
-type PrimaryRole = "infantry" | "cavalry" | "ranged";
 type SecondaryRole = "garrison" | "rally" | "blocker";
 type LineupStatus = "starter" | "reserve";
 type Tool = "select" | "moveArrow" | "attackArrow" | "defense" | "rally" | "step" | "text" | "memo" | "delete";
 type ObjectiveOwner = "neutral" | "lucia" | "ian";
 type MapVariant = "tactical" | "field";
 type MissionSide = "ian" | "lucia";
-type MissionOrders = [string, string, string, string, string];
 type MissionCard = { playerId: number; x: number; y: number; route?: boolean };
 type MissionTone = "rally" | "garrison" | "roam" | "join" | "block" | "field" | "hold";
 type FairyDragonPosition = "northwest" | "southeast";
@@ -31,36 +30,15 @@ const TOOL_META: Array<{ id: Tool; label: string; glyph: string; hint: string }>
   { id: "memo", label: "메모", glyph: "▤", hint: "드래그로 영역을 잡고 메모를 입력" },
   { id: "delete", label: "지우개", glyph: "", hint: "지울 오브젝트를 클릭" },
 ];
-const RALLY_PLAYERS = new Set(["[WB] 진 수", "마법공주간달프"]);
-const GARRISON_PLAYERS = new Set(["glen fiddich", "욘 두 Yondu", "[WB] ᴵᴿᴼᴺ TESLA", "예리", "핫떠그", "Junkhun", "압 수"]);
-// 게임 내 전투 위치 번호(2026-09-08 스크린샷). 이안 진영 배치를 기준으로 읽었고 루시아는 정확히 그 거울상이다.
-// 이 30명이 곧 주전이다. 번호가 없는 로스터는 예비.
-const SLOT_SOURCE: Array<[string, number]> = [
-  ["무 잔 Muzan", 1], ["마법공주간달프", 2], ["바르니", 3], ["SIGH", 4], ["냥 신 (마스터)", 5],
-  ["[WB] ᴵᴿᴼᴺ TESLA", 6], ["TOMAS SHELBY", 13], ["[WB] 구너(마구니)", 8], ["불개", 9], ["glen fiddich", 10],
-  ["예리", 11], ["핫떠그", 12], ["오늘은일찍자야지", 7], ["압 수", 14], ["Kingsway", 15],
-  ["욘 두 Yondu", 16], ["[WB] 진 수", 17], ["[WB] ᴵᴿᴼᴺ 조롱말 (HALO)", 18], ["산삼맨", 25], ["[WB] ᴵᴿᴼᴺ 곡곡이", 20],
-  ["벙커", 21], ["파리스", 22], ["서틸로", 23], ["Junkhun", 24], ["[WB] ᴵᴿᴼᴺ Maha", 19],
-  ["[WB] ᵂᴮ Elega", 26], ["5000", 27], ["보 수", 28], ["햄찌", 29], ["늑대장군", 30],
-];
+// 토큰 아이콘용 지휘 보직. 2026-09-08 오더 기준 — 기병 집결장(오일자·MAHA)과 테슬라도 집결장으로 본다.
+const RALLY_PLAYERS = new Set(["[WB] 진 수", "마법공주간달프", "[WB] ᴵᴿᴼᴺ TESLA", "오늘은일찍자야지", "[WB] ᴵᴿᴼᴺ Maha"]);
+const GARRISON_PLAYERS = new Set(["glen fiddich", "욘 두 Yondu", "예리", "Junkhun", "압 수", "[WB] ᵂᴮ Elega", "5000"]);
+const BLOCKER_PLAYERS = new Set(["핫떠그", "산삼맨", "Kingsway", "서틸로"]);
 const SLOT_BY_NICKNAME = new Map(SLOT_SOURCE);
-const PLAYER_SOURCE: Array<[string, PrimaryRole]> = [
-  ["[WB] ᵂᴮ Elega", "infantry"], ["5000", "ranged"], ["glen fiddich", "infantry"], ["압 수", "infantry"],
-  ["Junkhun", "infantry"], ["욘 두 Yondu", "infantry"], ["[WB] 구너(마구니)", "ranged"], ["최산수", "ranged"],
-  ["마 젤 란(달의금)", "infantry"], ["바르니", "ranged"], ["무 잔 Muzan", "cavalry"], ["파리스", "infantry"],
-  ["벙커", "ranged"], ["산삼맨", "infantry"], ["불개", "ranged"], ["[WB] ᴵᴿᴼᴺ 곡곡이", "ranged"],
-  ["냥 신 (마스터)", "cavalry"], ["[WB] ᴵᴿᴼᴺ Maha", "cavalry"], ["[WB] 진 수", "infantry"], ["[WB] ᴵᴿᴼᴺ 조롱말 (HALO)", "cavalry"],
-  ["늑대장군", "cavalry"], ["핫떠그", "infantry"], ["[WB] ᴵᴿᴼᴺ TESLA", "ranged"], ["오늘은일찍자야지", "cavalry"],
-  ["대장군 뽀로링", "infantry"], ["서틸로", "infantry"], ["예리", "infantry"], ["Kingsway", "ranged"],
-  ["햄찌", "ranged"], ["몽클", "infantry"], ["SIGH", "ranged"], ["[WB] 스누피Tank", "infantry"],
-  ["[WB] 이천상", "ranged"], ["코다마", "infantry"], ["마법공주간달프", "infantry"],
-  ["ᴵᴿᴼᴺ 핫 짱 구", "infantry"], ["THOR", "infantry"], ["알나인티", "infantry"],
-  // 2026-09-08 게임 명단에 새로 보인 2명. 임무표 시트에 아직 없어 보 수는 보병으로 가정. SHELBY는 북쪽 기병대.
-  ["TOMAS SHELBY", "cavalry"], ["보 수", "infantry"],
-];
 function defaultCommandRoles(nickname: string): SecondaryRole[] {
   if (RALLY_PLAYERS.has(nickname)) return ["rally"];
   if (GARRISON_PLAYERS.has(nickname)) return ["garrison"];
+  if (BLOCKER_PLAYERS.has(nickname)) return ["blocker"];
   return [];
 }
 const INITIAL_PLAYERS: Player[] = PLAYER_SOURCE.map(([nickname, primaryRole], index) => ({
@@ -71,42 +49,9 @@ const INITIAL_PLAYERS: Player[] = PLAYER_SOURCE.map(([nickname, primaryRole], in
   lineup: SLOT_BY_NICKNAME.has(nickname) ? "starter" : "reserve",
 }));
 const MEMO_MIN_SIZE = { width: .11, height: .075 };
-// 임무표 출처: 각 유저별 임무표 구글 시트 (2026-08-31 스냅샷).
-// 시트는 이안 진영(우하단) 기준이며, 루시아 진영은 MISSION_MIRROR_PAIRS로 환산한다.
-const MISSION_SOURCE: Array<[string, MissionOrders]> = [
-  ["[WB] ᵂᴮ Elega", ["전망대", "전망대", "전망대", "전망대", "필드전투보병 or 긴급 주유"]],
-  ["대장군 뽀로링", ["전망대", "전망대", "전망대", "전망대", "필드전투보병 or 긴급 주유"]],
-  ["냥 신 (마스터)", ["기병대", "기병대", "기병대", "기병대", "기병대"]],
-  ["[WB] ᴵᴿᴼᴺ Maha", ["기병대", "기병대", "기병대", "기병대", "기병대"]],
-  ["무 잔 Muzan", ["기병대", "기병대", "기병대", "기병대", "기병대"]],
-  ["오늘은일찍자야지", ["기병대", "기병대", "기병대", "기병대", "기병대"]],
-  ["[WB] ᴵᴿᴼᴺ 조롱말 (HALO)", ["기병대", "기병대", "기병대", "기병대", "기병대"]],
-  ["TOMAS SHELBY", ["기병대", "기병대", "기병대", "기병대", "기병대"]],
-  ["[WB] 진 수", ["9시 치료 영목 집결", "7시 축복의전당 주둔장", "필드전투보병 or 긴급 주유", "필드전투보병 or 긴급 주유", "필드전투보병 or 긴급 주유"]],
-  ["욘 두 Yondu", ["7시 축복의전당 서브 주둔장", "7시 축복의전당 서브 주둔장", "6시 용기 주유", "필드전투보병 or 긴급 주유", "필드전투보병 or 긴급 주유"]],
-  ["glen fiddich", ["6시용기영목주둔장", "6시용기영목주둔장", "필드전투보병 or 긴급 주유", "필드전투보병 or 긴급 주유", "필드전투보병 or 긴급 주유"]],
-  ["Junkhun", ["6시용기영목 서브주둔장", "7시 축복의전당 서브주둔장", "필드전투보병 or 긴급 주유", "필드전투보병 or 긴급 주유", "필드전투보병 or 긴급 주유"]],
-  ["예리", ["6시 군왕주둔장", "6시 군왕주둔장", "6시 용기 주유", "필드전투보병 or 긴급 주유", "필드전투보병 or 긴급 주유"]],
-  ["늑대장군", ["6시 군왕 주유", "7시 축복 주유", "진수님 집결 탑승", "필드전투보병 or 긴급 주유", "필드전투보병 or 긴급 주유"]],
-  ["바르니", ["6시 군왕 주유", "6시 용기 주유", "7시 축복 주유", "진수님 집결 탑승", "필드전투보병 or 긴급 주유"]],
-  ["벙커", ["6시 군왕 주유", "6시 용기 주유", "7시 축복 주유", "진수님 집결 탑승", "필드전투보병 or 긴급 주유"]],
-  ["햄찌", ["6시 군왕 주유", "6시 용기 주유", "7시 축복 주유", "진수님 집결 탑승", "필드전투보병 or 긴급 주유"]],
-  ["서틸로", ["6시 군왕 주유", "7시 축복 주유", "적 6시 입구 막기", "적 6시 입구 막기", "적 6시 입구 막기"]],
-  ["Kingsway", ["6시 군왕 주유", "7시 축복 주유", "적 6시 입구 막기", "적 6시 입구 막기", "적 6시 입구 막기"]],
-  ["불개", ["6시 군왕 주유", "6시 용기 주유", "7시 축복 주유", "필드전투보병 or 긴급 주유", "필드전투보병 or 긴급 주유"]],
-  ["압 수", ["6시 군왕 서브 주둔장", "7시 축복의전당 서브주둔장", "6시 군왕 주유", "6시 용기 주유", "7시 축복 주유"]],
-  ["[WB] ᴵᴿᴼᴺ TESLA", ["3시 치료의 영목 주둔장", "3시 치료의 영목 주둔장", "1시 천무 획득시 주유", "필드전투보병 or 긴급 주유", "필드전투보병 or 긴급 주유"]],
-  ["핫떠그", ["3시 치료의 영목 서브주둔장", "3시 치료의 영목 서브주둔장", "1시 천무 획득시 주유", "필드전투보병 or 긴급 주유", "필드전투보병 or 긴급 주유"]],
-  ["[WB] ᴵᴿᴼᴺ 곡곡이", ["3시 치료 주유", "1시 천무 획득시 주유", "오소리님 집결 탑승", "필드전투보병 or 긴급 주유", "필드전투보병 or 긴급 주유"]],
-  ["[WB] 구너(마구니)", ["3시 치료 주유", "1시 천무 획득시 주유", "오소리님 집결 탑승", "필드전투보병 or 긴급 주유", "필드전투보병 or 긴급 주유"]],
-  ["최산수", ["3시 치료 주유", "1시 천무 획득시 주유", "오소리님 집결 탑승", "필드전투보병 or 긴급 주유", "필드전투보병 or 긴급 주유"]],
-  ["SIGH", ["3시 치료 주유", "1시 천무 획득시 주유", "오소리님 집결 탑승", "필드전투보병 or 긴급 주유", "필드전투보병 or 긴급 주유"]],
-  ["5000", ["3시 치료 주유", "1시 천무 획득시 주유", "오소리님 집결 탑승", "필드전투보병 or 긴급 주유", "필드전투보병 or 긴급 주유"]],
-  ["파리스", ["3시 치료 주유", "1시 천무 획득시 주유", "오소리님 집결 탑승", "필드전투보병 or 긴급 주유", "필드전투보병 or 긴급 주유"]],
-  ["마 젤 란(달의금)", ["3시 치료 주유", "1시 천무 획득시 주유", "오소리님 집결 탑승", "필드전투보병 or 긴급 주유", "필드전투보병 or 긴급 주유"]],
-  ["마법공주간달프", ["1시 천무 전당 집결장", "필드전투보병 or 긴급 주유", "필드전투보병 or 긴급 주유", "필드전투보병 or 긴급 주유", "필드전투보병 or 긴급 주유"]],
-];
-const MISSION_BY_NICKNAME = new Map(MISSION_SOURCE);
+// 임무 문안은 app/roster.ts의 브리프에서 온다. 지도 경로·배지는 부대1~5 문장(units)에서 읽는다.
+const MISSION_BY_NICKNAME = new Map(MISSION_BRIEFS.map((brief): [string, MissionOrders] => [brief.nickname, brief.units]));
+const BRIEF_BY_NICKNAME = new Map(MISSION_BRIEFS.map((brief): [string, Brief] => [brief.nickname, brief]));
 // 맵을 180도 돌린 관계라 시계 위치와 진영 거점 이름이 짝을 이뤄 바뀐다.
 const MISSION_MIRROR_PAIRS: Array<[string, string]> = [["12시", "6시"], ["1시", "7시"], ["3시", "9시"], ["군왕", "목명"], ["축복", "천무"]];
 const MISSION_MIRROR = new Map<string, string>(MISSION_MIRROR_PAIRS.flatMap(([left, right]) => [[left, right], [right, left]] as Array<[string, string]>));
@@ -180,7 +125,8 @@ function mergePlayers(saved: Player[]): Player[] {
       nickname,
       // 주전 여부는 게임 배치 명단이 정한다. 저장본이 옛 명단이어도 현재 번호표로 다시 맞춘다.
       lineup: SLOT_BY_NICKNAME.has(nickname) ? "starter" : "reserve",
-      secondaryRoles: player.secondaryRoles?.length ? player.secondaryRoles : defaultCommandRoles(nickname),
+      // 지휘 보직도 오더가 정한다. 화면의 보직 토글은 그 세션 안에서만 유지된다.
+      secondaryRoles: defaultCommandRoles(nickname),
     }];
   });
   INITIAL_PLAYERS.forEach((player) => { if (!seen.has(player.nickname)) merged.push({ ...player }); });
@@ -217,7 +163,7 @@ function memoRect(start: Point, end: Point) {
   return { left: fitAxis(Math.min(start.x, end.x), width), top: fitAxis(Math.min(start.y, end.y), height), width, height };
 }
 function memoSpan(object: TacticalObject) { return { width: Math.abs((object.x2 ?? object.x) - object.x), height: Math.abs((object.y2 ?? object.y) - object.y) }; }
-const RALLY_LEADER_ALIAS: Array<[string, string]> = [["진수님", "[WB] 진 수"], ["오소리님", "벌꿀오소리"]];
+const RALLY_LEADER_ALIAS: Array<[string, string]> = [["진수님", "[WB] 진 수"], ["오소리님", "마법공주간달프"], ["오일자님", "오늘은일찍자야지"], ["MAHA님", "[WB] ᴵᴿᴼᴺ Maha"], ["테슬라님", "[WB] ᴵᴿᴼᴺ TESLA"], ["예리님", "예리"]];
 // 적 진영 앞 골짜기 입구. 거점 아이콘이 없는 지형이라 좌표를 직접 잡았다.
 // 전술 맵 값은 지도 원본에서 실측했고, 실전 맵 값은 거점 12쌍의 변위로 환산한 추정치다.
 const ENEMY_GATE: Record<MissionSide, Record<MapVariant, Point>> = {
@@ -243,6 +189,12 @@ function missionTargets(text: string, side: MissionSide, variant: MapVariant, fo
   if (text.includes("입구")) return [{ key: "enemy-gate", point: ENEMY_GATE[side][variant] }];
   const ids = (() => {
     if (text.includes("전망대")) return ["lookout-lucia-west", "lookout-lucia-east", "lookout-ian-west", "lookout-ian-east"];
+    // 거점 이름이 시계보다 확실하다. 오더가 "12시 천무전당"처럼 시계를 틀려도 이름으로 맞춘다.
+    if (text.includes("천무")) return ["hall-northeast"];
+    if (text.includes("축복")) return ["hall-southwest"];
+    if (text.includes("목명")) return ["hall-north"];
+    if (text.includes("군왕")) return ["hall-south"];
+    if (text.includes("용기")) return ["spirit-south"];
     if (text.includes("9시")) return ["spirit-west"];
     if (text.includes("3시")) return ["spirit-east"];
     if (text.includes("12시")) return [text.includes("목명") ? "hall-north" : "spirit-north"];
@@ -264,9 +216,10 @@ function missionEmphasis(text: string) {
 }
 function missionTone(text: string): MissionTone {
   if (text.includes("집결 탑승")) return "join";
+  // "적 집결 이동경로 막기"처럼 적의 집결을 막는 문장이 있어 막기를 집결보다 먼저 본다.
+  if (text.includes("막기")) return "block";
   if (text.includes("집결")) return "rally";
   if (text.includes("주둔장")) return "garrison";
-  if (text.includes("막기")) return "block";
   if (text.startsWith("필드전투")) return "field";
   if (text.includes("주유")) return "roam";
   return "hold";
@@ -385,6 +338,7 @@ function MobileBriefing() {
 
   const slot = SLOT_BY_NICKNAME.get(player.nickname);
   const orders = MISSION_BY_NICKNAME.get(player.nickname)?.map((text) => mirrorMission(text, side)) ?? null;
+  const brief = BRIEF_BY_NICKNAME.get(player.nickname);
   const roles = orders ? missionCommandRoles(orders) : [];
   const home = slot ? slotPoint(slot, side, "tactical") : null;
   const plan = buildMissionPlan(orders, side, "tactical");
@@ -414,10 +368,14 @@ function MobileBriefing() {
       )}
 
       {orders ? <>
-        <p className="mobile-staff"><b>STAFF</b>{STAFF_ORDER[player.primaryRole]}</p>
+        {!hasStaffOrder(brief) && <p className="mobile-staff"><b>STAFF</b>{STAFF_ORDER[player.primaryRole]}</p>}
         {roles.length > 0 && <div className="mobile-roles">{roles.map((role) => <span key={role.key}><b>{role.label}</b>{role.place}</span>)}</div>}
+        {brief?.common && <div className="mobile-common">{brief.common.map(([head, body]) => <p key={head}><b>{head}</b>{body}</p>)}</div>}
+        {brief && brief.steps.length > 0 && <ol className="mobile-steps">{brief.steps.map(([when, what]) => <li key={when + what} className={/펫|생명석/.test(when) ? "hot" : ""}><i>{when}</i><span>{what}</span></li>)}</ol>}
+        {brief && <p className="mobile-section">부대 배치</p>}
         <ol className="mobile-units">{orders.map((text, index) => <li key={index} className={missionEmphasis(text)}><i>{index + 1}</i><span>{text}</span></li>)}</ol>
-        <p className="mobile-foot">{MISSION_SIDE_LABEL[side]} 진영 기준{side === "lucia" ? " · 이안 기준 임무표에서 좌우 환산" : ""}</p>
+        {brief && <p className="mobile-team">{brief.foot}</p>}
+        <p className="mobile-foot">{MISSION_SIDE_LABEL[side]} 진영 기준{side === "lucia" ? " · 이안 기준 임무표에서 좌우 환산 · 브리프 본문은 이안 기준 원문" : ""}</p>
       </> : <p className="mobile-empty">임무표에 배정된 부대가 없습니다<small>{player.lineup === "reserve" ? "예비 편성" : "시트 미배정"}</small></p>}
     </div>
   );
@@ -460,7 +418,7 @@ export default function WarTable() {
     const origin = scene.positions[String(player.id)] ?? STARTING_POINT_CENTER[mapVariant][missionSide];
     const plan = buildMissionPlan(orders, missionSide, mapVariant);
     const routes = plan.routes.map((route) => ({ ...route, key: `${card.playerId}-${route.target}`, nickname: player.nickname, from: origin }));
-    return { card, player, orders, roles, routes, gaps: plan.gaps };
+    return { card, player, orders, roles, routes, gaps: plan.gaps, brief: BRIEF_BY_NICKNAME.get(player.nickname) };
   }).filter((brief) => brief !== null);
   const missionRoutes = openMissionBriefs.filter((brief) => brief.card.route).flatMap((brief) => brief.routes);
   const counts = useMemo(() => {
@@ -841,7 +799,7 @@ export default function WarTable() {
           </svg>
           {missionRoutes.map((route) => { const at = .82; const x = route.from.x + (route.to.x - route.from.x) * at; const y = route.from.y + (route.to.y - route.from.y) * at; return <span key={`${route.key}-tag`} className={`mission-route-tag side-${missionSide}${route.roaming ? " is-roaming" : ""}`} style={{ left: `${x * 100}%`, top: `${y * 100}%` }} title={`${route.nickname} · ${route.units.join(", ")}부대${route.roaming ? " · 아군 목적지 주변 유동" : ""}`}>{route.units.join("·")}</span>; })}
           {tool === "memo" && drawPoints.length > 1 && (() => { const area = memoRect(drawPoints[0], drawPoints[1]); return <div className="memo-preview" style={{ left: `${area.left * 100}%`, top: `${area.top * 100}%`, width: `${area.width * 100}%`, height: `${area.height * 100}%` }} />; })()}
-          {openMissionBriefs.map(({ card, player, orders, roles, gaps }) => <div key={card.playerId} className={`tactical-object mission-card side-${missionSide} role-${player.primaryRole}`} style={{ left: `${card.x * 100}%`, top: `${card.y * 100}%` }} onPointerDown={(event) => { if (tool === "delete") { event.stopPropagation(); closeMissionCard(card.playerId); } }}>
+          {openMissionBriefs.map(({ card, player, orders, roles, gaps, brief }) => <div key={card.playerId} className={`tactical-object mission-card side-${missionSide} role-${player.primaryRole}`} style={{ left: `${card.x * 100}%`, top: `${card.y * 100}%` }} onPointerDown={(event) => { if (tool === "delete") { event.stopPropagation(); closeMissionCard(card.playerId); } }}>
             <div className="mission-card-head" onPointerDown={(event) => handleCardPointerDown(event, card)}>
               <UnitRoleIcon unitRole={player.primaryRole} isRally={player.secondaryRoles.includes("rally")} />
               <strong className="mission-card-name">{SLOT_BY_NICKNAME.has(player.nickname) && <b className="mission-card-slot">{SLOT_BY_NICKNAME.get(player.nickname)}</b>}{player.nickname}</strong>
@@ -851,8 +809,9 @@ export default function WarTable() {
               </div>
             </div>
             {orders ? <div className="mission-card-body" onClick={() => { if (tool === "select") toggleMissionRoute(card.playerId); }} role="presentation">
-              <p className="mission-staff"><b>STAFF</b>{STAFF_ORDER[player.primaryRole]}</p>
+              {!hasStaffOrder(brief) && <p className="mission-staff"><b>STAFF</b>{STAFF_ORDER[player.primaryRole]}</p>}
               {roles.length > 0 && <div className="mission-roles">{roles.map((role) => <span key={role.key} className="mission-role"><b>{role.label}</b>{role.place}</span>)}</div>}
+              {brief && brief.steps.length > 0 && <ol className="mission-steps">{brief.steps.map(([when, what]) => <li key={when + what}><i>{when}</i><span>{what}</span></li>)}</ol>}
               <ol className="mission-units">{orders.map((text, index) => <li key={index} className={`mission-unit ${missionEmphasis(text)}`}><i>{index + 1}</i><span>{text}</span></li>)}</ol>
               {card.route && gaps.length > 0 && <p className="mission-route-gap">{gaps.join("·")}부대는 임무표에 목적지가 없어 지도에 표시할 수 없습니다</p>}
               {SLOT_BY_NICKNAME.has(player.nickname) && <div className="mission-deploy"><span>{SLOT_BY_NICKNAME.get(player.nickname)}번 자리로</span>{(Object.keys(MISSION_SIDE_LABEL) as MissionSide[]).map((side) => <button type="button" key={side} className={`deploy-${side}`} onClick={() => deployOne(card.playerId, side)}>{MISSION_SIDE_LABEL[side]} 배치</button>)}</div>}

@@ -65,9 +65,10 @@ test("server-renders the Heinapel War Table", async () => {
 });
 
 test("keeps the interactive operation features and map assets wired", async () => {
-  const [warTable, theme, page, layout, tacticalMap, fieldMap, socialImage] =
+  const [warTable, roster, theme, page, layout, tacticalMap, fieldMap, socialImage] =
     await Promise.all([
       readFile(new URL("../app/war-table.tsx", import.meta.url), "utf8"),
+      readFile(new URL("../app/roster.ts", import.meta.url), "utf8"),
       readFile(new URL("../app/mdt-theme.css", import.meta.url), "utf8"),
       readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
       readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
@@ -78,9 +79,12 @@ test("keeps the interactive operation features and map assets wired", async () =
 
   assert.match(warTable, /const STORAGE_KEY = "heinapel-war-table-v0\.3"/);
   assert.match(warTable, /const OBJECTIVE_META = \[/);
-  assert.match(warTable, /\["핫떠그", "infantry"\]/);
-  assert.match(warTable, /const RALLY_PLAYERS = new Set\(\["\[WB\] 진 수", "마법공주간달프"\]\)/);
-  assert.match(warTable, /\["마법공주간달프", 2\], \["바르니", 3\]/);
+  assert.match(roster, /\["핫떠그", "infantry"\]/);
+  assert.equal((roster.match(/^ {2}\{ nickname: /gm) ?? []).length, 30);
+  assert.match(warTable, /const RALLY_PLAYERS = new Set\(\["\[WB\] 진 수", "마법공주간달프", "\[WB\] ᴵᴿᴼᴺ TESLA", "오늘은일찍자야지", "\[WB\] ᴵᴿᴼᴺ Maha"\]\)/);
+  assert.match(roster, /\["마법공주간달프", 2\], \["바르니", 3\]/);
+  assert.match(roster, /\["산삼맨", 19\]/);
+  assert.match(roster, /\["\[WB\] ᴵᴿᴼᴺ Maha", 25\]/);
   assert.match(warTable, /lineup: SLOT_BY_NICKNAME\.has\(nickname\) \? "starter" : "reserve"/);
   assert.match(warTable, /const RENAMED = new Map\(\[\["벌꿀오소리", "마법공주간달프"\]\]\)/);
   assert.match(warTable, /type LineupStatus = "starter" \| "reserve"/);
