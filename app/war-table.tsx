@@ -33,7 +33,17 @@ const TOOL_META: Array<{ id: Tool; label: string; glyph: string; hint: string }>
 ];
 const RALLY_PLAYERS = new Set(["[WB] 진 수", "벌꿀오소리"]);
 const GARRISON_PLAYERS = new Set(["glen fiddich", "욘 두 Yondu", "[WB] ᴵᴿᴼᴺ TESLA", "예리", "핫떠그", "Junkhun", "압 수"]);
-const RESERVE_PLAYERS = new Set(["코다마", "[WB] 스누피Tank", "[WB] 이천상", "몽클", "산삼맨", "ᴵᴿᴼᴺ 핫 짱 구", "THOR", "알나인티"]);
+// 게임 내 전투 위치 번호(2026-09-08 스크린샷). 이안 진영 배치를 기준으로 읽었고 루시아는 정확히 그 거울상이다.
+// 이 30명이 곧 주전이다. 번호가 없는 로스터는 예비.
+const SLOT_SOURCE: Array<[string, number]> = [
+  ["무 잔 Muzan", 1], ["마법공주간달프", 2], ["바르니", 3], ["SIGH", 4], ["냥 신 (마스터)", 5],
+  ["[WB] ᴵᴿᴼᴺ TESLA", 6], ["TOMAS SHELBY", 7], ["[WB] 구너(마구니)", 8], ["불개", 9], ["glen fiddich", 10],
+  ["예리", 11], ["핫떠그", 12], ["오늘은일찍자야지", 13], ["압 수", 14], ["Kingsway", 15],
+  ["욘 두 Yondu", 16], ["[WB] 진 수", 17], ["[WB] ᴵᴿᴼᴺ 조롱말 (HALO)", 18], ["산삼맨", 19], ["[WB] ᴵᴿᴼᴺ 곡곡이", 20],
+  ["벙커", 21], ["파리스", 22], ["서틸로", 23], ["Junkhun", 24], ["[WB] ᴵᴿᴼᴺ Maha", 25],
+  ["[WB] ᵂᴮ Elega", 26], ["5000", 27], ["보 수", 28], ["햄찌", 29], ["늑대장군", 30],
+];
+const SLOT_BY_NICKNAME = new Map(SLOT_SOURCE);
 const PLAYER_SOURCE: Array<[string, PrimaryRole]> = [
   ["[WB] ᵂᴮ Elega", "infantry"], ["5000", "ranged"], ["glen fiddich", "infantry"], ["압 수", "infantry"],
   ["Junkhun", "infantry"], ["욘 두 Yondu", "infantry"], ["[WB] 구너(마구니)", "ranged"], ["최산수", "ranged"],
@@ -45,6 +55,8 @@ const PLAYER_SOURCE: Array<[string, PrimaryRole]> = [
   ["햄찌", "ranged"], ["몽클", "infantry"], ["SIGH", "ranged"], ["[WB] 스누피Tank", "infantry"],
   ["[WB] 이천상", "ranged"], ["코다마", "infantry"], ["벌꿀오소리", "infantry"],
   ["ᴵᴿᴼᴺ 핫 짱 구", "infantry"], ["THOR", "infantry"], ["알나인티", "infantry"],
+  // 2026-09-08 게임 명단에 새로 보인 3명. 임무표 시트에 아직 없어 병종은 보병으로 가정.
+  ["마법공주간달프", "infantry"], ["TOMAS SHELBY", "infantry"], ["보 수", "infantry"],
 ];
 function defaultCommandRoles(nickname: string): SecondaryRole[] {
   if (RALLY_PLAYERS.has(nickname)) return ["rally"];
@@ -56,7 +68,7 @@ const INITIAL_PLAYERS: Player[] = PLAYER_SOURCE.map(([nickname, primaryRole], in
   nickname,
   primaryRole,
   secondaryRoles: defaultCommandRoles(nickname),
-  lineup: RESERVE_PLAYERS.has(nickname) ? "reserve" : "starter",
+  lineup: SLOT_BY_NICKNAME.has(nickname) ? "starter" : "reserve",
 }));
 const MEMO_MIN_SIZE = { width: .11, height: .075 };
 // 임무표 출처: 각 유저별 임무표 구글 시트 (2026-08-31 스냅샷).
@@ -106,16 +118,6 @@ const STAFF_ORDER: Record<PrimaryRole, string> = {
   ranged: "상대 진영에 페어리 드래곤이 처음 소환되기 전, 약속된 장소에서 STAFF 사용",
   cavalry: "스테프 자율 사용",
 };
-// 게임 내 전투 위치 번호. 이안 진영 배치를 기준으로 읽었고 루시아는 정확히 그 거울상이다.
-const SLOT_SOURCE: Array<[string, number]> = [
-  ["무 잔 Muzan", 1], ["[WB] ᴵᴿᴼᴺ TESLA", 2], ["[WB] ᴵᴿᴼᴺ Maha", 3], ["바르니", 4], ["SIGH", 5],
-  ["벌꿀오소리", 6], ["파리스", 7], ["냥 신 (마스터)", 8], ["햄찌", 9], ["Junkhun", 10],
-  ["예리", 11], ["핫떠그", 12], ["불개", 13], ["오늘은일찍자야지", 14], ["최산수", 15],
-  ["Kingsway", 16], ["glen fiddich", 17], ["[WB] ᴵᴿᴼᴺ 조롱말 (HALO)", 18], ["[WB] 구너(마구니)", 19], ["압 수", 20],
-  ["[WB] ᴵᴿᴼᴺ 곡곡이", 21], ["마 젤 란(달의금)", 22], ["서틸로", 23], ["욘 두 Yondu", 24], ["[WB] 진 수", 25],
-  ["대장군 뽀로링", 26], ["벙커", 27], ["5000", 28], ["늑대장군", 29], ["[WB] ᵂᴮ Elega", 30],
-];
-const SLOT_BY_NICKNAME = new Map(SLOT_SOURCE);
 // 진형은 마름모 격자다. 행마다 5·6·7·7·5칸이고, 한 행 안에서 한 칸씩 SLOT_STEP_ALONG,
 // 다음 행으로 넘어갈 때 SLOT_STEP_ROW 만큼 이동한다. 값은 게임 화면 비율을 옮긴 것.
 const SLOT_ROWS = [5, 6, 7, 7, 5];
@@ -167,7 +169,8 @@ function uid(prefix: string) { return `${prefix}-${Date.now()}-${Math.random().t
 function mergePlayers(saved: Player[]): Player[] {
   const merged = saved.map((player) => ({
     ...player,
-    lineup: player.lineup ?? (RESERVE_PLAYERS.has(player.nickname) ? "reserve" : "starter"),
+    // 주전 여부는 게임 배치 명단이 정한다. 저장본이 옛 명단이어도 현재 번호표로 다시 맞춘다.
+    lineup: SLOT_BY_NICKNAME.has(player.nickname) ? "starter" : "reserve",
     secondaryRoles: player.secondaryRoles?.length ? player.secondaryRoles : defaultCommandRoles(player.nickname),
   }));
   const known = new Set(merged.map((player) => player.nickname));

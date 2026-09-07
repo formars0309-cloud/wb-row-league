@@ -45,9 +45,9 @@ test("server-renders the Heinapel War Table", async () => {
   assert.match(html, /전술 맵/);
   assert.match(html, /실전 맵/);
   assert.match(html, /생명의 반석/);
-  assert.equal((html.match(/class="player-row\b/g) ?? []).length, 35);
-  assert.equal((html.match(/class="lineup-badge starter"/g) ?? []).length, 31);
-  assert.equal((html.match(/class="lineup-badge reserve"/g) ?? []).length, 4);
+  assert.equal((html.match(/class="player-row\b/g) ?? []).length, 41);
+  assert.equal((html.match(/class="lineup-badge starter"/g) ?? []).length, 30);
+  assert.equal((html.match(/class="lineup-badge reserve"/g) ?? []).length, 11);
   assert.equal((html.match(/class="role-count-tile\b/g) ?? []).length, 4);
   assert.doesNotMatch(html, /class="role-summary"/);
   assert.equal((html.match(/class="capture-objective owner-neutral"/g) ?? []).length, 12);
@@ -80,7 +80,8 @@ test("keeps the interactive operation features and map assets wired", async () =
   assert.match(warTable, /const OBJECTIVE_META = \[/);
   assert.match(warTable, /\["핫떠그", "infantry"\]/);
   assert.match(warTable, /const RALLY_PLAYERS = new Set\(\["\[WB\] 진 수", "벌꿀오소리"\]\)/);
-  assert.match(warTable, /const RESERVE_PLAYERS = new Set\(\["코다마", "\[WB\] 스누피Tank", "\[WB\] 이천상", "몽클"\]\)/);
+  assert.match(warTable, /\["마법공주간달프", 2\], \["바르니", 3\]/);
+  assert.match(warTable, /lineup: SLOT_BY_NICKNAME\.has\(player\.nickname\) \? "starter" : "reserve"/);
   assert.match(warTable, /type LineupStatus = "starter" \| "reserve"/);
   assert.match(warTable, /type SceneEvents =/);
   assert.match(warTable, /const DEFAULT_SCENE_EVENTS/);

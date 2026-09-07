@@ -1,6 +1,6 @@
 # 작업 단위 목록 — Heinapel War Table
 
-프로젝트: 헤이나펄 리그 2기 30인(로스터 35인) 전략회의용 디지털 작전판.
+프로젝트: 헤이나펄 리그 2기 30인(로스터 41인) 전략회의용 디지털 작전판.
 vinext(Next 호환) + React 19 + Cloudflare Workers 배포 형태. 소스는 `app/war-table.tsx`
 단일 컴포넌트 중심, 상태는 `localStorage`(`heinapel-war-table-v0.3`)에 저장.
 
@@ -12,8 +12,8 @@ vinext(Next 호환) + React 19 + Cloudflare Workers 배포 형태. 소스는 `ap
 
 ## 완료된 단위 (커밋 이력·테스트로 확인)
 
-- [x] 플레이어 로스터 35인 표시, 주전 31·예비 4 배지, 역할 집계 타일 4종
-  - 검증: `npm test` — player-row 35개, lineup-badge starter 31·reserve 4 카운트 검증 통과
+- [x] 플레이어 로스터 41인 표시, 주전 30·예비 11 배지(주전 = 전투 위치 번호 보유자), 역할 집계 타일 4종
+  - 검증: `npm test` — player-row 41개, lineup-badge starter 30·reserve 11 카운트 검증 통과
 - [x] 전술 맵·실전 맵 2종 배경과 점령 목표 12개(전망대 4 포함) 표시
   - 검증: `npm test` — capture-objective 12개, 맵 이미지 파일 존재 검증 통과
 - [x] 5인 진군 명령(marching orders)과 미션 카드의 부대 목적지 맵 표시
