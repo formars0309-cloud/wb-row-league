@@ -12,6 +12,7 @@ export type Brief = {
   steps: Array<[string, string]>; // 타임라인·조건별 지시 (라벨, 본문)
   units: MissionOrders; // 부대1~5. 지도 경로와 집결장·주둔장 배지는 이 문장에서 읽는다.
   byUnit?: boolean; // 부대별 오더인 팀은 PNG 카드에도 부대 5줄을 싣는다
+  badge?: string; // 카드 우상단 배지. 비우면 병종 이름
   foot: string;
 };
 
@@ -19,11 +20,11 @@ export const PLAYER_SOURCE: Array<[string, PrimaryRole]> = [
   ["[WB] ᵂᴮ Elega", "infantry"], ["5000", "ranged"], ["glen fiddich", "infantry"], ["압 수", "infantry"],
   ["Junkhun", "infantry"], ["욘 두 Yondu", "infantry"], ["[WB] 구너(마구니)", "ranged"], ["최산수", "ranged"],
   ["마 젤 란(달의금)", "infantry"], ["바르니", "ranged"], ["무 잔 Muzan", "cavalry"], ["파리스", "infantry"],
-  ["벙커", "ranged"], ["산삼맨", "infantry"], ["불개", "ranged"], ["[WB] ᴵᴿᴼᴺ 곡곡이", "ranged"],
+  ["벙커", "ranged"], ["산삼맨", "infantry"], ["불개", "infantry"], ["[WB] ᴵᴿᴼᴺ 곡곡이", "infantry"],
   ["냥 신 (마스터)", "cavalry"], ["[WB] ᴵᴿᴼᴺ Maha", "cavalry"], ["[WB] 진 수", "infantry"], ["[WB] ᴵᴿᴼᴺ 조롱말 (HALO)", "cavalry"],
-  ["늑대장군", "cavalry"], ["핫떠그", "infantry"], ["[WB] ᴵᴿᴼᴺ TESLA", "ranged"], ["오늘은일찍자야지", "cavalry"],
-  ["대장군 뽀로링", "infantry"], ["서틸로", "infantry"], ["예리", "infantry"], ["Kingsway", "ranged"],
-  ["햄찌", "ranged"], ["몽클", "infantry"], ["SIGH", "ranged"], ["[WB] 스누피Tank", "infantry"],
+  ["늑대장군", "cavalry"], ["핫떠그", "infantry"], ["[WB] ᴵᴿᴼᴺ TESLA", "infantry"], ["오늘은일찍자야지", "cavalry"],
+  ["대장군 뽀로링", "infantry"], ["서틸로", "infantry"], ["예리", "infantry"], ["Kingsway", "infantry"],
+  ["햄찌", "ranged"], ["몽클", "infantry"], ["SIGH", "infantry"], ["[WB] 스누피Tank", "infantry"],
   ["[WB] 이천상", "ranged"], ["코다마", "infantry"], ["마법공주간달프", "infantry"],
   ["ᴵᴿᴼᴺ 핫 짱 구", "infantry"], ["THOR", "infantry"], ["알나인티", "infantry"],
   // 2026-09-08 게임 명단에 새로 보인 2명. 임무표 시트에 아직 없어 보 수는 보병으로 가정. SHELBY는 북쪽 기병대.
@@ -124,7 +125,7 @@ export const MISSION_BRIEFS: Brief[] = [
   // ── 전망대 팀 ──
   { nickname: "[WB] ᵂᴮ Elega", file: "전망대-엘레가", team: "전망대 팀 · 위쪽 전망대 주둔장", foot: FOOT_LOOKOUT, byUnit: true, steps: [],
     units: ["이안 기준 위쪽 전망대 주둔장", "이안 기준 아래쪽 전망대 주둔", "이안 기준 위쪽 언덕길 은신 보병으로 막기", "위쪽 라인 주유 지원 · 아군 펫 타이밍 교전 지원", "위쪽 라인 주유 지원 · 아군 펫 타이밍 교전 지원"] },
-  { nickname: "5000", file: "전망대-5000", team: "전망대 팀 · 아래쪽 전망대 주둔장", foot: FOOT_LOOKOUT, byUnit: true, steps: [],
+  { nickname: "5000", file: "전망대-5000", team: "전망대 팀 · 아래쪽 전망대 주둔장", badge: "전망대", foot: FOOT_LOOKOUT, byUnit: true, steps: [],
     units: ["이안 기준 아래쪽 전망대 주둔장", "이안 기준 위쪽 전망대 주둔", "이안 기준 위쪽 언덕길 은신 보병으로 막기", "위쪽 라인 주유 지원 · 아군 펫 타이밍 교전 지원", "위쪽 라인 주유 지원 · 아군 펫 타이밍 교전 지원"] },
   { nickname: "보 수", file: "전망대-보수", team: "전망대 팀", foot: FOOT_LOOKOUT, byUnit: true, steps: [],
     units: ["전망대 주둔", "전망대 주둔", "오일자님 기병 집결 탑승", "이안 기준 아래쪽 언덕길 은신 보병으로 막기", "위쪽 라인 주유 지원 · 아군 펫 타이밍 교전 지원"] },

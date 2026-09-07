@@ -53,7 +53,7 @@ const html = (brief) => {
   const role = ROLE.get(brief.nickname) ?? "infantry";
   return `<!doctype html><meta charset="utf-8"><style>${CSS}</style>
 <div class="card">
-  <div class="head"><b class="slot">${SLOT.get(brief.nickname) ?? "—"}</b><div class="name">${brief.nickname}<small>${brief.team}</small></div><span class="role">${ROLE_LABEL[role]} · 이안</span></div>
+  <div class="head"><b class="slot">${SLOT.get(brief.nickname) ?? "—"}</b><div class="name">${brief.nickname}<small>${brief.team}</small></div><span class="role">${brief.badge ?? ROLE_LABEL[role]} · 이안</span></div>
   ${hasStaffOrder(brief) ? "" : `<p class="staff"><b>STAFF</b>${STAFF[role]}</p>`}
   ${brief.common ? `<section class="common">${brief.common.map(([h, p]) => `<h2>${h}</h2><p>${p}</p>`).join("")}</section>` : ""}
   ${brief.steps.length ? `<ol>${brief.steps.map(([when, what]) => `<li class="${/펫|생명석/.test(when) ? "hot" : ""}"><i>${when}</i><span>${what}</span></li>`).join("")}</ol>` : ""}
