@@ -55,8 +55,8 @@ const PLAYER_SOURCE: Array<[string, PrimaryRole]> = [
   ["햄찌", "ranged"], ["몽클", "infantry"], ["SIGH", "ranged"], ["[WB] 스누피Tank", "infantry"],
   ["[WB] 이천상", "ranged"], ["코다마", "infantry"], ["벌꿀오소리", "infantry"],
   ["ᴵᴿᴼᴺ 핫 짱 구", "infantry"], ["THOR", "infantry"], ["알나인티", "infantry"],
-  // 2026-09-08 게임 명단에 새로 보인 3명. 임무표 시트에 아직 없어 병종은 보병으로 가정.
-  ["마법공주간달프", "infantry"], ["TOMAS SHELBY", "infantry"], ["보 수", "infantry"],
+  // 2026-09-08 게임 명단에 새로 보인 3명. 임무표 시트에 아직 없어 간달프·보 수는 보병으로 가정. SHELBY는 북쪽 기병대.
+  ["마법공주간달프", "infantry"], ["TOMAS SHELBY", "cavalry"], ["보 수", "infantry"],
 ];
 function defaultCommandRoles(nickname: string): SecondaryRole[] {
   if (RALLY_PLAYERS.has(nickname)) return ["rally"];
@@ -81,6 +81,7 @@ const MISSION_SOURCE: Array<[string, MissionOrders]> = [
   ["무 잔 Muzan", ["기병대", "기병대", "기병대", "기병대", "기병대"]],
   ["오늘은일찍자야지", ["기병대", "기병대", "기병대", "기병대", "기병대"]],
   ["[WB] ᴵᴿᴼᴺ 조롱말 (HALO)", ["기병대", "기병대", "기병대", "기병대", "기병대"]],
+  ["TOMAS SHELBY", ["기병대", "기병대", "기병대", "기병대", "기병대"]],
   ["[WB] 진 수", ["9시 치료 영목 집결", "7시 축복의전당 주둔장", "필드전투보병 or 긴급 주유", "필드전투보병 or 긴급 주유", "필드전투보병 or 긴급 주유"]],
   ["욘 두 Yondu", ["7시 축복의전당 서브 주둔장", "7시 축복의전당 서브 주둔장", "6시 용기 주유", "필드전투보병 or 긴급 주유", "필드전투보병 or 긴급 주유"]],
   ["glen fiddich", ["6시용기영목주둔장", "6시용기영목주둔장", "필드전투보병 or 긴급 주유", "필드전투보병 or 긴급 주유", "필드전투보병 or 긴급 주유"]],
