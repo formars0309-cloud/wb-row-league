@@ -372,6 +372,8 @@ function MobileBriefing() {
         {roles.length > 0 && <div className="mobile-roles">{roles.map((role) => <span key={role.key}><b>{role.label}</b>{role.place}</span>)}</div>}
         {brief?.common && <div className="mobile-common">{brief.common.map(([head, body]) => <p key={head}><b>{head}</b>{body}</p>)}</div>}
         {brief && brief.steps.length > 0 && <ol className="mobile-steps">{brief.steps.map(([when, what]) => <li key={when + what} className={/펫|생명석/.test(when) ? "hot" : ""}><i>{when}</i><span>{what}</span></li>)}</ol>}
+        {/* eslint-disable-next-line @next/next/no-img-element -- 정적 PNG 한 장, 최적화 불필요 */}
+        {brief?.image && <figure className="mobile-figure"><img src={brief.image.src} alt={brief.image.caption} /><figcaption>{brief.image.caption}</figcaption></figure>}
         {brief && <p className="mobile-section">부대 배치</p>}
         <ol className="mobile-units">{orders.map((text, index) => <li key={index} className={missionEmphasis(text)}><i>{index + 1}</i><span>{text}</span></li>)}</ol>
         {brief && <p className="mobile-team">{brief.foot}</p>}
@@ -812,6 +814,8 @@ export default function WarTable() {
               {!hasStaffOrder(brief) && <p className="mission-staff"><b>STAFF</b>{STAFF_ORDER[player.primaryRole]}</p>}
               {roles.length > 0 && <div className="mission-roles">{roles.map((role) => <span key={role.key} className="mission-role"><b>{role.label}</b>{role.place}</span>)}</div>}
               {brief && brief.steps.length > 0 && <ol className="mission-steps">{brief.steps.map(([when, what]) => <li key={when + what}><i>{when}</i><span>{what}</span></li>)}</ol>}
+              {/* eslint-disable-next-line @next/next/no-img-element -- 정적 PNG 한 장, 최적화 불필요 */}
+              {brief?.image && <figure className="mission-figure"><img src={brief.image.src} alt={brief.image.caption} /><figcaption>{brief.image.caption}</figcaption></figure>}
               <ol className="mission-units">{orders.map((text, index) => <li key={index} className={`mission-unit ${missionEmphasis(text)}`}><i>{index + 1}</i><span>{text}</span></li>)}</ol>
               {card.route && gaps.length > 0 && <p className="mission-route-gap">{gaps.join("·")}부대는 임무표에 목적지가 없어 지도에 표시할 수 없습니다</p>}
               {SLOT_BY_NICKNAME.has(player.nickname) && <div className="mission-deploy"><span>{SLOT_BY_NICKNAME.get(player.nickname)}번 자리로</span>{(Object.keys(MISSION_SIDE_LABEL) as MissionSide[]).map((side) => <button type="button" key={side} className={`deploy-${side}`} onClick={() => deployOne(card.playerId, side)}>{MISSION_SIDE_LABEL[side]} 배치</button>)}</div>}

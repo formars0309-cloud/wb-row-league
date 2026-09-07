@@ -46,6 +46,9 @@ li.hot i { color: #ff8b6b; }
 .units { padding-top: 10px; }
 .units li { grid-template-columns: 30px 1fr; align-items: center; margin-bottom: 8px; }
 .units i { display: grid; place-items: center; width: 28px; height: 26px; border-radius: 4px; background: rgba(255,255,255,.08); font-size: 14px; padding: 0; }
+.figure { margin: 4px 20px 10px; }
+.figure img { display: block; width: 100%; border: 1px solid var(--side-line); border-radius: 4px; }
+.figure figcaption { margin-top: 6px; color: #a09e97; font-size: 12.5px; line-height: 1.45; word-break: keep-all; }
 footer { margin: 4px 20px 0; padding: 12px 0 16px; border-top: 1px dashed var(--side-line); font-size: 13px; line-height: 1.5; color: #a09e97; word-break: keep-all; }
 `;
 
@@ -57,6 +60,7 @@ const html = (brief) => {
   ${hasStaffOrder(brief) ? "" : `<p class="staff"><b>STAFF</b>${STAFF[role]}</p>`}
   ${brief.common ? `<section class="common">${brief.common.map(([h, p]) => `<h2>${h}</h2><p>${p}</p>`).join("")}</section>` : ""}
   ${brief.steps.length ? `<ol>${brief.steps.map(([when, what]) => `<li class="${/펫|생명석/.test(when) ? "hot" : ""}"><i>${when}</i><span>${what}</span></li>`).join("")}</ol>` : ""}
+  ${brief.image ? `<figure class="figure"><img src="file:///${join(OUT_DIR, "..", "public", brief.image.src).replace(/\\/g, "/")}" alt=""><figcaption>${brief.image.caption}</figcaption></figure>` : ""}
   ${brief.byUnit ? `<p class="units-title">부대 배치</p><ol class="units">${brief.units.map((unit, index) => `<li><i>${index + 1}</i><span>${unit}</span></li>`).join("")}</ol>` : ""}
   <footer>${brief.foot}</footer>
 </div>`;

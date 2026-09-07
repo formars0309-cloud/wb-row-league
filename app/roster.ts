@@ -13,6 +13,7 @@ export type Brief = {
   units: MissionOrders; // 부대1~5. 지도 경로와 집결장·주둔장 배지는 이 문장에서 읽는다.
   byUnit?: boolean; // 부대별 오더인 팀은 PNG 카드에도 부대 5줄을 싣는다
   badge?: string; // 카드 우상단 배지. 비우면 병종 이름
+  image?: { src: string; caption: string }; // 카드에 싣는 그림. public/ 기준 경로
   foot: string;
 };
 
@@ -76,7 +77,11 @@ const RANGED_ALWAYS: Array<[string, string]> = [
 const RANGED_UNITS: MissionOrders = ["블링크 이속 보병 (경기 내내)", "블링크 이속 보병 (경기 내내)", "방패 아티팩트 보병 (폭풍의화살 + 하엘로)", "생성되는 보병 집결 탑승", "생성되는 보병 집결 탑승 · 생명석 때 날법사"];
 const LIFESTONE: [string, string] = ["생명석 젠 1분 전", "날법사로 생명석 쟁 지원."];
 
-const FOOT_NORTH = "무잔님·오일자님·TOMAS SHELBY님은 이안 기준 북쪽 기병대입니다. 추가 오더가 필요하면 무잔님이 마이크로 통솔해 주세요.";
+// 지휘부가 게임 화면에 표시한 블록 포인트 (2026-09-08). 검은 원이 부대를 세울 자리.
+const SOUTH_BLOCK_POINTS = { src: "/cards/south-block-points.png", caption: "이안 기준 아래쪽 블록 포인트. 검은 원 자리에 부대를 세운다." };
+const NORTH_BLOCK_POINTS = { src: "/cards/north-block-points.png", caption: "이안 기준 북쪽 블록 포인트. 검은 원은 적 북쪽 입구 블락 포인트. 붉은 표시는 적 보병이 서 있는 곳이라 방패 아티팩트와 도발 아티팩트로 적 보병을 밀거나 움직이게 한다." };
+
+const FOOT_NORTH ="무잔님·오일자님·TOMAS SHELBY님은 이안 기준 북쪽 기병대입니다. 추가 오더가 필요하면 무잔님이 마이크로 통솔해 주세요.";
 const FOOT_SOUTH = "조롱말님·MAHA님·마스터님·늑대장군님은 이안 기준 남쪽 기병대입니다. 추가 오더가 필요하면 조롱말님이 마이크로 통솔해 주세요.";
 const FOOT_LOOKOUT = "전망대 팀 · 엘레가님 · 5000님 · 보수님";
 const FOOT_RALLY = "집결장 팀 · 테슬라님 · 마법공주간달프님 · 진수님 · 예리님";
@@ -172,16 +177,16 @@ export const MISSION_BRIEFS: Brief[] = [
     steps: [["첫 스타트", "조롱말님 기마부대에 전투보병 5부대 스태프 타기."]],
     units: ["7시 축복의 전당 서브 주둔장", "6시 용기 서브 주둔장", "6시 군왕 서브 주둔장", "6시 용기 주유", "7시 축복 주유"] },
   // ── 블로커 팀 ──
-  { nickname: "핫떠그", file: "블로커-핫떠그", team: "블로커 · 3시 치료 서브 주둔장", common: BLOCKER_COMMON, foot: FOOT_BLOCKER, byUnit: true,
+  { nickname: "핫떠그", file: "블로커-핫떠그", team: "블로커 · 3시 치료 서브 주둔장", common: BLOCKER_COMMON, foot: FOOT_BLOCKER, byUnit: true, image: NORTH_BLOCK_POINTS,
     steps: [["초반 스타트", "주둔장 페어 및 4보병 무잔님 기마에 스테프."], ["적 블로커", "적 블로커 보병을 방패와 염주로 치우기."]],
     units: ["3시 치료의 영목 주변 서브 주둔장 대기 (거점 획득 시)", "전투보병 · 적 북쪽 입구 막기", "전투보병 · 적 북쪽 입구 막기", "전투보병 · 적 북쪽 입구 막기", "전투보병 · 적 북쪽 길목 막기"] },
-  { nickname: "산삼맨", file: "블로커-산삼맨", team: "블로커 · 1시 천무 서브 주둔장", common: BLOCKER_COMMON, foot: FOOT_BLOCKER, byUnit: true,
+  { nickname: "산삼맨", file: "블로커-산삼맨", team: "블로커 · 1시 천무 서브 주둔장", common: BLOCKER_COMMON, foot: FOOT_BLOCKER, byUnit: true, image: NORTH_BLOCK_POINTS,
     steps: [["초반 스타트", "주둔장 페어 및 4보병 무잔님 기마에 스테프."], ["적 블로커", "적 블로커 보병을 방패와 염주로 치우기."]],
     units: ["1시 천무의 전당 주변 서브 주둔장 대기 (거점 획득 시)", "전투보병 · 적 북쪽 입구 막기", "전투보병 · 적 북쪽 입구 막기", "전투보병 · 적 북쪽 입구 막기", "전투보병 · 적 북쪽 길목 막기"] },
-  { nickname: "Kingsway", file: "블로커-Kingsway", team: "블로커 · 남쪽 입구", common: BLOCKER_COMMON, foot: FOOT_BLOCKER, byUnit: true,
+  { nickname: "Kingsway", file: "블로커-Kingsway", team: "블로커 · 남쪽 입구", common: BLOCKER_COMMON, foot: FOOT_BLOCKER, byUnit: true, image: SOUTH_BLOCK_POINTS,
     steps: [["초반 스타트", "전투보병 5부대 조롱말님 기마에 스태프. 그 뒤 이안 기준 남쪽 필드전쟁 지원."]],
     units: ["이안 기준 남쪽 루시아 입구 막기", "이안 기준 남쪽 루시아 입구 막기", "이안 기준 남쪽 루시아 입구 막기", "적 집결 이동경로 포인트 1 막기", "적 집결 이동경로 포인트 2 막기"] },
-  { nickname: "서틸로", file: "블로커-떡틸로", team: "블로커 · 남쪽 입구", common: BLOCKER_COMMON, foot: FOOT_BLOCKER, byUnit: true,
+  { nickname: "서틸로", file: "블로커-떡틸로", team: "블로커 · 남쪽 입구", common: BLOCKER_COMMON, foot: FOOT_BLOCKER, byUnit: true, image: SOUTH_BLOCK_POINTS,
     steps: [["초반 스타트", "전투보병 5부대 조롱말님 기마에 스태프. 그 뒤 이안 기준 남쪽 필드전쟁 지원."]],
     units: ["이안 기준 남쪽 루시아 입구 막기", "이안 기준 남쪽 루시아 입구 막기", "이안 기준 남쪽 루시아 입구 막기", "적 집결 이동경로 포인트 1 막기", "적 집결 이동경로 포인트 2 막기"] },
   // ── 보병 팀 ──
