@@ -22,7 +22,10 @@
 - 390×844 모바일에서 빈 명단 → 선수/임무 추가 → 새로고침 → 내 임무 표시 확인. 브라우저 오류 없음.
 - agent-browser 기본 세션의 실제 파일 다운로드가 취소되어 다운로드 파일 방식 검증은 실패. 별도 세션에서 위 Blob/File 방식으로 내보내기와 가져오기 데이터 흐름을 검증했다.
 - 추가 `npx tsc --noEmit`은 기존 Cloudflare 타입/설정 문제 5건(db/index.ts, vite.config.ts, worker/index.ts)으로 실패. 이번 파일의 기존 Scene 타입 추론 문제 1건은 수정했다. lint/build/test 필수 게이트에는 영향 없음.
-- 공개 배포·원격 푸시는 수행하지 않음.
+- 후속 요청으로 공개 배포 완료. Sites 원격 main에 1d24b7e348f437ff5f930da114839e3ac01b8b63을 푸시하고 버전 10으로 배포. GitHub origin에는 별도 푸시하지 않음.
+- 공개 주소: https://heinapel-war-table.formars0309.chatgpt.site
+- 배포 상태 succeeded, 비로그인 HTTP 200 및 선수 추가·명단/임무 편집 문구 확인. 공개 접근 설정 유지.
+- open_in_codex 도구가 없어 사이트 탭 자동 열기는 생략하고 공개 링크로 전달.
 
 ## 다음 작업 참고
 
