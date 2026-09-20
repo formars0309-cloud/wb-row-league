@@ -1,6 +1,56 @@
 import assert from "node:assert/strict";
 import { readFile, stat } from "node:fs/promises";
 import test from "node:test";
+import { runInNewContext } from "node:vm";
+import ts from "typescript";
+
+async function rosterHelpers() {
+  const rosterSource = await readFile(new URL("../app/roster.ts", import.meta.url), "utf8");
+  const rosterJs = ts.transpileModule(rosterSource, { compilerOptions: { module: ts.ModuleKind.ESNext } }).outputText;
+  const roster = await import(`data:text/javascript;base64,${Buffer.from(rosterJs).toString("base64")}`);
+  const source = await readFile(new URL("../app/war-table.tsx", import.meta.url), "utf8");
+  const helpers = source.slice(0, source.indexOf("function normalizeScene")).replace(/^import .*;$/gm, "");
+  const js = ts.transpileModule(helpers, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
+  return runInNewContext(`${js}\n({ freshOperation, normalizeRoster, playerBrief, playerSlot })`, { ...roster });
+}
+
+test("편집 명단은 이름·편성·보직·임무 삭제와 빈 명단을 JSON 왕복 후에도 보존한다", async () => {
+  const { freshOperation, normalizeRoster, playerBrief, playerSlot } = await rosterHelpers();
+  const operation = freshOperation();
+  const original = operation.players[0];
+  operation.players = [{ ...original, nickname: "수정 선수", lineup: "reserve", secondaryRoles: ["blocker"], slot: 9, brief: null }];
+  const saved = JSON.parse(JSON.stringify(operation));
+  const restored = normalizeRoster(saved);
+  assert.deepEqual(JSON.parse(JSON.stringify(restored)), saved.players);
+  assert.equal(playerBrief(restored[0]), undefined);
+  assert.equal(playerSlot(restored[0]), 9);
+  assert.equal(normalizeRoster({ ...saved, players: [] }).length, 0);
+});
+
+test("기존 저장본은 한 번만 현재 명단으로 이관하고 편집본에서는 삭제 선수를 되살리지 않는다", async () => {
+  const { freshOperation, normalizeRoster } = await rosterHelpers();
+  const operation = freshOperation();
+  delete operation.rosterRevision;
+  operation.players = operation.players.slice(0, 1);
+  const migrated = normalizeRoster(operation);
+  assert.equal(migrated.length, 40);
+  operation.rosterRevision = 1;
+  assert.equal(normalizeRoster(operation).length, 1);
+});
+
+test("가져온 명단의 중복 ID·닉네임과 잘못된 임무·번호를 거부한다", async () => {
+  const { freshOperation, normalizeRoster } = await rosterHelpers();
+  const operation = freshOperation();
+  const player = operation.players[0];
+  for (const players of [
+    [player, player],
+    [player, { ...player, id: 999 }],
+    [{ ...player, nickname: " " }],
+    [{ ...player, slot: 31 }],
+    [{ ...player, secondaryRoles: ["unknown"] }],
+    [{ ...player, brief: { units: [] } }],
+  ]) assert.throws(() => normalizeRoster({ ...operation, players }));
+});
 
 async function render() {
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);
