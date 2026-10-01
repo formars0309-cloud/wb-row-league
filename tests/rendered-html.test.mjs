@@ -11,7 +11,7 @@ async function rosterHelpers() {
   const source = await readFile(new URL("../app/war-table.tsx", import.meta.url), "utf8");
   const helpers = source.slice(0, source.indexOf("function smoothPath")).replace(/^import .*;$/gm, "");
   const js = ts.transpileModule(helpers, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
-  return runInNewContext(`${js}\n({ freshOperation, normalizeRoster, normalizeOperation, playerBrief, playerSlot, readMissionSheet, mirrorMission })`, { ...roster });
+  return runInNewContext(`${js}\n({ freshOperation, normalizeRoster, normalizeOperation, playerBrief, playerSlot, readMissionSheet, mirrorMission, lineExit })`, { ...roster });
 }
 
 test("새 정본의 편집 명단은 이름·보직·임무 삭제와 빈 명단을 JSON 왕복 후에도 보존한다", async () => {
@@ -129,6 +129,16 @@ test("루시아 카드는 시트의 이안 기준 위치 문구를 좌우 환산
   assert.equal(mirrorMission(text, "lucia"), "루시아기준 : 7시 축복의 전당 집결, 9시 치료·6시 용기 주유, 루시아 기준 12시 목명");
   assert.equal(mirrorMission(mirrorMission(text, "lucia"), "lucia"), text);
   assert.equal(mirrorMission("11시 방향, 적 원거리 0순위", "lucia"), "11시 방향, 적 원거리 0순위");
+});
+
+test("안내 이미지대로 TOP·Bottom Line을 15명씩 나누고 출구를 진영에 맞춰 돌린다", async () => {
+  const { lineExit } = await rosterHelpers();
+  const slots = Array.from({ length: 30 }, (_, i) => i + 1);
+  assert.deepEqual(slots.filter((slot) => lineExit(slot, "ian", "tactical").top), [1, 2, 3, 6, 7, 8, 12, 13, 14, 19, 20, 21, 26, 27, 28]);
+  const ianTop = lineExit(1, "ian", "tactical").point, ianBottom = lineExit(30, "ian", "tactical").point;
+  assert.ok(ianTop.x > ianBottom.x && ianTop.y < ianBottom.y, "이안 TOP 출구는 Bottom 출구의 오른쪽 위");
+  const luciaTop = lineExit(1, "lucia", "tactical").point, luciaBottom = lineExit(30, "lucia", "tactical").point;
+  assert.ok(luciaTop.x < luciaBottom.x && luciaTop.y > luciaBottom.y, "루시아는 180도 돌아 왼쪽 아래");
 });
 
 async function render() {

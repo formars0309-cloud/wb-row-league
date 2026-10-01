@@ -110,6 +110,19 @@ function freshOperation(): Operation {
 }
 function clone<T>(value: T): T { return JSON.parse(JSON.stringify(value)) as T; }
 function clamp(value: number) { return Math.max(0.025, Math.min(0.975, value)); }
+// 이안 라인 안내 이미지(output/imagegen/ian-top-bottom-staff-v4.png): 3·4번과 28·29번 사이 사선으로 15명씩 나눈다.
+// 출구는 TOP이 1번 성의 1시 방향, Bottom이 25번 성의 7시 방향. 루시아는 진형과 함께 180도 돈다.
+const TOP_LINE_SLOTS = new Set([1, 2, 3, 6, 7, 8, 12, 13, 14, 19, 20, 21, 26, 27, 28]);
+// 화살표 끝은 출구 밖 라인 공간: 이안 기준 TOP은 3시 치료·1시 천무 쪽, Bottom은 6시 용기·7시 축복 쪽.
+const LINE_EXITS = { top: { slot: 1, x: .09, y: -.12 }, bottom: { slot: 25, x: -.09, y: .12 } };
+function lineExit(slot: number, side: MissionSide, variant: MapVariant) {
+  const top = TOP_LINE_SLOTS.has(slot);
+  const exit = top ? LINE_EXITS.top : LINE_EXITS.bottom;
+  const base = SLOT_POINTS.get(exit.slot) ?? { x: 0, y: 0 };
+  const center = STARTING_POINT_CENTER[variant][side];
+  const turn = side === "ian" ? 1 : -1;
+  return { top, point: { x: clamp(center.x + (base.x + exit.x) * turn), y: clamp(center.y + (base.y + exit.y) * turn) } };
+}
 function uid(prefix: string) { return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`; }
 // 사진 정본으로 한 번 이관한다. 유지 선수의 ID를 보존하고 신규 ID는 옛 명단 전체와 겹치지 않게 만든다.
 function mergePlayers(saved: Player[]): Player[] {
@@ -478,6 +491,7 @@ function MobileBriefing({ players }: { players: Player[] }) {
   const leaders = new Map([...(missions?.values() ?? [])].map((item): [string, MissionOrders] => [item.nickname, item.units]));
   const routes = buildMissionPlan(units, side, "tactical", leaders).routes;
   const home = slotPoint(picked, side, "tactical");
+  const line = home ? lineExit(picked, side, "tactical") : null;
 
   return (
     <div className={`mobile-shell side-${side}`}>
@@ -490,19 +504,25 @@ function MobileBriefing({ players }: { players: Player[] }) {
           {mission.main && <section className="board-box"><h3>메인 임무</h3><p>{mirrorMission(mission.main, side)}</p></section>}
           {mission.sub && <section className="board-box"><h3>서브 임무</h3><p>{mirrorMission(mission.sub, side)}</p></section>}
           {units && <section className="board-box"><h3>부대 배치</h3><ol className="board-units">{units.map((text, index) => text && <li key={index} className={missionEmphasis(text)}><i>{index + 1}</i><span>{text}</span></li>)}</ol></section>}
-          {home && <section className="board-box"><h3>배치 지도</h3>
-            <div className="mobile-map">
-              <div className="mobile-map-art" />
-              <svg viewBox="0 0 1000 1000" preserveAspectRatio="none" aria-label="내 자리와 부대 목적지">
-                <defs><marker id="mobile-head" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" /></marker></defs>
-                {routes.map((route) => <line key={route.target} className={route.roaming ? "is-roaming" : ""} x1={home.x * 1000} y1={home.y * 1000} x2={route.to.x * 1000} y2={route.to.y * 1000} markerEnd="url(#mobile-head)" />)}
-              </svg>
-              {OBJECTIVE_META.map((objective) => <span key={objective.id} className="mobile-objective" style={{ left: `${objective.tactical.x}%`, top: `${objective.tactical.y}%` }}>{objective.label}</span>)}
-              {routes.map((route) => { const at = .8; return <span key={route.target} className={`mobile-tag${route.roaming ? " is-roaming" : ""}`} style={{ left: `${(home.x + (route.to.x - home.x) * at) * 100}%`, top: `${(home.y + (route.to.y - home.y) * at) * 100}%` }}>{route.units.join("·")}</span>; })}
-              <span className="mobile-home" style={{ left: `${home.x * 100}%`, top: `${home.y * 100}%` }}>{picked}</span>
-            </div>
-          </section>}
         </>}
+        {/* 라인 화살표는 임무가 없어도 보여 준다. */}
+        {home && line && <section className="board-box"><h3>배치 지도 · {line.top ? "TOP Line" : "Bottom Line"}</h3>
+          <div className="mobile-map">
+            <div className="mobile-map-art" />
+            <svg viewBox="0 0 1000 1000" preserveAspectRatio="none" aria-label="내 자리, 라인 출구와 부대 목적지">
+              <defs>
+                <marker id="mobile-head" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" /></marker>
+                {(["top", "bottom"] as const).map((key) => <marker key={key} id={`line-head-${key}`} viewBox="0 0 9 6" markerWidth="3" markerHeight="2.4" refX="6" refY="3" orient="auto"><path className={`line-head is-${key}`} d="M0,0 L0,6 L9,3 z" /></marker>)}
+              </defs>
+              {routes.map((route) => <line key={route.target} className={route.roaming ? "is-roaming" : ""} x1={home.x * 1000} y1={home.y * 1000} x2={route.to.x * 1000} y2={route.to.y * 1000} markerEnd="url(#mobile-head)" />)}
+              <line className={`line-route ${line.top ? "is-top" : "is-bottom"}`} x1={home.x * 1000} y1={home.y * 1000} x2={line.point.x * 1000} y2={line.point.y * 1000} markerEnd={`url(#line-head-${line.top ? "top" : "bottom"})`} />
+            </svg>
+            {OBJECTIVE_META.map((objective) => <span key={objective.id} className="mobile-objective" style={{ left: `${objective.tactical.x}%`, top: `${objective.tactical.y}%` }}>{objective.label}</span>)}
+            <span className={`mobile-line ${line.top ? "is-top" : "is-bottom"}`} style={{ left: `${clamp(home.x + (line.point.x - home.x) * 1.18) * 100}%`, top: `${clamp(home.y + (line.point.y - home.y) * 1.18) * 100}%` }}>{line.top ? "TOP" : "BOTTOM"}</span>
+            {routes.map((route) => { const at = .8; return <span key={route.target} className={`mobile-tag${route.roaming ? " is-roaming" : ""}`} style={{ left: `${(home.x + (route.to.x - home.x) * at) * 100}%`, top: `${(home.y + (route.to.y - home.y) * at) * 100}%` }}>{route.units.join("·")}</span>; })}
+            <span className="mobile-home" style={{ left: `${home.x * 100}%`, top: `${home.y * 100}%` }}>{picked}</span>
+          </div>
+        </section>}
         <p className="board-foot">{MISSION_SIDE_LABEL[side]} 진영 기준{side === "lucia" ? " · 시트의 이안 기준 위치를 루시아 기준으로 환산" : ""} · 30 vs 30 · 1인 5부대</p>
       </article>
     </div>

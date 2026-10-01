@@ -1340,6 +1340,15 @@ body {
 .mobile-map line { stroke: var(--side); stroke-width: 3; vector-effect: non-scaling-stroke; }
 .mobile-map line.is-roaming { opacity: 0.5; }
 .mobile-map marker path { fill: var(--side); }
+/* 라인 출구 화살표: 안내 이미지와 같은 색. TOP 청록, Bottom 주황. */
+.mobile-map line.line-route { stroke-width: 5; stroke-dasharray: 9 4; }
+.mobile-map line.line-route.is-top { stroke: #19c6d8; }
+.mobile-map line.line-route.is-bottom { stroke: #f47c1c; }
+.mobile-map marker path.line-head.is-top { fill: #19c6d8; }
+.mobile-map marker path.line-head.is-bottom { fill: #f47c1c; }
+.mobile-line { position: absolute; transform: translate(-50%, -50%); padding: 2px 6px; border: 2px solid #14213a; border-radius: 10px; color: #14213a; font: 900 10px ui-monospace, monospace; letter-spacing: .04em; }
+.mobile-line.is-top { background: #19c6d8; }
+.mobile-line.is-bottom { background: #f47c1c; }
 .mobile-objective { position: absolute; transform: translate(-50%, -50%); padding: 2px 4px; border-radius: 3px; background: rgba(9, 12, 14, 0.72); color: #e8e6df; font-size: 8px; white-space: nowrap; }
 .mobile-home { position: absolute; transform: translate(-50%, -50%); display: grid; place-items: center; width: 26px; height: 26px; border: 2px solid #14213a; border-radius: 50%; background: var(--side-head); color: #14213a; font: 900 12px ui-monospace, monospace; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6); }
 .mobile-tag { position: absolute; transform: translate(-50%, -50%); min-width: 20px; padding: 2px 5px; border: 1px solid #14213a; border-radius: 10px; background: var(--side-head); color: #14213a; font: 900 10px ui-monospace, monospace; text-align: center; }
