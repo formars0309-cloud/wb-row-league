@@ -55,12 +55,12 @@ test("가져온 명단의 중복 ID·닉네임과 잘못된 임무·번호를 �
 
 test("사진 정본 30명의 번호와 이름이 정확히 일치하고 미확인 신규 선수는 임무를 승계하지 않는다", async () => {
   const { freshOperation, playerSlot, playerBrief } = await rosterHelpers();
-  const expected = ["무잔 Muzan", "제이", "바르니 barunii", "마지태", "마스터", "TESLA", "Mim Mi", "파리스", "마구니", "Glen fiddich", "예리", "압수", "곡곡이", "GINSENG MAN", "Kingsway", "욘두 Yondu", "진수", "조롱말", "마리오", "TOMAS SHELBY", "Bünker", "불개", "떡틸로", "JunkHun", "Maha", "Elega", "5000", "보수", "햄수", "늑대장군"];
+  const expected = ["무잔 Muzan", "게이", "바르니 barunii", "마지태", "마스터", "TESLA", "Mim Mi", "파리스", "마구니", "Glen fiddich", "예리", "압수", "곡곡이", "GINSENG MAN", "Kingsway", "욘두 Yondu", "진수", "조롱말", "마리오", "TOMAS SHELBY", "Bünker", "불개", "떡틸로", "JunkHun", "Maha", "Elega", "5000", "보수", "햄수", "늑대장군"];
   const players = freshOperation().players;
   assert.deepEqual(Array.from(players, (player) => player.nickname), expected);
   assert.deepEqual(Array.from(players, playerSlot), Array.from({ length: 30 }, (_, i) => i + 1));
   assert.ok(players.every((player) => player.lineup === "starter"));
-  for (const name of ["제이", "마지태", "Mim Mi", "마리오", "GINSENG MAN", "떡틸로"]) assert.equal(playerBrief(players.find((player) => player.nickname === name)), undefined);
+  for (const name of ["게이", "마지태", "Mim Mi", "마리오", "GINSENG MAN", "떡틸로"]) assert.equal(playerBrief(players.find((player) => player.nickname === name)), undefined);
 });
 
 test("구버전 명단은 ID와 편집을 보존하며 30명으로 이관하고 삭제 선수의 모든 장면 배치와 카드를 정리한다", async () => {
