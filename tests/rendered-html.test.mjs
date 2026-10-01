@@ -9,9 +9,9 @@ async function rosterHelpers() {
   const rosterJs = ts.transpileModule(rosterSource, { compilerOptions: { module: ts.ModuleKind.ESNext } }).outputText;
   const roster = await import(`data:text/javascript;base64,${Buffer.from(rosterJs).toString("base64")}`);
   const source = await readFile(new URL("../app/war-table.tsx", import.meta.url), "utf8");
-  const helpers = source.slice(0, source.indexOf("function smoothPath")).replace(/^import .*;$/gm, "");
+  const helpers = source.slice(0, source.indexOf("function UnitRoleIcon")).replace(/^import .*;$/gm, "");
   const js = ts.transpileModule(helpers, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
-  return runInNewContext(`${js}\n({ freshOperation, normalizeRoster, normalizeOperation, playerBrief, playerSlot, readMissionSheet, mirrorMission, lineExit, entranceBlock, missionLines, missionParts, teamCommon, groupUnits })`, { ...roster });
+  return runInNewContext(`${js}\n({ freshOperation, normalizeRoster, normalizeOperation, playerBrief, playerSlot, readMissionSheet, mirrorMission, lineExit, entranceBlock, missionTargets, buildMissionPlan, objectivePoint, OBJECTIVE_META, missionLines, missionParts, teamCommon, groupUnits })`, { ...roster });
 }
 
 test("새 정본의 편집 명단은 이름·보직·임무 삭제와 빈 명단을 JSON 왕복 후에도 보존한다", async () => {
@@ -187,6 +187,55 @@ test("입구막팀의 메인 임무만 담당 라인의 적 입구 차단 표시
   assert.equal(entranceBlock({ ...mission, main: "거점 주유", sub: mission.main }, "ian", "tactical"), null);
   assert.equal(entranceBlock({ ...mission, main: "적 입구 막기" }, "ian", "tactical"), null);
   assert.ok(entranceBlock({ ...mission, team: "입구 막 팀", main: "적 탑 입구  막기" }, "ian", "tactical"));
+});
+
+test("임무 화살표는 시계와 거점 이름을 함께 확인하고 획득 조건 뒤의 실제 목표로 향한다", async () => {
+  const { missionTargets, mirrorMission, objectivePoint } = await rosterHelpers();
+  const cases = [["12시 적 용기", "spirit-north"], ["6시 용기의 영목", "spirit-south"], ["3시 치료", "spirit-east"], ["9시 치료", "spirit-west"], ["1시 천무", "hall-northeast"], ["7시 축복", "hall-southwest"], ["12시 목명", "hall-north"], ["6시 군왕", "hall-south"], ["주력 아처 (3시 치료 획득시 12시 적 용기 아처집결)", "spirit-north"], ["7시 축복의 전당 획득시 9시 치료의 영목 집결장", "spirit-west"]];
+  for (const [text, id] of cases) {
+    for (const variant of ["tactical", "field"]) {
+      const targets = missionTargets(text, "ian", variant, new Map());
+      assert.equal(targets.length, 1, text);
+      assert.equal(targets[0].key, id, text);
+      assert.equal(JSON.stringify(targets[0].point), JSON.stringify(objectivePoint(id, variant)));
+    }
+  }
+  assert.equal(missionTargets(mirrorMission(cases[8][0], "lucia"), "lucia", "tactical", new Map())[0].key, "spirit-south");
+  for (const text of ["12시 치료", "6시 치료", "3시 용기", "12시 천무", "11시 천무", "용기 주둔", "치료 집결"]) {
+    assert.equal(missionTargets(text, "ian", "tactical", new Map()).length, 0, `충돌·방향 미정은 추정하지 않음: ${text}`);
+  }
+  assert.equal(JSON.stringify(missionTargets("3시 치료 + 12시 용기", "ian", "tactical", new Map()).map((target) => target.key)), JSON.stringify(["spirit-east", "spirit-north"]));
+});
+
+test("전망대 1·2와 명시된 적 TOP·Bottom 입구는 자기 진영과 담당 방향에 맞춘다", async () => {
+  const { missionTargets, lineExit } = await rosterHelpers();
+  for (const side of ["ian", "lucia"]) {
+    for (const [text, suffix] of [["전망대 주둔 1 (좌측꺼)", "west"], ["전망대 주둔 2 (우측꺼)", "east"], ["이안측 전망대 2개중에 왼쪽꺼 쿠뇌 주둔", "west"], ["이안측 전망대 2개중에 오른쪽꺼 엘조 주둔", "east"]]) {
+      const targets = missionTargets(text, side, "tactical", new Map());
+      assert.equal(targets.length, 1);
+      assert.equal(targets[0].key, `lookout-${side}-${suffix}`);
+    }
+    assert.equal(missionTargets("전망대 주둔", side, "tactical", new Map()).length, 2);
+    for (const [text, enemySlot] of [["탑 라인 적 입구 막기", 25], ["바텀 적 입구막기", 1]]) {
+      const target = missionTargets(text, side, "tactical", new Map())[0];
+      assert.equal(JSON.stringify(target.point), JSON.stringify(lineExit(enemySlot, side === "ian" ? "lucia" : "ian", "tactical").start));
+    }
+  }
+  assert.equal(missionTargets("방패아티 보병 (입구막는 보병 밀고 필드 쟁 지원)", "ian", "tactical", new Map()).length, 0);
+});
+
+test("집결 탑승은 해당 집결장의 실제 목표로 향하고 필드 부대에는 임의의 화살표가 없다", async () => {
+  const { missionTargets, buildMissionPlan } = await rosterHelpers();
+  const leaders = new Map([["TESLA", ["3시 치료 집결", "주력 아처 (3시 치료 획득시 12시 적 용기 아처집결)", "", "", ""]], ["벌꿀오소리형", ["1시 천무의 전당 집결", "", "", "", ""]]]);
+  for (const name of ["테슬라님", "TESLA님"]) {
+    assert.equal(missionTargets(`${name} 궁병 집결탑승`, "ian", "tactical", leaders)[0].key, "spirit-east");
+    assert.equal(missionTargets(`${name} 궁병 집결탑승`, "lucia", "tactical", leaders)[0].key, "spirit-west");
+  }
+  assert.equal(missionTargets("오소리님 기마 집결 탑승", "ian", "tactical", leaders)[0].key, "hall-northeast");
+  const plan = buildMissionPlan(["3시 치료 주둔", "필드 싸움", "주력 아처", "", ""], "ian", "tactical", leaders);
+  assert.equal(plan.routes.length, 1);
+  assert.equal(JSON.stringify(plan.routes[0].units), "[1]");
+  assert.equal(JSON.stringify(plan.gaps), "[2,3,4,5]");
 });
 
 test("모바일 카드 가독성: 문장 줄 나누기·위치/타이밍 강조·팀 공통 임무·같은 부대 묶기", async () => {

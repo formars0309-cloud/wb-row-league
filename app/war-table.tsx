@@ -339,13 +339,7 @@ function memoRect(start: Point, end: Point) {
   return { left: fitAxis(Math.min(start.x, end.x), width), top: fitAxis(Math.min(start.y, end.y), height), width, height };
 }
 function memoSpan(object: TacticalObject) { return { width: Math.abs((object.x2 ?? object.x) - object.x), height: Math.abs((object.y2 ?? object.y) - object.y) }; }
-const RALLY_LEADER_ALIAS: Array<[string, string]> = [["진수님", "진수"], ["MAHA님", "Maha"], ["테슬라님", "TESLA"], ["예리님", "예리"], ["벌꿀오소리형", "벌꿀오소리형"], ["게이님", "벌꿀오소리형"], ["오소리님", "벌꿀오소리형"]];
-// 적 진영 앞 골짜기 입구. 거점 아이콘이 없는 지형이라 좌표를 직접 잡았다.
-// 전술 맵 값은 지도 원본에서 실측했고, 실전 맵 값은 거점 12쌍의 변위로 환산한 추정치다.
-const ENEMY_GATE: Record<MissionSide, Record<MapVariant, Point>> = {
-  ian: { tactical: { x: .3903, y: .3933 }, field: { x: .3543, y: .5288 } },
-  lucia: { tactical: { x: .6406, y: .3553 }, field: { x: .6563, y: .4358 } },
-};
+const RALLY_LEADER_ALIAS: Array<[string, string]> = [["진수님", "진수"], ["MAHA님", "Maha"], ["테슬라님", "TESLA"], ["TESLA님", "TESLA"], ["예리님", "예리"], ["벌꿀오소리형", "벌꿀오소리형"], ["게이님", "벌꿀오소리형"], ["오소리님", "벌꿀오소리형"]];
 function objectivePoint(id: string, variant: MapVariant): Point | null {
   const found = OBJECTIVE_META.find((item) => item.id === id);
   if (!found) return null;
@@ -361,25 +355,35 @@ function missionTargets(text: string, side: MissionSide, variant: MapVariant, mi
     const rally = leader.map((order) => mirrorMission(order, side)).find((order) => order.includes("집결"));
     return rally ? missionTargets(rally, side, variant, missions, true) : [];
   }
-  // 입구는 거점이 아니라 지형이라 시계 표기보다 먼저 걸러야 한다.
-  if (text.includes("입구")) return [{ key: "enemy-gate", point: ENEMY_GATE[side][variant] }];
-  const ids = (() => {
-    if (text.includes("전망대")) return ["lookout-lucia-west", "lookout-lucia-east", "lookout-ian-west", "lookout-ian-east"];
-    // 거점 이름이 시계보다 확실하다. 오더가 "12시 천무전당"처럼 시계를 틀려도 이름으로 맞춘다.
-    if (text.includes("천무")) return ["hall-northeast"];
-    if (text.includes("축복")) return ["hall-southwest"];
-    if (text.includes("목명")) return ["hall-north"];
-    if (text.includes("군왕")) return ["hall-south"];
-    if (text.includes("용기")) return ["spirit-south"];
-    if (text.includes("9시")) return ["spirit-west"];
-    if (text.includes("3시")) return ["spirit-east"];
-    if (text.includes("12시")) return ["spirit-north"];
-    if (text.includes("6시")) return ["spirit-south"];
-    if (text.includes("1시")) return ["hall-northeast"];
-    if (text.includes("7시")) return ["hall-southwest"];
-    return [];
-  })();
-  return ids.map((id) => { const point = objectivePoint(id, variant); return point ? { key: id, point } : null; }).filter((target) => target !== null);
+  // 획득 조건에 등장한 거점은 출발 조건이며, 화살표의 목적지는 조건 뒤의 지시다.
+  const order = text.replace(/^.*(?:획득\s*시|획득하면)/, "");
+  let ids: string[];
+  if (order.includes("전망대")) {
+    const left = /좌측|왼쪽|전망대(?:\s*주둔)?\s*1/.test(order);
+    const right = /우측|오른쪽|전망대(?:\s*주둔)?\s*2(?!\s*개)/.test(order);
+    ids = [left || !right ? `lookout-${side}-west` : "", right || !left ? `lookout-${side}-east` : ""].filter(Boolean);
+  } else if (order.includes("입구")) {
+    // 입구막는 적 보병을 미는 필드 부대는 고정 입구로 보내지 않는다.
+    if (/입구\s*막는.*(?:밀|섬멸)/.test(order)) return [];
+    const top = /탑|top/i.test(order), bottom = /바텀|bottom/i.test(order);
+    if (!top && !bottom) return [];
+    return [{ key: top ? "enemy-top-gate" : "enemy-bottom-gate", point: lineExit(top ? 25 : 1, side === "ian" ? "lucia" : "ian", variant).start }];
+  } else {
+    const names = [...order.matchAll(/(?:(?<!\d)(1[0-2]|[1-9])시\s*(?:적\s*)?)?(천무|축복|치료|용기|군왕|목명)/g)];
+    if (names.length) {
+      ids = names.flatMap(([, clock, name]) => {
+        const matches = OBJECTIVE_META.filter((objective) => objective.label.includes(name) &&
+          (!clock || new RegExp(`(?<!\\d)${clock}시`).test(`${objective.location} ${objective.label}`)));
+        // 같은 이름의 영목 두 곳을 방향 없이 하나로 추정하거나 서로 다른 시계/이름을 무시하지 않는다.
+        return matches.length === 1 ? [matches[0].id] : [];
+      });
+    } else {
+      const clocks = [...order.matchAll(/(?<!\d)(12|1|3|6|7|9)시/g)];
+      const clockIds: Record<string, string> = { "12": "spirit-north", "1": "hall-northeast", "3": "spirit-east", "6": "spirit-south", "7": "hall-southwest", "9": "spirit-west" };
+      ids = clocks.map(([, clock]) => clockIds[clock]);
+    }
+  }
+  return [...new Set(ids)].flatMap((id) => { const point = objectivePoint(id, variant); return point ? [{ key: id, point }] : []; });
 }
 // 카드는 진영색 한 가지로 칠하므로, 색상 대신 강조 단계로 위계를 준다.
 function missionEmphasis(text: string) {
@@ -415,19 +419,13 @@ function missionCommandRoles(orders: string[]) {
 type MissionRoute = { target: string; to: Point; units: number[]; roaming: boolean };
 function buildMissionPlan(orders: string[] | null, side: MissionSide, variant: MapVariant, missions: Map<string, MissionOrders>) {
   const byTarget = new Map<string, { point: Point; units: number[] }>();
-  const roaming: number[] = [];
   const gaps: number[] = [];
   (orders ?? []).forEach((text, index) => {
     const targets = missionTargets(text, side, variant, missions);
     if (targets.length) { targets.forEach(({ key, point }) => byTarget.set(key, { point, units: [...(byTarget.get(key)?.units ?? []), index + 1] })); return; }
-    if (missionTone(text) === "field") roaming.push(index + 1); else gaps.push(index + 1);
+    gaps.push(index + 1);
   });
   const routes: MissionRoute[] = [...byTarget].map(([target, { point, units }]) => ({ target, to: point, units, roaming: false }));
-  // 필드 운용은 고정 거점이 없어, 그 사람 다른 부대들이 선 자리의 한가운데로 보낸다.
-  if (roaming.length && routes.length) {
-    const to = { x: routes.reduce((sum, route) => sum + route.to.x, 0) / routes.length, y: routes.reduce((sum, route) => sum + route.to.y, 0) / routes.length };
-    routes.push({ target: "roaming", to, units: roaming, roaming: true });
-  } else if (roaming.length) gaps.push(...roaming);
   return { routes, gaps: gaps.sort((a, b) => a - b) };
 }
 // 집결 탑승 경로는 편집된 명단의 집결장 임무를 따라간다.
@@ -602,9 +600,9 @@ function MobileBriefing({ players }: { players: Player[] }) {
             <div className="mobile-map-art" />
             <svg viewBox="0 0 1000 1000" preserveAspectRatio="none" aria-label={block ? "내 자리와 적 입구 차단 위치" : "내 자리, 라인 출구와 부대 목적지"}>
               <defs>
-                <marker id="mobile-head" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" /></marker>
-                <marker id="block-head" viewBox="0 0 9 6" markerWidth="3" markerHeight="2.4" refX="6" refY="3" orient="auto"><path className="block-head" d="M0,0 L0,6 L9,3 z" /></marker>
-                {(["top", "bottom"] as const).map((key) => <marker key={key} id={`line-head-${key}`} viewBox="0 0 9 6" markerWidth="3" markerHeight="2.4" refX="6" refY="3" orient="auto"><path className={`line-head is-${key}`} d="M0,0 L0,6 L9,3 z" /></marker>)}
+                <marker id="mobile-head" markerWidth="9" markerHeight="9" refX="9" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" /></marker>
+                <marker id="block-head" viewBox="0 0 9 6" markerWidth="3" markerHeight="2.4" refX="9" refY="3" orient="auto"><path className="block-head" d="M0,0 L0,6 L9,3 z" /></marker>
+                {(["top", "bottom"] as const).map((key) => <marker key={key} id={`line-head-${key}`} viewBox="0 0 9 6" markerWidth="3" markerHeight="2.4" refX="9" refY="3" orient="auto"><path className={`line-head is-${key}`} d="M0,0 L0,6 L9,3 z" /></marker>)}
               </defs>
               {routes.map((route) => <line key={route.target} className={route.roaming ? "is-roaming" : ""} x1={home.x * 1000} y1={home.y * 1000} x2={route.to.x * 1000} y2={route.to.y * 1000} markerEnd="url(#mobile-head)" />)}
               {block ? <line className="block-route" x1={home.x * 1000} y1={home.y * 1000} x2={block.point.x * 1000} y2={block.point.y * 1000} markerEnd="url(#block-head)" /> :
@@ -1091,7 +1089,7 @@ export default function WarTable() {
           {scene.events.lifeStone && <div className="lifestone-anchor" aria-label={`생명의 반석, ${scene.events.lifeStone}`}><span>◆</span><strong>생명의 반석</strong><small>{scene.events.lifeStone}</small></div>}
           {OBJECTIVE_META.map((objective) => { const owner = scene.objectiveOwners?.[objective.id] ?? "neutral"; const point = objective[mapVariant]; return <button type="button" key={objective.id} className={`capture-objective owner-${owner}`} style={{ left: `${point.x}%`, top: `${point.y}%` }} onClick={() => cycleObjective(objective.id)} aria-label={`${objective.location} ${objective.label}: ${owner === "neutral" ? "중립" : owner === "lucia" ? "루시아팀" : "이안팀"}`} title={`${objective.location} ${objective.label} · 클릭하여 점령 상태 변경`}><span>{objective.label}</span></button>; })}
           <svg className="tactical-svg" viewBox="0 0 1000 1000" preserveAspectRatio="none" aria-label="전술 오브젝트 레이어">
-            <defs><marker id="move-head" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#55cfff" /></marker><marker id="attack-head" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#ff5353" /></marker><marker id="route-head-ian" markerWidth="10" markerHeight="10" refX="7" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#f0c463" /></marker><marker id="route-head-lucia" markerWidth="10" markerHeight="10" refX="7" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#5cb8ff" /></marker></defs>
+            <defs><marker id="move-head" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#55cfff" /></marker><marker id="attack-head" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#ff5353" /></marker><marker id="route-head-ian" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#f0c463" /></marker><marker id="route-head-lucia" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#5cb8ff" /></marker></defs>
             {missionRoutes.map((route) => <line key={route.key} className={`mission-route side-${missionSide}${route.roaming ? " is-roaming" : ""}`} x1={route.from.x * 1000} y1={route.from.y * 1000} x2={route.to.x * 1000} y2={route.to.y * 1000} markerEnd={`url(#route-head-${missionSide})`} />)}
             {objects.filter((object) => ["moveArrow", "attackArrow", "defense"].includes(object.type)).map((object) => object.points?.length ? <path key={object.id} className={`tactical-object freehand-path ${object.type === "defense" ? "defense-line" : `arrow-${object.type}`}`} onClick={() => deleteObject(object.id)} d={smoothPath(object.points)} markerEnd={object.type === "defense" ? undefined : `url(#${object.type === "moveArrow" ? "move-head" : "attack-head"})`} /> : <line key={object.id} className={`tactical-object ${object.type === "defense" ? "defense-line" : `arrow-${object.type}`}`} onClick={() => deleteObject(object.id)} x1={object.x * 1000} y1={object.y * 1000} x2={(object.x2 ?? object.x) * 1000} y2={(object.y2 ?? object.y) * 1000} markerEnd={object.type === "defense" ? undefined : `url(#${object.type === "moveArrow" ? "move-head" : "attack-head"})`} />)}
             {drawPoints.length > 1 && <path className={`draw-preview freehand-path ${tool === "defense" ? "defense-line" : "arrow-attackArrow"}`} d={smoothPath(drawPoints)} markerEnd={tool === "attackArrow" ? "url(#attack-head)" : undefined} />}
