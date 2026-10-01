@@ -1,5 +1,28 @@
 # 진행 상황
 
+갱신: 2026-10-01 — 사진 정본 공개 배포·번호순 명단 이미지·구글 시트
+
+## 최신 세션 결과
+
+- 사용자 명시 배포 요청에 따라 검증된 소스 `a7b8462`를 Sites main에 푸시하고
+  버전 11로 공개 배포했다. 상태 succeeded, 공개 응답의 명단 30명·예비 부재 확인.
+- 공개 주소: https://heinapel-war-table.formars0309.chatgpt.site
+- 이안 사진 4장을 참고해 번호순 30명을 3열 10행 이미지로 제작했다.
+  내장 image_gen 사용, 번호·닉네임 직접 대조 및 OCR 보조 확인.
+- 이미지: `output/imagegen/ian-roster-30.png`, 같은 경로의 프롬프트 파일에 생성 지시 저장.
+  드라이브: https://drive.google.com/file/d/1Hezl-dUsVgnVAipjSpVUCl_MSXkVmmtY/view?usp=drivesdk
+- 구글 시트: https://docs.google.com/spreadsheets/d/1NUorQ8zecl1mDRstKk-F1T7hRF2YYBgS_ZG21gIvcgc/edit
+  스타팅 명단 탭 A1:B31에 번호·닉네임, 이안 원본 사진 링크 4개 포함.
+- artifact-tool XLSX를 네이티브 시트로 가져온 뒤 메타데이터·값·서식 readback,
+  네이티브 XLSX 재내보내기/렌더로 정본 30명 및 가독성 검수 완료.
+  Chrome 시트 시각 확인은 창 소실 오류로 실패했고 재내보내기 검수로 대체했다.
+- 배포 전 lint·빌드·테스트 7개 통과. 첫 배포 아카이브의 진입점 오류는
+  dist 폴더 구조를 보존해 다시 묶어서 해결했다. 상세 버전·검수 기록은
+  `harness/ROSTER_DELIVERY_2026-10-01.md`에 저장했다.
+- 다른 작업자의 앱 수정·삭제·기존 이미지에는 손대지 않았다. 이번 산출물·기록만 커밋한다.
+
+---
+
 갱신: 2026-10-01 — 하단 STAFF 포인트 왼쪽 이동
 
 ## 최신 세션 결과
