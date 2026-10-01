@@ -3,6 +3,7 @@
 - 도구: 내장 `image_gen` 이미지 편집.
 - 편집 원본: `ian-top-bottom-lines-v2.png`.
 - 결과: `ian-top-bottom-staff-v3.png`.
+- 드라이브 저장본: [이안_스타팅_TOP_Bottom_STAFF포인트.png](https://drive.google.com/file/d/1Ei0GMt4YTZlg_qHTKQvRDp_y36kfOxxb/view?usp=drivesdk).
 - 명단·미니맵·버튼 등 UI를 제거하고 스타팅·상하 출구 중심으로 편집했다.
 - 성 30개·번호·배치, 사선 경계, TOP Line 15·Bottom Line 15, 상하 공격 화살표를 보존했다.
 - 12번 핀의 2시 방향과 30번 핀의 7시 방향 빈 지형에 노란 테두리 원·STAFF 포인트를 각각 표시했다.

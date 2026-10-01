@@ -1,5 +1,20 @@
 # 진행 상황
 
+갱신: 2026-10-01 — 최신 이미지 구글 드라이브 저장
+
+## 최신 세션 결과
+
+- 사용자 요청에 따라 `output/imagegen/ian-top-bottom-staff-v3.png`를 Google Drive
+  내 드라이브 기본 위치에 `이안_스타팅_TOP_Bottom_STAFF포인트.png`로 업로드했다.
+- 저장본: https://drive.google.com/file/d/1Ei0GMt4YTZlg_qHTKQvRDp_y36kfOxxb/view?usp=drivesdk
+- 업로드 성공 뒤 커넥터 메타데이터를 재조회하여 파일 ID·이름·PNG 형식·크기 2,185,582바이트 확인.
+  기존 파일·공유 설정 변경 없음. 로컬 원본도 보존한다.
+- 이번 작업은 업로드·링크 기록뿐이므로 앱 lint·build·테스트는 재실행하지 않았다.
+  직전 이미지 편집 세션의 lint·빌드·테스트 7개는 통과했다.
+- 변경 문서 자격증명 패턴 검사 및 `git diff --check` 통과.
+
+---
+
 갱신: 2026-10-01 — 스타팅 중심 편집·STAFF 포인트 2곳 추가
 
 ## 최신 세션 결과
