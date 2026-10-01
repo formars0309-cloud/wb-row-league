@@ -38,6 +38,23 @@ test("기존 저장본은 한 번만 현재 명단으로 이관하고 편집본�
   assert.equal(normalizeRoster(operation).length, 1);
 });
 
+test("2번의 기존 닉네임은 저장된 ID·부대·장면·카드를 보존해 벌꿀오소리형으로 바꾼다", async () => {
+  const { freshOperation, normalizeOperation, playerSlot } = await rosterHelpers();
+  for (const nickname of ["게이", "제이", "오소리"]) {
+    const saved = freshOperation();
+    saved.players[1] = { ...saved.players[1], id: 42, nickname, slot: 2, primaryRole: "cavalry" };
+    saved.scenes[0].positions = { 42: { x: .4, y: .5 } };
+    saved.cards = [{ playerId: 42, x: .3, y: .2 }];
+    const restored = normalizeOperation(saved);
+    assert.equal(restored.players[1].nickname, "벌꿀오소리형");
+    assert.equal(restored.players[1].id, 42);
+    assert.equal(restored.players[1].primaryRole, "cavalry");
+    assert.equal(playerSlot(restored.players[1]), 2);
+    assert.equal(JSON.stringify(restored.scenes), JSON.stringify(saved.scenes));
+    assert.equal(JSON.stringify(restored.cards), JSON.stringify(saved.cards));
+  }
+});
+
 test("가져온 명단의 중복 ID·닉네임과 잘못된 임무·번호를 거부한다", async () => {
   const { freshOperation, normalizeRoster } = await rosterHelpers();
   const operation = freshOperation();
@@ -45,6 +62,7 @@ test("가져온 명단의 중복 ID·닉네임과 잘못된 임무·번호를 �
   for (const players of [
     [player, player],
     [player, { ...player, id: 999 }],
+    [{ ...player, nickname: "게이" }, { ...player, id: 999, nickname: "벌꿀오소리형" }],
     [{ ...player, nickname: " " }],
     [{ ...player, slot: 31 }],
     [{ ...player, lineup: "reserve" }],
@@ -55,7 +73,7 @@ test("가져온 명단의 중복 ID·닉네임과 잘못된 임무·번호를 �
 
 test("사진 정본 30명의 번호와 이름이 정확히 일치하고 앱에는 기본 임무가 없다", async () => {
   const { freshOperation, playerSlot, playerBrief } = await rosterHelpers();
-  const expected = ["무잔 Muzan", "게이", "바르니 barunii", "마지태", "마스터", "TESLA", "Mim Mi", "파리스", "마구니", "Glen fiddich", "예리", "압수", "곡곡이", "GINSENG MAN", "Kingsway", "욘두 Yondu", "진수", "조롱말", "마리오", "TOMAS SHELBY", "Bünker", "불개", "떡틸로", "JunkHun", "Maha", "5000", "Elega", "보수", "햄수", "늑대장군"];
+  const expected = ["무잔 Muzan", "벌꿀오소리형", "바르니 barunii", "마지태", "마스터", "TESLA", "Mim Mi", "파리스", "마구니", "Glen fiddich", "예리", "압수", "곡곡이", "GINSENG MAN", "Kingsway", "욘두 Yondu", "진수", "조롱말", "마리오", "TOMAS SHELBY", "Bünker", "불개", "떡틸로", "JunkHun", "Maha", "5000", "Elega", "보수", "햄수", "늑대장군"];
   const players = freshOperation().players;
   assert.deepEqual(Array.from(players, (player) => player.nickname), expected);
   assert.deepEqual(Array.from(players, playerSlot), Array.from({ length: 30 }, (_, i) => i + 1));
@@ -139,6 +157,18 @@ test("안내 이미지대로 TOP·Bottom Line을 15명씩 나누고 출구를 �
   assert.ok(ianTop.x > ianBottom.x && ianTop.y < ianBottom.y, "이안 TOP 출구는 Bottom 출구의 오른쪽 위");
   const luciaTop = lineExit(1, "lucia", "tactical").point, luciaBottom = lineExit(30, "lucia", "tactical").point;
   assert.ok(luciaTop.x < luciaBottom.x && luciaTop.y > luciaBottom.y, "루시아는 180도 돌아 왼쪽 아래");
+  for (const variant of ["tactical", "field"]) {
+    for (const [slot, other, clock] of [[1, 3, 11.5], [25, 30, 8]]) {
+      const ian = lineExit(slot, "ian", variant), lucia = lineExit(slot, "lucia", variant);
+      assert.equal(JSON.stringify(ian.start), JSON.stringify(lineExit(other, "ian", variant).start), "같은 라인은 선수 자리에 관계없이 같은 출구에서 시작");
+      const dx = ian.point.x - ian.start.x, dy = ian.point.y - ian.start.y;
+      const angle = (Math.atan2(dx * 1.25, -dy) * 180 / Math.PI + 360) % 360;
+      assert.ok(Math.abs(angle - clock * 30) < 1, `${clock}시 방향`);
+      assert.ok(Math.abs(lucia.point.x - lucia.start.x + dx) < 1e-9);
+      assert.ok(Math.abs(lucia.point.y - lucia.start.y + dy) < 1e-9);
+      if (variant === "tactical") assert.ok(slot === 1 ? ian.start.x > .642 && ian.start.y < .412 : ian.start.x < .563 && ian.start.y > .613, "출구는 해당 성의 바깥쪽");
+    }
+  }
 });
 
 test("모바일 카드 가독성: 문장 줄 나누기·위치/타이밍 강조·팀 공통 임무·같은 부대 묶기", async () => {

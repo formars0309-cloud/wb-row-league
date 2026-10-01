@@ -113,15 +113,16 @@ function clamp(value: number) { return Math.max(0.025, Math.min(0.975, value)); 
 // 이안 라인 안내 이미지(output/imagegen/ian-top-bottom-staff-v4.png): 3·4번과 28·29번 사이 사선으로 15명씩 나눈다.
 // 출구는 TOP이 1번 성의 1시 방향, Bottom이 25번 성의 7시 방향. 루시아는 진형과 함께 180도 돈다.
 const TOP_LINE_SLOTS = new Set([1, 2, 3, 6, 7, 8, 12, 13, 14, 19, 20, 21, 26, 27, 28]);
-// 화살표 끝은 출구 밖 라인 공간: 이안 기준 TOP은 3시 치료·1시 천무 쪽, Bottom은 6시 용기·7시 축복 쪽.
-const LINE_EXITS = { top: { slot: 1, x: .09, y: -.12 }, bottom: { slot: 25, x: -.09, y: .12 } };
+// 출구에서 시작한다. 지도 가로:세로(1.25:1)를 반영해 TOP은 11시 반, Bottom은 8시 방향.
+const LINE_EXITS = { top: { slot: 1, x: .025, y: -.03, dx: -.032, dy: -.15 }, bottom: { slot: 25, x: -.025, y: .03, dx: -.10, dy: .0725 } };
 function lineExit(slot: number, side: MissionSide, variant: MapVariant) {
   const top = TOP_LINE_SLOTS.has(slot);
   const exit = top ? LINE_EXITS.top : LINE_EXITS.bottom;
   const base = SLOT_POINTS.get(exit.slot) ?? { x: 0, y: 0 };
   const center = STARTING_POINT_CENTER[variant][side];
   const turn = side === "ian" ? 1 : -1;
-  return { top, point: { x: clamp(center.x + (base.x + exit.x) * turn), y: clamp(center.y + (base.y + exit.y) * turn) } };
+  const start = { x: center.x + (base.x + exit.x) * turn, y: center.y + (base.y + exit.y) * turn };
+  return { top, start, point: { x: clamp(start.x + exit.dx * turn), y: clamp(start.y + exit.dy * turn) } };
 }
 function uid(prefix: string) { return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`; }
 // 사진 정본으로 한 번 이관한다. 유지 선수의 ID를 보존하고 신규 ID는 옛 명단 전체와 겹치지 않게 만든다.
@@ -174,7 +175,14 @@ function normalizeRoster(saved: Operation): Player[] {
       (brief.image && (typeof brief.image.src !== "string" || typeof brief.image.caption !== "string")))) throw new Error("잘못된 임무");
     ids.add(player.id); names.add(player.nickname.trim().toLowerCase());
   }
-  if (saved.rosterRevision === 2) return players;
+  if (saved.rosterRevision === 2) {
+    const renamed = players.map((player) => {
+      const nickname = ROSTER_ALIASES.get(player.nickname);
+      return nickname && SLOT_BY_NICKNAME.get(nickname) === 2 ? { ...player, nickname, brief: player.brief ? { ...player.brief, nickname } : player.brief } : player;
+    });
+    if (new Set(renamed.map((player) => player.nickname.trim().toLowerCase())).size !== renamed.length) throw new Error("잘못된 명단");
+    return renamed;
+  }
   const merged = mergePlayers(players);
   if (merged.some((player) => !Number.isSafeInteger(player.id))) throw new Error("선수 ID를 이관할 수 없습니다.");
   return merged;
@@ -323,7 +331,7 @@ function memoRect(start: Point, end: Point) {
   return { left: fitAxis(Math.min(start.x, end.x), width), top: fitAxis(Math.min(start.y, end.y), height), width, height };
 }
 function memoSpan(object: TacticalObject) { return { width: Math.abs((object.x2 ?? object.x) - object.x), height: Math.abs((object.y2 ?? object.y) - object.y) }; }
-const RALLY_LEADER_ALIAS: Array<[string, string]> = [["진수님", "진수"], ["MAHA님", "Maha"], ["테슬라님", "TESLA"], ["예리님", "예리"], ["게이님", "게이"]];
+const RALLY_LEADER_ALIAS: Array<[string, string]> = [["진수님", "진수"], ["MAHA님", "Maha"], ["테슬라님", "TESLA"], ["예리님", "예리"], ["벌꿀오소리형", "벌꿀오소리형"], ["게이님", "벌꿀오소리형"], ["오소리님", "벌꿀오소리형"]];
 // 적 진영 앞 골짜기 입구. 거점 아이콘이 없는 지형이라 좌표를 직접 잡았다.
 // 전술 맵 값은 지도 원본에서 실측했고, 실전 맵 값은 거점 12쌍의 변위로 환산한 추정치다.
 const ENEMY_GATE: Record<MissionSide, Record<MapVariant, Point>> = {
@@ -589,10 +597,10 @@ function MobileBriefing({ players }: { players: Player[] }) {
                 {(["top", "bottom"] as const).map((key) => <marker key={key} id={`line-head-${key}`} viewBox="0 0 9 6" markerWidth="3" markerHeight="2.4" refX="6" refY="3" orient="auto"><path className={`line-head is-${key}`} d="M0,0 L0,6 L9,3 z" /></marker>)}
               </defs>
               {routes.map((route) => <line key={route.target} className={route.roaming ? "is-roaming" : ""} x1={home.x * 1000} y1={home.y * 1000} x2={route.to.x * 1000} y2={route.to.y * 1000} markerEnd="url(#mobile-head)" />)}
-              <line className={`line-route ${line.top ? "is-top" : "is-bottom"}`} x1={home.x * 1000} y1={home.y * 1000} x2={line.point.x * 1000} y2={line.point.y * 1000} markerEnd={`url(#line-head-${line.top ? "top" : "bottom"})`} />
+              <line className={`line-route ${line.top ? "is-top" : "is-bottom"}`} x1={line.start.x * 1000} y1={line.start.y * 1000} x2={line.point.x * 1000} y2={line.point.y * 1000} markerEnd={`url(#line-head-${line.top ? "top" : "bottom"})`} />
             </svg>
             {OBJECTIVE_META.map((objective) => <span key={objective.id} className="mobile-objective" style={{ left: `${objective.tactical.x}%`, top: `${objective.tactical.y}%` }}>{objective.label}</span>)}
-            <span className={`mobile-line ${line.top ? "is-top" : "is-bottom"}`} style={{ left: `${clamp(home.x + (line.point.x - home.x) * 1.18) * 100}%`, top: `${clamp(home.y + (line.point.y - home.y) * 1.18) * 100}%` }}>{line.top ? "TOP" : "BOTTOM"}</span>
+            <span className={`mobile-line ${line.top ? "is-top" : "is-bottom"}`} style={{ left: `${clamp(line.start.x + (line.point.x - line.start.x) * 1.4) * 100}%`, top: `${clamp(line.start.y + (line.point.y - line.start.y) * 1.4) * 100}%` }}>{line.top ? "TOP" : "BOTTOM"}</span>
             {routes.map((route) => { const at = .8; return <span key={route.target} className={`mobile-tag${route.roaming ? " is-roaming" : ""}`} style={{ left: `${(home.x + (route.to.x - home.x) * at) * 100}%`, top: `${(home.y + (route.to.y - home.y) * at) * 100}%` }}>{route.units.join("·")}</span>; })}
             <span className="mobile-home" style={{ left: `${home.x * 100}%`, top: `${home.y * 100}%` }}>{picked}</span>
           </div>

@@ -21,7 +21,7 @@ export type Brief = {
 // 미확인 신규 선수는 임무를 승계하지 않으며, 병종은 편집 가능한 기본 보병이다.
 export const PLAYER_SOURCE: Array<[string, PrimaryRole]> = [
   ["무잔 Muzan", "cavalry"],
-  ["게이", "infantry"],
+  ["벌꿀오소리형", "infantry"],
   ["바르니 barunii", "ranged"],
   ["마지태", "infantry"],
   ["마스터", "cavalry"],
@@ -71,7 +71,9 @@ export const ROSTER_ALIASES = new Map<string, string>([
   ["Junkhun", "JunkHun"],
   ["[WB] ᴵᴿᴼᴺ Maha", "Maha"],
   ["[WB] ᵂᴮ Elega", "Elega"],
-  ["제이", "게이"], // 2026-10-01 사용자 정정
+  ["제이", "벌꿀오소리형"], // 2026-10-02 사용자 정정
+  ["게이", "벌꿀오소리형"],
+  ["오소리", "벌꿀오소리형"],
   ["보 수", "보수"],
   ["햄찌", "햄수"],
 ]);
