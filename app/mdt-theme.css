@@ -1312,24 +1312,35 @@ body {
 .mobile-common b { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 7px; background: #fff; font: 900 13px ui-monospace, monospace; }
 .mobile-common span { font-size: 16px; font-weight: 900; }
 .mobile-common small { margin-left: auto; color: #4b5563; font-size: 12px; font-weight: 700; }
-.board-units li span b { display: block; margin-bottom: 2px; font-weight: 900; }
+.board-line { margin: 0; padding: 12px; font-size: 16px; line-height: 1.6; word-break: keep-all; overflow-wrap: anywhere; }
+.board-lines { margin: 0; padding: 10px 12px 10px 30px; font-size: 16px; line-height: 1.55; word-break: keep-all; overflow-wrap: anywhere; }
+.board-lines li { margin: 4px 0; list-style: disc; }
+.board-lines li::marker { color: var(--side); }
+.board-common { display: grid; gap: 4px; padding: 4px 0; }
+.board-common > div + div { border-top: 1px dashed var(--side-line); }
+.board-common b { display: block; padding: 8px 12px 0; font-size: 15px; font-weight: 900; }
+.board-common .board-line { padding-top: 8px; padding-bottom: 8px; }
+.board-common .board-lines { padding-top: 4px; padding-bottom: 6px; }
+mark.hl-place { padding: 0 3px; border-radius: 4px; background: var(--side-head); color: inherit; font-weight: 800; }
+mark.hl-time { background: none; color: #c2410c; font-weight: 800; }
 /* 번호순으로 위에서 아래로 채운다: 왼쪽 1~10, 가운데 11~20, 오른쪽 21~30. */
 .mobile-roster { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: repeat(10, auto); grid-auto-flow: column; gap: 6px; margin: 0; padding: 0; list-style: none; }
 .mobile-roster button { width: 100%; height: 100%; display: flex; align-items: center; gap: 6px; min-height: 44px; padding: 7px 6px; border: 1px solid #e1dccf; border-radius: 8px; background: #fff; color: inherit; text-align: left; cursor: pointer; }
 .mobile-roster b { flex: 0 0 auto; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 6px; background: var(--side-head); font: 900 12px ui-monospace, monospace; }
 .mobile-roster span { min-width: 0; overflow-wrap: anywhere; font-size: 13px; font-weight: 700; line-height: 1.25; }
-.board { overflow: hidden; border: 2px solid var(--side); border-radius: 14px; background: #fff; }
-.board-head { display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: var(--side-head); }
+/* 머리(번호·이름)는 스크롤해도 위에 남는다. hidden은 sticky를 막아 clip을 쓴다. */
+.board { overflow: clip; border: 2px solid var(--side); border-radius: 14px; background: #fff; }
+.board-head { position: sticky; top: 0; z-index: 3; display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: var(--side-head); }
 .board-head b { font: 900 44px/1 ui-monospace, monospace; }
 .board-head strong { flex: 1; min-width: 0; padding-left: 12px; border-left: 2px solid rgba(20, 33, 58, 0.3); font-size: 22px; overflow-wrap: anywhere; }
 .board-head span { flex: 0 0 auto; padding: 4px 9px; border-radius: 999px; background: #fff; font-size: 12px; font-weight: 800; }
 .board-team { margin: 0; padding: 14px 16px; border-bottom: 1px solid var(--side-line); font-size: 26px; font-weight: 900; }
 .board-box { margin: 12px; border: 1px solid var(--side-line); border-radius: 10px; overflow: hidden; }
 .board-box h3 { margin: 0; padding: 7px 12px; background: var(--side-wash); font-size: 13px; font-weight: 800; }
-.board-box > p { margin: 0; padding: 12px; font-size: 15px; line-height: 1.6; word-break: keep-all; overflow-wrap: anywhere; white-space: pre-line; }
+.board-box > p { margin: 0; padding: 12px; font-size: 16px; line-height: 1.6; word-break: keep-all; overflow-wrap: anywhere; white-space: pre-line; }
 .board-units { display: grid; gap: 8px; margin: 0; padding: 12px; list-style: none; }
-.board-units li { display: grid; grid-template-columns: 24px 1fr; align-items: center; gap: 10px; font-size: 15px; line-height: 1.4; word-break: keep-all; }
-.board-units i { display: grid; place-items: center; height: 24px; border-radius: 6px; background: var(--side-head); font: 900 12px ui-monospace, monospace; font-style: normal; }
+.board-units li { display: grid; grid-template-columns: minmax(26px, auto) 1fr; align-items: center; gap: 10px; font-size: 16px; line-height: 1.4; word-break: keep-all; }
+.board-units i { display: grid; place-items: center; height: 26px; padding: 0 6px; border-radius: 6px; background: var(--side-head); font: 900 12px ui-monospace, monospace; font-style: normal; }
 .board-units li.is-key span { font-weight: 800; }
 .board-units li.is-muted span { color: #6b7280; }
 .board-empty { margin: 12px; padding: 32px 12px; border: 1px dashed var(--side-line); border-radius: 10px; color: #6b7280; font-size: 17px; font-weight: 800; text-align: center; }

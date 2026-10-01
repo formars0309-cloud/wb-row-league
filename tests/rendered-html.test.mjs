@@ -11,7 +11,7 @@ async function rosterHelpers() {
   const source = await readFile(new URL("../app/war-table.tsx", import.meta.url), "utf8");
   const helpers = source.slice(0, source.indexOf("function smoothPath")).replace(/^import .*;$/gm, "");
   const js = ts.transpileModule(helpers, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
-  return runInNewContext(`${js}\n({ freshOperation, normalizeRoster, normalizeOperation, playerBrief, playerSlot, readMissionSheet, mirrorMission, lineExit })`, { ...roster });
+  return runInNewContext(`${js}\n({ freshOperation, normalizeRoster, normalizeOperation, playerBrief, playerSlot, readMissionSheet, mirrorMission, lineExit, missionLines, missionParts, teamCommon, groupUnits })`, { ...roster });
 }
 
 test("새 정본의 편집 명단은 이름·보직·임무 삭제와 빈 명단을 JSON 왕복 후에도 보존한다", async () => {
@@ -139,6 +139,22 @@ test("안내 이미지대로 TOP·Bottom Line을 15명씩 나누고 출구를 �
   assert.ok(ianTop.x > ianBottom.x && ianTop.y < ianBottom.y, "이안 TOP 출구는 Bottom 출구의 오른쪽 위");
   const luciaTop = lineExit(1, "lucia", "tactical").point, luciaBottom = lineExit(30, "lucia", "tactical").point;
   assert.ok(luciaTop.x < luciaBottom.x && luciaTop.y > luciaBottom.y, "루시아는 180도 돌아 왼쪽 아래");
+});
+
+test("모바일 카드 가독성: 문장 줄 나누기·위치/타이밍 강조·팀 공통 임무·같은 부대 묶기", async () => {
+  const { missionLines, missionParts, teamCommon, groupUnits } = await rosterHelpers();
+  assert.deepEqual(Array.from(missionLines("1. 3시 치료 주유 // 주력 2부대 + 방패보병(입구 / 밀기) 필드싸움 / 블링크 주유. 집결이 터지면 다시 집결.")),
+    ["1. 3시 치료 주유", "주력 2부대", "방패보병(입구 / 밀기) 필드싸움", "블링크 주유", "집결이 터지면 다시 집결"]);
+  assert.deepEqual(Array.from(missionLines("주력 부대 (기마or아처)")), ["주력 부대 (기마or아처)"]);
+  const parts = Array.from(missionParts("이안기준 : 1시 천무의 전당 집결, 적 펫 타이밍에 11시 생명석 젠"), (part) => [part.text, part.kind ?? ""]);
+  assert.deepEqual(parts.filter(([, kind]) => kind), [["1시 천무의 전당", "place"], ["펫 타이밍", "time"], ["생명석 젠", "time"]]);
+  assert.equal(parts.map(([text]) => text).join(""), "이안기준 : 1시 천무의 전당 집결, 적 펫 타이밍에 11시 생명석 젠");
+  const common = ["0순위 주유", "기병대 = 1보병 4기마", "입구막팀=지연", "필드 컨트롤팀 = 방패 보병"];
+  assert.deepEqual(Array.from(teamCommon(common, "기마팀"), (item) => item.head || item.body), ["0순위 주유", "기병대"]);
+  assert.deepEqual(Array.from(teamCommon(common, "필드컨트롤팀"), (item) => item.head || item.body), ["0순위 주유", "필드 컨트롤팀"]);
+  assert.deepEqual(Array.from(teamCommon(common, "집결장팀"), (item) => item.head || item.body), ["0순위 주유"]);
+  assert.deepEqual(JSON.parse(JSON.stringify(groupUnits(["방패", "주력 기병", "주력 기병", "주력 기병", "주력 기병"]))), [{ from: 1, to: 1, text: "방패" }, { from: 2, to: 5, text: "주력 기병" }]);
+  assert.deepEqual(JSON.parse(JSON.stringify(groupUnits(["a", "", "a", "b", "b"]))), [{ from: 1, to: 1, text: "a" }, { from: 3, to: 3, text: "a" }, { from: 4, to: 5, text: "b" }]);
 });
 
 async function render() {

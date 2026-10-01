@@ -246,6 +246,59 @@ function readMissionSheet(text: string): MissionSheet {
   }
   return { missions, common: common ?? [] };
 }
+// 시트 문장을 지시 하나씩 끊는다. "/"·"+"·문장 끝 마침표에서 끊되, 괄호 안과 "1."처럼 숫자 뒤 마침표는 그대로 둔다.
+function missionLines(text: string): string[] {
+  const lines: string[] = [];
+  let current = "";
+  let depth = 0;
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index];
+    if (char === "(") depth += 1;
+    if (char === ")") depth = Math.max(0, depth - 1);
+    const sentenceEnd = char === "." && !/\d/.test(text[index - 1] ?? "") && /^\s?$/.test(text[index + 1] ?? "");
+    if (depth === 0 && (char === "/" || char === "+" || sentenceEnd)) { lines.push(current); current = ""; continue; }
+    current += char;
+  }
+  lines.push(current);
+  return lines.map((line) => line.trim()).filter(Boolean);
+}
+// 위치(시계·거점)와 타이밍 단어를 강조 조각으로 나눈다.
+const MISSION_HIGHLIGHT = /((?:(?<!\d)(?:12|1|3|6|7|9)시\s?)?(?:천무|축복|치료|용기|군왕|목명)(?:의\s?(?:전당|영목)|\s?전당)?)|(펫(?:\s?(?:타이밍|리젠|싸움))?|생명석(?:\s?(?:젠|타이밍))?|집결이 터지면)/g;
+function missionParts(text: string): Array<{ text: string; kind?: "place" | "time" }> {
+  const parts: Array<{ text: string; kind?: "place" | "time" }> = [];
+  let last = 0;
+  for (const match of text.matchAll(MISSION_HIGHLIGHT)) {
+    if (match.index > last) parts.push({ text: text.slice(last, match.index) });
+    parts.push({ text: match[0], kind: match[1] ? "place" : "time" });
+    last = match.index + match[0].length;
+  }
+  if (last < text.length) parts.push({ text: text.slice(last) });
+  return parts;
+}
+// 공통 임무의 "팀 = …" 항목은 그 팀 카드에도 싣는다. 시트 표기 차이(기병대·기마팀)만 맞춘다.
+const TEAM_ALIAS = new Map([["기병", "기마"]]);
+function teamKey(name: string) {
+  const key = name.replace(/\s/g, "").replace(/(팀|대)$/, "");
+  return TEAM_ALIAS.get(key) ?? key;
+}
+function splitCommon(item: string) {
+  const [, head, body] = item.match(/^([^=]{1,12}?)\s*=\s*([\s\S]+)$/) ?? [];
+  return head ? { head: head.trim(), body } : { head: "", body: item };
+}
+function teamCommon(common: string[], team: string) {
+  return common.map(splitCommon).filter((item) => !item.head || (!!team && teamKey(item.head) === teamKey(team)));
+}
+// 같은 지시가 이어지면 "2~5"처럼 한 줄로 묶는다.
+function groupUnits(units: string[]) {
+  const groups: Array<{ from: number; to: number; text: string }> = [];
+  units.forEach((text, index) => {
+    if (!text) return;
+    const last = groups.at(-1);
+    if (last && last.text === text && last.to === index) last.to = index + 1;
+    else groups.push({ from: index + 1, to: index + 1, text });
+  });
+  return groups;
+}
 // localStorage와 JSON 가져오기가 같은 검사를 거친다.
 function readOperation(saved: Operation): Operation {
   if (saved?.version !== 1 || !Array.isArray(saved.players) || !saved.scenes?.length) throw new Error("지원하지 않는 저장 데이터");
@@ -415,6 +468,19 @@ function EraserIcon() {
 // 폰 화면: 첫 화면은 주전 30명 번호순 3열, 이름을 누르면 시트 임무를 04 작전보드형 카드로 보여 준다.
 // 시트를 고치면 다음 새로고침, 앱으로 돌아올 때, 또는 30초 안에 반영된다.
 const MOBILE_PICK_KEY = "heinapel-mobile-slot";
+const MOBILE_SIDE_KEY = "heinapel-mobile-side";
+function MissionText({ text }: { text: string }) {
+  return <>{missionParts(text).map((part, index) => part.kind ? <mark key={index} className={`hl-${part.kind}`}>{part.text}</mark> : part.text)}</>;
+}
+function MissionLines({ text }: { text: string }) {
+  const lines = missionLines(text);
+  return lines.length > 1
+    ? <ul className="board-lines">{lines.map((line, index) => <li key={index}><MissionText text={line} /></li>)}</ul>
+    : <p className="board-line"><MissionText text={lines[0] ?? text} /></p>;
+}
+function CommonItems({ items }: { items: Array<{ head: string; body: string }> }) {
+  return <div className="board-common">{items.map((item, index) => <div key={index}>{item.head && <b>{item.head}</b>}<MissionLines text={item.body} /></div>)}</div>;
+}
 const MOBILE_SLOTS = Array.from({ length: 30 }, (_, index) => index + 1);
 const COMMON_SLOT = 0;
 function MobileBriefing({ players }: { players: Player[] }) {
@@ -426,6 +492,7 @@ function MobileBriefing({ players }: { players: Player[] }) {
     queueMicrotask(() => {
       try {
         // 저장값이 없으면 null이 0(공통 임무)으로 바뀌지 않게 문자열 그대로 비교한다.
+        if (localStorage.getItem(MOBILE_SIDE_KEY) === "lucia") setSide("lucia");
         const saved = localStorage.getItem(MOBILE_PICK_KEY);
         const slot = Number(saved);
         if (saved && (slot === COMMON_SLOT || MOBILE_SLOTS.includes(slot))) setPicked(slot);
@@ -443,6 +510,10 @@ function MobileBriefing({ players }: { players: Player[] }) {
     document.addEventListener("visibilitychange", onVisible);
     return () => { alive = false; clearInterval(timer); document.removeEventListener("visibilitychange", onVisible); };
   }, []);
+  const chooseSide = (next: MissionSide) => {
+    setSide(next);
+    try { localStorage.setItem(MOBILE_SIDE_KEY, next); } catch { /* 저장 실패는 조회를 막지 않는다. */ }
+  };
   const pick = (slot: number | null) => {
     setPicked(slot);
     try { if (slot !== null) localStorage.setItem(MOBILE_PICK_KEY, String(slot)); else localStorage.removeItem(MOBILE_PICK_KEY); } catch { /* 저장 실패는 조회를 막지 않는다. */ }
@@ -464,7 +535,7 @@ function MobileBriefing({ players }: { players: Player[] }) {
   const top = <header className="mobile-top">
     <button type="button" className="mobile-back" onClick={() => pick(null)} aria-label="명단으로 돌아가기">‹</button>
     <strong>임무 카드</strong>
-    <div className="mobile-side">{MISSION_SIDES.map((item) => <button type="button" key={item} className={side === item ? "active" : ""} aria-pressed={side === item} onClick={() => setSide(item)}>{MISSION_SIDE_LABEL[item]}</button>)}</div>
+    <div className="mobile-side">{MISSION_SIDES.map((item) => <button type="button" key={item} className={side === item ? "active" : ""} aria-pressed={side === item} onClick={() => chooseSide(item)}>{MISSION_SIDE_LABEL[item]}</button>)}</div>
   </header>;
   const loading = <p className="board-empty">{sheet.failed ? "임무를 불러오지 못했습니다" : "임무를 불러오는 중…"}</p>;
 
@@ -477,7 +548,7 @@ function MobileBriefing({ players }: { players: Player[] }) {
         <p className="board-team">30명 전원</p>
         {!sheet.data ? loading : !sheet.data.common.length ? <p className="board-empty">임무 준비 중</p> : <section className="board-box"><h3>공통 임무</h3>
           {/* "기병대 = …"처럼 앞에 대상이 붙은 항목은 대상을 제목으로 세운다. */}
-          <ol className="board-units">{sheet.data.common.map((item, index) => { const text = mirrorMission(item, side); const [, head, body] = text.match(/^([^=]{1,12}?)\s*=\s*([\s\S]+)$/) ?? []; return <li key={index}><i>{index + 1}</i><span>{head ? <><b>{head}</b>{body}</> : text}</span></li>; })}</ol>
+          <CommonItems items={sheet.data.common.map((item) => splitCommon(mirrorMission(item, side)))} />
         </section>}
         <p className="board-foot">{MISSION_SIDE_LABEL[side]} 진영 기준{side === "lucia" ? " · 시트의 이안 기준 위치를 루시아 기준으로 환산" : ""} · 30 vs 30 · 1인 5부대</p>
       </article>
@@ -492,6 +563,7 @@ function MobileBriefing({ players }: { players: Player[] }) {
   const routes = buildMissionPlan(units, side, "tactical", leaders).routes;
   const home = slotPoint(picked, side, "tactical");
   const line = home ? lineExit(picked, side, "tactical") : null;
+  const common = teamCommon((sheet.data?.common ?? []).map((item) => mirrorMission(item, side)), mission?.team ?? "");
 
   return (
     <div className={`mobile-shell side-${side}`}>
@@ -501,10 +573,11 @@ function MobileBriefing({ players }: { players: Player[] }) {
         <header className="board-head"><b>{String(picked).padStart(2, "0")}</b><strong>{nameOf(picked)}</strong><span>{MISSION_SIDE_LABEL[side]}</span></header>
         <p className="board-team">{mission?.team || "소속팀 미정"}</p>
         {!missions ? loading : !ready ? <p className="board-empty">임무 준비 중</p> : <>
-          {mission.main && <section className="board-box"><h3>메인 임무</h3><p>{mirrorMission(mission.main, side)}</p></section>}
-          {mission.sub && <section className="board-box"><h3>서브 임무</h3><p>{mirrorMission(mission.sub, side)}</p></section>}
-          {units && <section className="board-box"><h3>부대 배치</h3><ol className="board-units">{units.map((text, index) => text && <li key={index} className={missionEmphasis(text)}><i>{index + 1}</i><span>{text}</span></li>)}</ol></section>}
+          {mission.main && <section className="board-box"><h3>메인 임무</h3><MissionLines text={mirrorMission(mission.main, side)} /></section>}
+          {mission.sub && <section className="board-box"><h3>서브 임무</h3><MissionLines text={mirrorMission(mission.sub, side)} /></section>}
+          {units && <section className="board-box"><h3>부대 배치</h3><ol className="board-units">{groupUnits(units).map((group) => <li key={group.from} className={missionEmphasis(group.text)}><i>{group.from === group.to ? group.from : `${group.from}~${group.to}`}</i><span><MissionText text={group.text} /></span></li>)}</ol></section>}
         </>}
+        {common.length > 0 && <section className="board-box"><h3>공통 임무{common.some((item) => item.head) ? ` · ${common.find((item) => item.head)?.head}` : " · 전원"}</h3><CommonItems items={common} /></section>}
         {/* 라인 화살표는 임무가 없어도 보여 준다. */}
         {home && line && <section className="board-box"><h3>배치 지도 · {line.top ? "TOP Line" : "Bottom Line"}</h3>
           <div className="mobile-map">
