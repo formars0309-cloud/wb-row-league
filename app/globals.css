@@ -37,4 +37,3 @@
 .player-editor [role=alert] { color: #ffb1ac; }
 .roster-controls { flex-wrap: wrap; gap: 6px; }
 @media (max-width: 600px) { .player-fields, .brief-pair { grid-template-columns: 1fr; } }
-.mobile-management { display: none; } @media (max-width: 1179px) { .mobile-management { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px; background: #152334; color: white; } .mobile-management button, .mobile-management select { padding: 8px; background: #263e55; color: white; border: 1px solid #536a82; border-radius: 5px; } }

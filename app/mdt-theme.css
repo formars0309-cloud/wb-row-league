@@ -752,29 +752,6 @@ body {
 }
 .mission-card-close:hover { border-color: #ff6b6b; color: #ff8f8f; }
 .mission-card-body { padding: 9px; display: grid; gap: 7px; }
-.mission-staff {
-  display: flex;
-  align-items: baseline;
-  gap: 7px;
-  margin: 0;
-  padding: 8px 9px;
-  border: 1px solid var(--side-line);
-  border-radius: 3px;
-  background: var(--side-wash);
-  color: var(--side-ink);
-  font-size: 12px;
-  line-height: 1.4;
-  word-break: keep-all;
-}
-.mission-staff b {
-  flex: 0 0 auto;
-  padding: 2px 6px;
-  border-radius: 2px;
-  background: var(--side);
-  color: #10130f;
-  font: 900 10px ui-monospace, monospace;
-  letter-spacing: 0.08em;
-}
 .mission-roles { display: grid; gap: 5px; }
 .mission-role {
   display: flex;
@@ -1310,88 +1287,64 @@ body {
   color: #f0d392;
 }
 
-/* Mobile: read-only briefing so a member can find their own orders on a phone. */
+/* 폰 화면: 주전 30명 3열 명단과 04 작전보드형 임무 카드. 이안은 노랑, 루시아는 하늘색. */
 .mobile-shell {
-  --side: #f0c463;
-  --side-ink: #f8ead0;
-  --side-line: rgba(240, 196, 99, 0.4);
-  --side-wash: rgba(240, 196, 99, 0.12);
+  --side: #d99a0b;
+  --side-head: #fbe2a0;
+  --side-line: #f0cf7a;
+  --side-wash: #fff8e6;
   min-height: 100vh;
   padding: 12px 12px 40px;
-  background: #0f1114;
-  color: #ddd9d1;
+  background: #f6f3eb;
+  color: #14213a;
   font-family: "Noto Sans KR", Arial, sans-serif;
 }
-.mobile-shell.side-lucia {
-  --side: #5cb8ff;
-  --side-ink: #dcefff;
-  --side-line: rgba(92, 184, 255, 0.4);
-  --side-wash: rgba(92, 184, 255, 0.12);
-}
+.mobile-shell.side-lucia { --side: #2a86d8; --side-head: #cfe7fb; --side-line: #9fd0f5; --side-wash: #eef7ff; }
 .mobile-top { display: flex; align-items: center; gap: 10px; padding: 6px 2px 12px; }
-.mobile-top > span { color: #8d8b85; font: 700 10px ui-monospace, monospace; letter-spacing: 0.12em; }
-.mobile-top > strong { color: var(--side-ink); font-size: 16px; }
-.mobile-back { flex: 0 0 auto; width: 34px; height: 34px; border: 1px solid #3c3f44; border-radius: 6px; background: #191c20; color: #cfcdc6; font-size: 20px; line-height: 1; cursor: pointer; }
-.mobile-who { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; }
-.mobile-who b { flex: 0 0 auto; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: var(--side); color: #10130f; font: 900 14px ui-monospace, monospace; }
-.mobile-who span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 17px; font-weight: 800; }
-.mobile-side { flex: 0 0 auto; display: flex; gap: 4px; }
-.mobile-side button { padding: 7px 9px; border: 1px solid #3c3f44; border-radius: 6px; background: #191c20; color: #8d8b85; font-size: 12px; font-weight: 800; cursor: pointer; }
-.mobile-side button.active { border-color: var(--side); background: var(--side-wash); color: var(--side); }
-.mobile-search { display: block; margin-bottom: 10px; }
-.mobile-search input { width: 100%; height: 44px; padding: 0 14px; border: 1px solid #3c3f44; border-radius: 8px; outline: 0; background: #191c20; color: #e6e3db; font-size: 16px; }
-.mobile-search input:focus { border-color: var(--side); }
-.mobile-list { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
-.mobile-list button { width: 100%; display: grid; grid-template-columns: 34px 1fr auto; align-items: center; gap: 10px; padding: 11px 12px; border: 1px solid #2f3237; border-radius: 8px; background: #17191c; color: inherit; text-align: left; cursor: pointer; }
-.mobile-list b { display: grid; place-items: center; height: 26px; border-radius: 6px; background: rgba(255, 255, 255, 0.07); color: var(--side); font: 900 13px ui-monospace, monospace; }
-.mobile-list span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; font-weight: 700; }
-.mobile-list small { color: #8b8983; font-size: 11px; }
-.mobile-none { padding: 24px; color: #8b8983; text-align: center; }
-.mobile-meta { margin: 0 2px 12px; color: #9a988f; font-size: 13px; }
-.mobile-map { position: relative; aspect-ratio: 1.25; margin-bottom: 12px; border: 1px solid #2f3237; border-radius: 8px; overflow: hidden; }
-.mobile-map-art { position: absolute; inset: 0; background-image: linear-gradient(rgba(7, 9, 10, 0.12), rgba(7, 9, 10, 0.2)), url("/maps/heinapel-tactical-clean.png"); background-size: 100% 100%; }
+.mobile-top > span { color: #7a7f8a; font: 700 10px ui-monospace, monospace; letter-spacing: 0.12em; }
+.mobile-top > strong { font-size: 16px; }
+.mobile-back { flex: 0 0 auto; width: 36px; height: 36px; border: 1px solid #d5d0c4; border-radius: 8px; background: #fff; color: #14213a; font-size: 22px; line-height: 1; cursor: pointer; }
+.mobile-side { margin-left: auto; display: flex; gap: 4px; }
+.mobile-side button { padding: 7px 10px; border: 1px solid #d5d0c4; border-radius: 8px; background: #fff; color: #7a7f8a; font-size: 12px; font-weight: 800; cursor: pointer; }
+.mobile-side button.active { border-color: var(--side); background: var(--side-head); color: #14213a; }
+.mobile-sync { margin: 0 2px 10px; color: #b4471f; font-size: 12px; line-height: 1.4; }
+/* 번호순으로 위에서 아래로 채운다: 왼쪽 1~10, 가운데 11~20, 오른쪽 21~30. */
+.mobile-roster { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: repeat(10, auto); grid-auto-flow: column; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.mobile-roster button { width: 100%; height: 100%; display: flex; align-items: center; gap: 6px; min-height: 44px; padding: 7px 6px; border: 1px solid #e1dccf; border-radius: 8px; background: #fff; color: inherit; text-align: left; cursor: pointer; }
+.mobile-roster b { flex: 0 0 auto; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 6px; background: var(--side-head); font: 900 12px ui-monospace, monospace; }
+.mobile-roster span { min-width: 0; overflow-wrap: anywhere; font-size: 13px; font-weight: 700; line-height: 1.25; }
+.board { overflow: hidden; border: 2px solid var(--side); border-radius: 14px; background: #fff; }
+.board-head { display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: var(--side-head); }
+.board-head b { font: 900 44px/1 ui-monospace, monospace; }
+.board-head strong { flex: 1; min-width: 0; padding-left: 12px; border-left: 2px solid rgba(20, 33, 58, 0.3); font-size: 22px; overflow-wrap: anywhere; }
+.board-head span { flex: 0 0 auto; padding: 4px 9px; border-radius: 999px; background: #fff; font-size: 12px; font-weight: 800; }
+.board-team { margin: 0; padding: 14px 16px; border-bottom: 1px solid var(--side-line); font-size: 26px; font-weight: 900; }
+.board-box { margin: 12px; border: 1px solid var(--side-line); border-radius: 10px; overflow: hidden; }
+.board-box h3 { margin: 0; padding: 7px 12px; background: var(--side-wash); font-size: 13px; font-weight: 800; }
+.board-box > p { margin: 0; padding: 12px; font-size: 15px; line-height: 1.6; word-break: keep-all; overflow-wrap: anywhere; white-space: pre-line; }
+.board-units { display: grid; gap: 8px; margin: 0; padding: 12px; list-style: none; }
+.board-units li { display: grid; grid-template-columns: 24px 1fr; align-items: center; gap: 10px; font-size: 15px; line-height: 1.4; word-break: keep-all; }
+.board-units i { display: grid; place-items: center; height: 24px; border-radius: 6px; background: var(--side-head); font: 900 12px ui-monospace, monospace; font-style: normal; }
+.board-units li.is-key span { font-weight: 800; }
+.board-units li.is-muted span { color: #6b7280; }
+.board-empty { margin: 12px; padding: 32px 12px; border: 1px dashed var(--side-line); border-radius: 10px; color: #6b7280; font-size: 17px; font-weight: 800; text-align: center; }
+.board-foot { margin: 0; padding: 4px 16px 14px; color: #7a7f8a; font-size: 11px; text-align: center; }
+.mobile-map { position: relative; aspect-ratio: 1.25; }
+.mobile-map-art { position: absolute; inset: 0; background-image: url("/maps/heinapel-tactical-clean.png"); background-size: 100% 100%; }
 .mobile-map svg { position: absolute; inset: 0; width: 100%; height: 100%; }
 .mobile-map line { stroke: var(--side); stroke-width: 3; vector-effect: non-scaling-stroke; }
 .mobile-map line.is-roaming { opacity: 0.5; }
 .mobile-map marker path { fill: var(--side); }
-.mobile-objective { position: absolute; transform: translate(-50%, -50%); padding: 2px 4px; border-radius: 3px; background: rgba(9, 12, 14, 0.72); color: #cfcdc6; font-size: 8px; white-space: nowrap; }
-.mobile-home { position: absolute; transform: translate(-50%, -50%); display: grid; place-items: center; width: 26px; height: 26px; border: 2px solid #10130f; border-radius: 50%; background: var(--side); color: #10130f; font: 900 12px ui-monospace, monospace; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.7); }
-.mobile-tag { position: absolute; transform: translate(-50%, -50%); min-width: 20px; padding: 2px 5px; border: 1px solid #10130f; border-radius: 10px; background: var(--side); color: #10130f; font: 900 10px ui-monospace, monospace; text-align: center; }
-.mobile-tag.is-roaming { background: rgba(12, 15, 18, 0.9); border-color: var(--side); color: var(--side); }
-.mobile-staff { display: flex; align-items: baseline; gap: 8px; margin: 0 0 8px; padding: 11px 12px; border: 1px solid var(--side-line); border-radius: 8px; background: var(--side-wash); color: var(--side-ink); font-size: 14px; line-height: 1.45; word-break: keep-all; }
-.mobile-staff b { flex: 0 0 auto; padding: 3px 7px; border-radius: 4px; background: var(--side); color: #10130f; font: 900 11px ui-monospace, monospace; }
-.mobile-roles { display: grid; gap: 6px; margin-bottom: 8px; }
-.mobile-roles span { display: flex; align-items: baseline; gap: 8px; padding: 10px 12px; border-left: 3px solid var(--side); border-radius: 6px; background: var(--side-wash); color: var(--side-ink); font-size: 14px; word-break: keep-all; }
-.mobile-roles b { flex: 0 0 auto; color: var(--side); font-weight: 900; }
-.mobile-units { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
-.mobile-units li { display: grid; grid-template-columns: 26px 1fr; align-items: center; gap: 10px; padding: 12px; border: 1px solid #2b2f34; border-radius: 8px; background: #191c20; font-size: 15px; line-height: 1.4; word-break: keep-all; }
-.mobile-units i { display: grid; place-items: center; height: 24px; border-radius: 5px; background: rgba(255, 255, 255, 0.07); color: var(--side); font: 900 13px ui-monospace, monospace; font-style: normal; }
-.mobile-units li.is-key { border-color: var(--side-line); background: var(--side-wash); }
-.mobile-units li.is-key span { color: var(--side-ink); font-weight: 700; }
-.mobile-units li.is-key i { background: var(--side); color: #10130f; }
-.mobile-units li.is-muted { background: #16181b; }
-.mobile-units li.is-muted span { color: #85837d; }
-.mobile-foot { margin: 12px 2px 0; color: #7f8288; font-size: 11px; }
-.mobile-empty { margin: 0; padding: 28px 14px; border: 1px dashed var(--side-line); border-radius: 8px; color: #9a988f; font-size: 14px; text-align: center; }
-.mobile-empty small { display: block; margin-top: 6px; color: #74777c; font-size: 12px; }
+.mobile-objective { position: absolute; transform: translate(-50%, -50%); padding: 2px 4px; border-radius: 3px; background: rgba(9, 12, 14, 0.72); color: #e8e6df; font-size: 8px; white-space: nowrap; }
+.mobile-home { position: absolute; transform: translate(-50%, -50%); display: grid; place-items: center; width: 26px; height: 26px; border: 2px solid #14213a; border-radius: 50%; background: var(--side-head); color: #14213a; font: 900 12px ui-monospace, monospace; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6); }
+.mobile-tag { position: absolute; transform: translate(-50%, -50%); min-width: 20px; padding: 2px 5px; border: 1px solid #14213a; border-radius: 10px; background: var(--side-head); color: #14213a; font: 900 10px ui-monospace, monospace; text-align: center; }
+.mobile-tag.is-roaming { background: #fff; border-color: var(--side); }
 
 /* 임무 브리프 — 지휘부 오더의 타임라인·조건별 지시. 작전판 카드와 폰 화면이 같은 데이터를 쓴다. */
 .mission-steps { display: grid; gap: 4px; margin: 0 0 6px; padding: 0; list-style: none; }
 .mission-steps li { display: grid; grid-template-columns: 74px 1fr; gap: 8px; padding: 6px 9px; border: 1px solid #2b2f34; border-radius: 3px; background: #191c20; }
 .mission-steps i { color: var(--side); font-size: 10.5px; font-style: normal; font-weight: 800; line-height: 1.35; word-break: keep-all; }
 .mission-steps span { color: #d8d6cf; font-size: 12px; line-height: 1.4; word-break: keep-all; }
-.mobile-common { display: grid; gap: 6px; margin: 0 0 8px; }
-.mobile-common p { margin: 0; padding: 11px 12px; border-left: 3px solid var(--side-line); border-radius: 6px; background: #191c20; color: #d9d4c8; font-size: 14px; line-height: 1.5; word-break: keep-all; }
-.mobile-common b { display: block; margin-bottom: 3px; color: var(--side); font-size: 11px; letter-spacing: .1em; }
-.mobile-steps { display: grid; gap: 6px; margin: 0 0 8px; padding: 0; list-style: none; }
-.mobile-steps li { display: grid; grid-template-columns: 96px 1fr; gap: 10px; padding: 12px; border: 1px solid #2b2f34; border-radius: 8px; background: #191c20; font-size: 15px; line-height: 1.45; word-break: keep-all; }
-.mobile-steps i { color: var(--side); font-size: 12.5px; font-style: normal; font-weight: 800; padding-top: 2px; }
-.mobile-steps li.hot i { color: #ff8b6b; }
-.mobile-section { margin: 12px 2px 6px; color: #8e8d87; font-size: 11px; letter-spacing: .12em; }
-.mobile-team { margin: 12px 0 0; padding: 10px 12px; border-top: 1px dashed var(--side-line); color: #a09e97; font-size: 13px; line-height: 1.5; word-break: keep-all; }
 .mission-figure { margin: 0 0 6px; }
 .mission-figure img { display: block; width: 100%; border: 1px solid var(--side-line); border-radius: 3px; }
 .mission-figure figcaption { margin-top: 4px; color: #a09e97; font-size: 10.5px; line-height: 1.4; word-break: keep-all; }
-.mobile-figure { margin: 0 0 8px; }
-.mobile-figure img { display: block; width: 100%; border: 1px solid var(--side-line); border-radius: 8px; }
-.mobile-figure figcaption { margin-top: 6px; color: #a09e97; font-size: 12.5px; line-height: 1.45; word-break: keep-all; }

@@ -11,7 +11,7 @@ async function rosterHelpers() {
   const source = await readFile(new URL("../app/war-table.tsx", import.meta.url), "utf8");
   const helpers = source.slice(0, source.indexOf("function smoothPath")).replace(/^import .*;$/gm, "");
   const js = ts.transpileModule(helpers, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
-  return runInNewContext(`${js}\n({ freshOperation, normalizeRoster, normalizeOperation, playerBrief, playerSlot })`, { ...roster });
+  return runInNewContext(`${js}\n({ freshOperation, normalizeRoster, normalizeOperation, playerBrief, playerSlot, readMissionSheet })`, { ...roster });
 }
 
 test("새 정본의 편집 명단은 이름·보직·임무 삭제와 빈 명단을 JSON 왕복 후에도 보존한다", async () => {
@@ -53,14 +53,14 @@ test("가져온 명단의 중복 ID·닉네임과 잘못된 임무·번호를 �
   ]) assert.throws(() => normalizeRoster({ ...operation, players }));
 });
 
-test("사진 정본 30명의 번호와 이름이 정확히 일치하고 미확인 신규 선수는 임무를 승계하지 않는다", async () => {
+test("사진 정본 30명의 번호와 이름이 정확히 일치하고 앱에는 기본 임무가 없다", async () => {
   const { freshOperation, playerSlot, playerBrief } = await rosterHelpers();
   const expected = ["무잔 Muzan", "게이", "바르니 barunii", "마지태", "마스터", "TESLA", "Mim Mi", "파리스", "마구니", "Glen fiddich", "예리", "압수", "곡곡이", "GINSENG MAN", "Kingsway", "욘두 Yondu", "진수", "조롱말", "마리오", "TOMAS SHELBY", "Bünker", "불개", "떡틸로", "JunkHun", "Maha", "Elega", "5000", "보수", "햄수", "늑대장군"];
   const players = freshOperation().players;
   assert.deepEqual(Array.from(players, (player) => player.nickname), expected);
   assert.deepEqual(Array.from(players, playerSlot), Array.from({ length: 30 }, (_, i) => i + 1));
   assert.ok(players.every((player) => player.lineup === "starter"));
-  for (const name of ["게이", "마지태", "Mim Mi", "마리오", "GINSENG MAN", "떡틸로"]) assert.equal(playerBrief(players.find((player) => player.nickname === name)), undefined);
+  assert.ok(players.every((player) => playerBrief(player) === undefined));
 });
 
 test("구버전 명단은 ID와 편집을 보존하며 30명으로 이관하고 삭제 선수의 모든 장면 배치와 카드를 정리한다", async () => {
@@ -96,6 +96,26 @@ test("구버전 명단은 ID와 편집을 보존하며 30명으로 이관하고 
   }
 });
 
+test("구글 시트 임무는 머리글 이름으로 열을 찾고 따옴표·줄바꿈·빈 칸·잘못된 행을 처리한다", async () => {
+  const { readMissionSheet } = await rosterHelpers();
+  const csv = [
+    '"닉네임","스타팅 포인트 번호","소속팀","메인임무","서브임무","1번부대","2번부대","3번부대","4번부대","5번부대","","원본 사진"',
+    '"게이","2","집결장팀","1시 집결, 나머지는 ""기병""\n둘째 줄","펫 지원","1시 천무의 전당 집결","주력 기마","","","",""메모"",""',
+    '"무잔 Muzan","1","기마팀","","","","","","","","",""',
+    '"중복","2","x","x","","","","","","","",""',
+    '"범위 밖","31","x","x","","","","","","","",""',
+    '"","5","x","x","","","","","","","",""',
+  ].join("\r\n");
+  const missions = readMissionSheet(csv);
+  assert.deepEqual([...missions.keys()], [2, 1]);
+  const gay = missions.get(2);
+  assert.equal(gay.nickname, "게이"); assert.equal(gay.team, "집결장팀");
+  assert.equal(gay.main, '1시 집결, 나머지는 "기병"\n둘째 줄'); assert.equal(gay.sub, "펫 지원");
+  assert.deepEqual(Array.from(gay.units), ["1시 천무의 전당 집결", "주력 기마", "", "", ""]);
+  assert.deepEqual(Array.from(missions.get(1).units), ["", "", "", "", ""]);
+  assert.throws(() => readMissionSheet('"번호","닉네임"\n"1","무잔"'));
+});
+
 async function render() {
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);
   workerUrl.searchParams.set("test", `${process.pid}-${Date.now()}`);
@@ -126,6 +146,11 @@ test("server-renders the Heinapel War Table", async () => {
   assert.match(html, /<html lang="ko">/i);
   assert.match(html, /<title>Heinapel War Table v0\.1<\/title>/i);
   assert.match(html, /<main class="war-shell">/i);
+  const roster = html.slice(html.indexOf('class="mobile-roster"'));
+  assert.equal((roster.match(/<li><button type="button"><b>/g) ?? []).length, 30);
+  assert.match(roster, /<b>1<\/b><span>무잔 Muzan<\/span>/);
+  assert.match(roster, /<b>30<\/b><span>늑대장군<\/span>/);
+  assert.doesNotMatch(html, /mobile-management/);
   assert.match(html, /PLAYER ROSTER/);
   assert.match(html, /핵심 작전 도구/);
   assert.match(html, /OPERATION TIMELINE/);
@@ -172,7 +197,8 @@ test("keeps the interactive operation features and map assets wired", async () =
 
   assert.match(warTable, /const STORAGE_KEY = "heinapel-war-table-v0\.3"/);
   assert.match(warTable, /const OBJECTIVE_META = \[/);
-  assert.equal((roster.match(/^ {2}\{ nickname: /gm) ?? []).length, 24);
+  assert.doesNotMatch(roster, /MISSION_BRIEFS|STAFF_ORDER/);
+  assert.match(warTable, /spreadsheets\/d\/1NUorQ8zecl1mDRstKk-F1T7hRF2YYBgS_ZG21gIvcgc\/gviz\/tq\?tqx=out:csv/);
   assert.match(warTable, /const RALLY_PLAYERS = new Set\(\["진수", "TESLA", "Maha"\]\)/);
   assert.match(warTable, /type LineupStatus = "starter"/);
   assert.doesNotMatch(roster, /마법공주간달프|오늘은일찍자야지|핫떠그|산삼맨|서틸로|SIGH/);

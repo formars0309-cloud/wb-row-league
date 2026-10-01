@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { MISSION_BRIEFS, PLAYER_SOURCE, ROLE_LABEL, SLOT_SOURCE, STAFF_ORDER, ROSTER_ALIASES, hasStaffOrder, type Brief, type MissionOrders, type PrimaryRole } from "./roster";
+import { PLAYER_SOURCE, ROLE_LABEL, SLOT_SOURCE, ROSTER_ALIASES, type Brief, type MissionOrders, type PrimaryRole } from "./roster";
 
 type SecondaryRole = "garrison" | "rally" | "blocker";
 type LineupStatus = "starter";
@@ -50,8 +50,6 @@ const INITIAL_PLAYERS: Player[] = PLAYER_SOURCE.map(([nickname, primaryRole], in
   lineup: "starter",
 }));
 const MEMO_MIN_SIZE = { width: .11, height: .075 };
-// 임무 문안은 app/roster.ts의 브리프에서 온다. 지도 경로·배지는 부대1~5 문장(units)에서 읽는다.
-const BRIEF_BY_NICKNAME = new Map(MISSION_BRIEFS.map((brief): [string, Brief] => [brief.nickname, brief]));
 // 맵을 180도 돌린 관계라 시계 위치와 진영 거점 이름이 짝을 이뤄 바뀐다.
 const MISSION_MIRROR_PAIRS: Array<[string, string]> = [["12시", "6시"], ["1시", "7시"], ["3시", "9시"], ["군왕", "목명"], ["축복", "천무"]];
 const MISSION_MIRROR = new Map<string, string>(MISSION_MIRROR_PAIRS.flatMap(([left, right]) => [[left, right], [right, left]] as Array<[string, string]>));
@@ -111,7 +109,7 @@ function uid(prefix: string) { return `${prefix}-${Date.now()}-${Math.random().t
 // 사진 정본으로 한 번 이관한다. 유지 선수의 ID를 보존하고 신규 ID는 옛 명단 전체와 겹치지 않게 만든다.
 function mergePlayers(saved: Player[]): Player[] {
   const byName = new Map(saved.map((player) => [ROSTER_ALIASES.get(player.nickname) ?? player.nickname, player]));
-  const removedNames = [...saved.filter((player) => !SLOT_BY_NICKNAME.has(ROSTER_ALIASES.get(player.nickname) ?? player.nickname)).map((player) => player.nickname), "마법공주간달프", "오늘은일찍자야지", "오소리", "오일자", "핫떠그", "산삼맨", "서틸로", "SIGH"];
+  const removedNames = [...saved.filter((player) => !SLOT_BY_NICKNAME.has(ROSTER_ALIASES.get(player.nickname) ?? player.nickname)).map((player) => player.nickname), "마법공주간달프", "오늘은일찍자야지", "오일자", "핫떠그", "산삼맨", "서틸로", "SIGH"];
   const cleanText = (text: string) => removedNames.reduce((result, name) => result.replaceAll(`${name}님`, "담당 미정").replaceAll(name, "담당 미정"), text);
   let nextId = Math.max(0, ...saved.map((player) => player.id)) + 1;
   return INITIAL_PLAYERS.map((player): Player => {
@@ -132,8 +130,9 @@ function mergePlayers(saved: Player[]): Player[] {
     };
   });
 }
+// 앱에는 기본 임무가 없다. 작전판 카드는 편집기로 입력한 임무만 보여 준다.
 function playerBrief(player: Player): Brief | undefined {
-  return player.brief === undefined ? BRIEF_BY_NICKNAME.get(player.nickname) : player.brief ?? undefined;
+  return player.brief ?? undefined;
 }
 function playerSlot(player: Player): number | undefined {
   return player.slot === undefined ? SLOT_BY_NICKNAME.get(player.nickname) : player.slot ?? undefined;
@@ -182,6 +181,43 @@ function normalizeScene(item: Scene, index: number): Scene {
     },
   };
 }
+// 폰 화면 임무는 구글 시트 「스타팅 명단」 탭에서 읽는다. 앱에 사본을 두지 않는다.
+const MISSION_SHEET_CSV = `https://docs.google.com/spreadsheets/d/1NUorQ8zecl1mDRstKk-F1T7hRF2YYBgS_ZG21gIvcgc/gviz/tq?tqx=out:csv&headers=1&sheet=${encodeURIComponent("스타팅 명단")}`;
+type SheetMission = { slot: number; nickname: string; team: string; main: string; sub: string; units: MissionOrders };
+function parseCsv(text: string): string[][] {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let cell = "";
+  let quoted = false;
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index];
+    if (quoted) {
+      if (char === '"' && text[index + 1] === '"') { cell += '"'; index += 1; } else if (char === '"') quoted = false; else cell += char;
+    } else if (char === '"') quoted = true;
+    else if (char === ",") { row.push(cell); cell = ""; }
+    else if (char === "\n" || char === "\r") {
+      if (char === "\r" && text[index + 1] === "\n") index += 1;
+      row.push(cell); rows.push(row); row = []; cell = "";
+    } else cell += char;
+  }
+  if (cell || row.length) { row.push(cell); rows.push(row); }
+  return rows;
+}
+// 열은 머리글 이름으로 찾는다. 시트에서 열을 옮기거나 다른 열을 지워도 이름만 같으면 된다.
+function readMissionSheet(text: string): Map<number, SheetMission> {
+  const [head = [], ...rows] = parseCsv(text);
+  const column = (name: string) => head.findIndex((cell) => cell.replace(/\s/g, "") === name);
+  const at = { slot: column("스타팅포인트번호"), nickname: column("닉네임"), team: column("소속팀"), main: column("메인임무"), sub: column("서브임무"), units: [1, 2, 3, 4, 5].map((unit) => column(`${unit}번부대`)) };
+  if ([at.slot, at.nickname, at.team, at.main, at.sub, ...at.units].some((index) => index < 0)) throw new Error("시트 머리글을 찾지 못했습니다");
+  const missions = new Map<number, SheetMission>();
+  for (const row of rows) {
+    const cell = (index: number) => (row[index] ?? "").trim();
+    const slot = Number(cell(at.slot));
+    if (!Number.isInteger(slot) || slot < 1 || slot > 30 || !cell(at.nickname) || missions.has(slot)) continue;
+    missions.set(slot, { slot, nickname: cell(at.nickname), team: cell(at.team), main: cell(at.main), sub: cell(at.sub), units: at.units.map(cell) as MissionOrders });
+  }
+  return missions;
+}
 // localStorage와 JSON 가져오기가 같은 검사를 거친다.
 function readOperation(saved: Operation): Operation {
   if (saved?.version !== 1 || !Array.isArray(saved.players) || !saved.scenes?.length) throw new Error("지원하지 않는 저장 데이터");
@@ -206,7 +242,7 @@ function memoRect(start: Point, end: Point) {
   return { left: fitAxis(Math.min(start.x, end.x), width), top: fitAxis(Math.min(start.y, end.y), height), width, height };
 }
 function memoSpan(object: TacticalObject) { return { width: Math.abs((object.x2 ?? object.x) - object.x), height: Math.abs((object.y2 ?? object.y) - object.y) }; }
-const RALLY_LEADER_ALIAS: Array<[string, string]> = [["진수님", "진수"], ["MAHA님", "Maha"], ["테슬라님", "TESLA"], ["예리님", "예리"]];
+const RALLY_LEADER_ALIAS: Array<[string, string]> = [["진수님", "진수"], ["MAHA님", "Maha"], ["테슬라님", "TESLA"], ["예리님", "예리"], ["게이님", "게이"]];
 // 적 진영 앞 골짜기 입구. 거점 아이콘이 없는 지형이라 좌표를 직접 잡았다.
 // 전술 맵 값은 지도 원본에서 실측했고, 실전 맵 값은 거점 12쌍의 변위로 환산한 추정치다.
 const ENEMY_GATE: Record<MissionSide, Record<MapVariant, Point>> = {
@@ -221,7 +257,7 @@ function objectivePoint(id: string, variant: MapVariant): Point | null {
 }
 function missionTargets(text: string, side: MissionSide, variant: MapVariant, missions: Map<string, MissionOrders>, followed = false): Array<{ key: string; point: Point }> {
   // 집결 탑승은 그 집결장이 서는 자리로 따라간다.
-  if (!followed && text.includes("집결 탑승")) {
+  if (!followed && /집결 ?탑승/.test(text)) {
     const alias = RALLY_LEADER_ALIAS.find(([label]) => text.includes(label));
     const leader = alias && missions.get(alias[1]);
     if (!leader) return [];
@@ -258,7 +294,7 @@ function missionEmphasis(text: string) {
   return tone === "field" ? "is-muted" : "";
 }
 function missionTone(text: string): MissionTone {
-  if (text.includes("집결 탑승")) return "join";
+  if (/집결 ?탑승/.test(text)) return "join";
   // "적 집결 이동경로 막기"처럼 적의 집결을 막는 문장이 있어 막기를 집결보다 먼저 본다.
   if (text.includes("막기")) return "block";
   if (text.includes("집결")) return "rally";
@@ -351,90 +387,88 @@ function EraserIcon() {
   );
 }
 
-// 같은 브라우저의 편집본을 폰 화면에서도 읽는다. 다른 기기는 JSON으로 전달한다.
-const MOBILE_PICK_KEY = "heinapel-mobile-player";
+// 폰 화면: 첫 화면은 주전 30명 번호순 3열, 이름을 누르면 시트 임무를 04 작전보드형 카드로 보여 준다.
+// 시트를 고치면 다음 새로고침, 앱으로 돌아올 때, 또는 30초 안에 반영된다.
+const MOBILE_PICK_KEY = "heinapel-mobile-slot";
+const MOBILE_SLOTS = Array.from({ length: 30 }, (_, index) => index + 1);
 function MobileBriefing({ players }: { players: Player[] }) {
   const [side, setSide] = useState<MissionSide>("ian");
-  const [pickedId, setPickedId] = useState<number | null>(null);
-  const [query, setQuery] = useState("");
+  const [picked, setPicked] = useState<number | null>(null);
+  const [sheet, setSheet] = useState<{ missions: Map<number, SheetMission> | null; failed: boolean }>({ missions: null, failed: false });
 
   useEffect(() => {
-    // 저장된 선택은 첫 렌더 뒤에 반영한다. 작전판 본체가 쓰는 방식과 같다.
     queueMicrotask(() => {
       try {
         const saved = Number(localStorage.getItem(MOBILE_PICK_KEY));
-        if (saved && players.some((player) => player.id === saved)) setPickedId(saved);
+        if (MOBILE_SLOTS.includes(saved)) setPicked(saved);
       } catch { /* 사생활 모드에서는 그냥 고르게 둔다. */ }
     });
-  }, [players]);
-  const pick = (id: number) => {
-    setPickedId(id);
-    try { localStorage.setItem(MOBILE_PICK_KEY, String(id)); } catch { /* 저장 실패는 조회를 막지 않는다. */ }
+    let alive = true;
+    // 실패해도 마지막으로 읽은 임무는 그대로 두고 경고만 띄운다.
+    const load = () => fetch(MISSION_SHEET_CSV, { cache: "no-store" })
+      .then((response) => { if (!response.ok) throw new Error(String(response.status)); return response.text(); })
+      .then((text) => { const missions = readMissionSheet(text); if (alive) setSheet({ missions, failed: false }); })
+      .catch(() => { if (alive) setSheet((current) => ({ ...current, failed: true })); });
+    const onVisible = () => { if (document.visibilityState === "visible") load(); };
+    load();
+    const timer = setInterval(load, 30000);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => { alive = false; clearInterval(timer); document.removeEventListener("visibilitychange", onVisible); };
+  }, []);
+  const pick = (slot: number | null) => {
+    setPicked(slot);
+    try { if (slot) localStorage.setItem(MOBILE_PICK_KEY, String(slot)); else localStorage.removeItem(MOBILE_PICK_KEY); } catch { /* 저장 실패는 조회를 막지 않는다. */ }
   };
+  // 시트를 읽기 전에는 앱 명단의 이름을 보여 준다.
+  const nameOf = (slot: number) => sheet.missions?.get(slot)?.nickname ?? players.find((player) => playerSlot(player) === slot)?.nickname ?? "—";
+  const warning = sheet.failed && <p className="mobile-sync" role="alert">{sheet.missions ? "최신 임무를 불러오지 못했습니다. 마지막으로 받은 내용입니다." : "임무를 불러오지 못했습니다. 연결을 확인하고 새로고침해 주세요."}</p>;
 
-  const player = players.find((item) => item.id === pickedId) ?? null;
-  const needle = query.trim().toLowerCase();
-  const matches = players.filter((item) => !needle || item.nickname.toLowerCase().includes(needle));
-
-  if (!player) return (
+  if (picked === null) return (
     <div className="mobile-shell">
-      <header className="mobile-top"><span>HEINAPEL WAR TABLE</span><strong>내 임무 확인</strong></header>
-      <label className="mobile-search"><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="닉네임 검색" aria-label="닉네임 검색" /></label>
-      <ul className="mobile-list">
-        {matches.map((item) => {
-          const slot = playerSlot(item);
-          return <li key={item.id}><button type="button" onClick={() => pick(item.id)}>
-            <b>{slot ?? "—"}</b>
-            <span className={playerNameClass(item)}>{item.nickname}</span>
-            <small>{ROLE_LABEL[item.primaryRole]}</small>
-          </button></li>;
-        })}
-        {matches.length === 0 && <li className="mobile-none">검색 결과가 없습니다</li>}
-      </ul>
+      <header className="mobile-top"><span>HEINAPEL WAR TABLE</span><strong>스타팅 멤버</strong></header>
+      {warning}
+      <ol className="mobile-roster">{MOBILE_SLOTS.map((slot) => <li key={slot}><button type="button" onClick={() => pick(slot)}><b>{slot}</b><span>{nameOf(slot)}</span></button></li>)}</ol>
     </div>
   );
 
-  const slot = playerSlot(player);
-  const { brief, orders, roles, plan } = missionView(player, missionsByNickname(players), side, "tactical");
-  const home = slot ? slotPoint(slot, side, "tactical") : null;
-  const routes = home ? plan.routes : [];
+  const mission = sheet.missions?.get(picked);
+  const orders = mission?.units.map((text) => mirrorMission(text, side));
+  const units = orders?.some(Boolean) ? orders : null;
+  const ready = !!mission && !!(mission.main || mission.sub || units);
+  const leaders = new Map([...(sheet.missions?.values() ?? [])].map((item): [string, MissionOrders] => [item.nickname, item.units]));
+  const routes = buildMissionPlan(units, side, "tactical", leaders).routes;
+  const home = slotPoint(picked, side, "tactical");
 
   return (
     <div className={`mobile-shell side-${side}`}>
       <header className="mobile-top">
-        <button type="button" className="mobile-back" onClick={() => { setPickedId(null); setQuery(""); }} aria-label="다른 사람 고르기">‹</button>
-        <div className="mobile-who">{slot && <b>{slot}</b>}<span className={playerNameClass(player)}>{player.nickname}</span></div>
+        <button type="button" className="mobile-back" onClick={() => pick(null)} aria-label="명단으로 돌아가기">‹</button>
+        <strong>임무 카드</strong>
         <div className="mobile-side">{MISSION_SIDES.map((item) => <button type="button" key={item} className={side === item ? "active" : ""} aria-pressed={side === item} onClick={() => setSide(item)}>{MISSION_SIDE_LABEL[item]}</button>)}</div>
       </header>
-
-      <p className="mobile-meta">{ROLE_LABEL[player.primaryRole]} · 주전{roles.map((role) => ` · ${role.label}`).join("")}</p>
-
-      {home && (
-        <div className="mobile-map">
-          <div className="mobile-map-art" />
-          <svg viewBox="0 0 1000 1000" preserveAspectRatio="none" aria-label="내 자리와 부대 목적지">
-            <defs><marker id="mobile-head" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" /></marker></defs>
-            {routes.map((route) => <line key={route.target} className={route.roaming ? "is-roaming" : ""} x1={home.x * 1000} y1={home.y * 1000} x2={route.to.x * 1000} y2={route.to.y * 1000} markerEnd="url(#mobile-head)" />)}
-          </svg>
-          {OBJECTIVE_META.map((objective) => <span key={objective.id} className="mobile-objective" style={{ left: `${objective.tactical.x}%`, top: `${objective.tactical.y}%` }}>{objective.label}</span>)}
-          {routes.map((route) => { const at = .8; return <span key={route.target} className={`mobile-tag${route.roaming ? " is-roaming" : ""}`} style={{ left: `${(home.x + (route.to.x - home.x) * at) * 100}%`, top: `${(home.y + (route.to.y - home.y) * at) * 100}%` }}>{route.units.join("·")}</span>; })}
-          <span className="mobile-home" style={{ left: `${home.x * 100}%`, top: `${home.y * 100}%` }}>{slot}</span>
-        </div>
-      )}
-
-      {orders ? <>
-        {!hasStaffOrder(brief) && <p className="mobile-staff"><b>STAFF</b>{STAFF_ORDER[player.primaryRole]}</p>}
-        {roles.length > 0 && <div className="mobile-roles">{roles.map((role) => <span key={role.key}><b>{role.label}</b>{role.place}</span>)}</div>}
-        {brief?.common && <div className="mobile-common">{brief.common.map(([head, body]) => <p key={head}><b>{head}</b>{body}</p>)}</div>}
-        {brief && brief.steps.length > 0 && <ol className="mobile-steps">{brief.steps.map(([when, what]) => <li key={when + what} className={/펫|생명석/.test(when) ? "hot" : ""}><i>{when}</i><span>{what}</span></li>)}</ol>}
-        {/* eslint-disable-next-line @next/next/no-img-element -- 정적 PNG 한 장, 최적화 불필요 */}
-        {brief?.image && <figure className="mobile-figure"><img src={brief.image.src} alt={brief.image.caption} /><figcaption>{brief.image.caption}</figcaption></figure>}
-        {brief?.team && <p>{brief.team}</p>}{brief?.badge && <p>{brief.badge}</p>}
-        {brief && <p className="mobile-section">부대 배치</p>}
-        <ol className="mobile-units">{orders.map((text, index) => <li key={index} className={missionEmphasis(text)}><i>{index + 1}</i><span>{text}</span></li>)}</ol>
-        {brief && <p className="mobile-team">{brief.foot}</p>}
-        <p className="mobile-foot">{MISSION_SIDE_LABEL[side]} 진영 기준{side === "lucia" ? " · 이안 기준 임무표에서 좌우 환산 · 브리프 본문은 이안 기준 원문" : ""}</p>
-      </> : <p className="mobile-empty">임무표에 배정된 부대가 없습니다<small>임무 미배정</small></p>}
+      {warning}
+      <article className="board">
+        <header className="board-head"><b>{String(picked).padStart(2, "0")}</b><strong>{nameOf(picked)}</strong><span>{MISSION_SIDE_LABEL[side]}</span></header>
+        <p className="board-team">{mission?.team || "소속팀 미정"}</p>
+        {!sheet.missions ? <p className="board-empty">{sheet.failed ? "임무를 불러오지 못했습니다" : "임무를 불러오는 중…"}</p> : !ready ? <p className="board-empty">임무 준비 중</p> : <>
+          {mission.main && <section className="board-box"><h3>메인 임무</h3><p>{mission.main}</p></section>}
+          {mission.sub && <section className="board-box"><h3>서브 임무</h3><p>{mission.sub}</p></section>}
+          {units && <section className="board-box"><h3>부대 배치</h3><ol className="board-units">{units.map((text, index) => text && <li key={index} className={missionEmphasis(text)}><i>{index + 1}</i><span>{text}</span></li>)}</ol></section>}
+          {home && <section className="board-box"><h3>배치 지도</h3>
+            <div className="mobile-map">
+              <div className="mobile-map-art" />
+              <svg viewBox="0 0 1000 1000" preserveAspectRatio="none" aria-label="내 자리와 부대 목적지">
+                <defs><marker id="mobile-head" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" /></marker></defs>
+                {routes.map((route) => <line key={route.target} className={route.roaming ? "is-roaming" : ""} x1={home.x * 1000} y1={home.y * 1000} x2={route.to.x * 1000} y2={route.to.y * 1000} markerEnd="url(#mobile-head)" />)}
+              </svg>
+              {OBJECTIVE_META.map((objective) => <span key={objective.id} className="mobile-objective" style={{ left: `${objective.tactical.x}%`, top: `${objective.tactical.y}%` }}>{objective.label}</span>)}
+              {routes.map((route) => { const at = .8; return <span key={route.target} className={`mobile-tag${route.roaming ? " is-roaming" : ""}`} style={{ left: `${(home.x + (route.to.x - home.x) * at) * 100}%`, top: `${(home.y + (route.to.y - home.y) * at) * 100}%` }}>{route.units.join("·")}</span>; })}
+              <span className="mobile-home" style={{ left: `${home.x * 100}%`, top: `${home.y * 100}%` }}>{picked}</span>
+            </div>
+          </section>}
+        </>}
+        <p className="board-foot">{MISSION_SIDE_LABEL[side]} 진영 기준{side === "lucia" ? " · 부대 배치만 좌우 환산, 임무 문구는 이안 기준 원문" : ""} · 30 vs 30 · 1인 5부대</p>
+      </article>
     </div>
   );
 }
@@ -924,7 +958,6 @@ export default function WarTable() {
               </div>
             </div>
             {orders ? <div className="mission-card-body" onClick={() => { if (tool === "select") toggleMissionRoute(card.playerId); }} role="presentation">
-              {!hasStaffOrder(brief) && <p className="mission-staff"><b>STAFF</b>{STAFF_ORDER[player.primaryRole]}</p>}
               {roles.length > 0 && <div className="mission-roles">{roles.map((role) => <span key={role.key} className="mission-role"><b>{role.label}</b>{role.place}</span>)}</div>}
               {brief?.team && <p>{brief.team}</p>}{brief?.badge && <p>{brief.badge}</p>}
               {brief?.common?.map(([head, body], index) => <p key={index}><b>{head}</b> {body}</p>)}
@@ -998,7 +1031,6 @@ export default function WarTable() {
         </form>}
       </footer>
     </main>
-    <div className="mobile-management"><button type="button" disabled={operation.players.length >= 30} onClick={() => setPlayerDraft(newPlayer(operation.players))}>선수 추가</button><select aria-label="편집할 선수" value="" onChange={(event) => { const player = operation.players.find((item) => item.id === Number(event.target.value)); if (player) setPlayerDraft(editablePlayer(player)); }}><option value="">명단·임무 편집</option>{operation.players.map((player) => <option key={player.id} value={player.id}>{player.nickname}</option>)}</select><button type="button" onClick={undo} disabled={!canUndo}>실행 취소</button><button type="button" onClick={exportJson}>JSON ↓</button><button type="button" onClick={() => importRef.current?.click()}>JSON ↑</button>{storageError && <p role="alert">{storageError}</p>}</div>
     <MobileBriefing players={operation.players} />
     {playerDraft && <PlayerEditor initial={playerDraft} players={operation.players} onClose={() => setPlayerDraft(null)} onSave={(player) => {
       commit((draft) => { const index = draft.players.findIndex((item) => item.id === player.id); if (index < 0) draft.players.push(player); else draft.players[index] = player; return draft; });
