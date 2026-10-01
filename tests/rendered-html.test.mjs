@@ -9,16 +9,16 @@ async function rosterHelpers() {
   const rosterJs = ts.transpileModule(rosterSource, { compilerOptions: { module: ts.ModuleKind.ESNext } }).outputText;
   const roster = await import(`data:text/javascript;base64,${Buffer.from(rosterJs).toString("base64")}`);
   const source = await readFile(new URL("../app/war-table.tsx", import.meta.url), "utf8");
-  const helpers = source.slice(0, source.indexOf("function normalizeScene")).replace(/^import .*;$/gm, "");
+  const helpers = source.slice(0, source.indexOf("function smoothPath")).replace(/^import .*;$/gm, "");
   const js = ts.transpileModule(helpers, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
-  return runInNewContext(`${js}\n({ freshOperation, normalizeRoster, playerBrief, playerSlot })`, { ...roster });
+  return runInNewContext(`${js}\n({ freshOperation, normalizeRoster, normalizeOperation, playerBrief, playerSlot })`, { ...roster });
 }
 
-test("편집 명단은 이름·편성·보직·임무 삭제와 빈 명단을 JSON 왕복 후에도 보존한다", async () => {
+test("새 정본의 편집 명단은 이름·보직·임무 삭제와 빈 명단을 JSON 왕복 후에도 보존한다", async () => {
   const { freshOperation, normalizeRoster, playerBrief, playerSlot } = await rosterHelpers();
   const operation = freshOperation();
   const original = operation.players[0];
-  operation.players = [{ ...original, nickname: "수정 선수", lineup: "reserve", secondaryRoles: ["blocker"], slot: 9, brief: null }];
+  operation.players = [{ ...original, nickname: "수정 선수", lineup: "starter", secondaryRoles: ["blocker"], slot: 9, brief: null }];
   const saved = JSON.parse(JSON.stringify(operation));
   const restored = normalizeRoster(saved);
   assert.deepEqual(JSON.parse(JSON.stringify(restored)), saved.players);
@@ -33,8 +33,8 @@ test("기존 저장본은 한 번만 현재 명단으로 이관하고 편집본�
   delete operation.rosterRevision;
   operation.players = operation.players.slice(0, 1);
   const migrated = normalizeRoster(operation);
-  assert.equal(migrated.length, 40);
-  operation.rosterRevision = 1;
+  assert.equal(migrated.length, 30);
+  operation.rosterRevision = 2;
   assert.equal(normalizeRoster(operation).length, 1);
 });
 
@@ -47,9 +47,53 @@ test("가져온 명단의 중복 ID·닉네임과 잘못된 임무·번호를 �
     [player, { ...player, id: 999 }],
     [{ ...player, nickname: " " }],
     [{ ...player, slot: 31 }],
+    [{ ...player, lineup: "reserve" }],
     [{ ...player, secondaryRoles: ["unknown"] }],
     [{ ...player, brief: { units: [] } }],
   ]) assert.throws(() => normalizeRoster({ ...operation, players }));
+});
+
+test("사진 정본 30명의 번호와 이름이 정확히 일치하고 미확인 신규 선수는 임무를 승계하지 않는다", async () => {
+  const { freshOperation, playerSlot, playerBrief } = await rosterHelpers();
+  const expected = ["무잔 Muzan", "제이", "바르니 barunii", "마지태", "마스터", "TESLA", "Mim Mi", "파리스", "마구니", "Glen fiddich", "예리", "압수", "곡곡이", "GINSENG MAN", "Kingsway", "욘두 Yondu", "진수", "조롱말", "마리오", "TOMAS SHELBY", "Bünker", "불개", "떡틸로", "JunkHun", "Maha", "Elega", "5000", "보수", "햄수", "늑대장군"];
+  const players = freshOperation().players;
+  assert.deepEqual(Array.from(players, (player) => player.nickname), expected);
+  assert.deepEqual(Array.from(players, playerSlot), Array.from({ length: 30 }, (_, i) => i + 1));
+  assert.ok(players.every((player) => player.lineup === "starter"));
+  for (const name of ["제이", "마지태", "Mim Mi", "마리오", "GINSENG MAN", "떡틸로"]) assert.equal(playerBrief(players.find((player) => player.nickname === name)), undefined);
+});
+
+test("구버전 명단은 ID와 편집을 보존하며 30명으로 이관하고 삭제 선수의 모든 장면 배치와 카드를 정리한다", async () => {
+  const { freshOperation, normalizeOperation, playerSlot } = await rosterHelpers();
+  for (const revision of [undefined, 1]) {
+    const saved = freshOperation();
+    saved.rosterRevision = revision;
+    const customBrief = { nickname: "[WB] ᴵᴿᴼᴺ TESLA", file: "수정", team: "수정 임무", steps: [], foot: "마법공주간달프님 호위", units: ["수정 지시", "오일자님 집결", "", "", ""] };
+    saved.players = [
+      { ...saved.players[5], id: 41, nickname: "[WB] ᴵᴿᴼᴺ TESLA", lineup: "reserve", slot: 22, brief: customBrief },
+      { ...saved.players[19], id: 39, slot: 13 },
+      { ...saved.players[0], id: 90, nickname: "마법공주간달프", slot: 2 },
+      { ...saved.players[0], id: 91, nickname: "예비 선수", lineup: "reserve", slot: null },
+    ];
+    saved.cards = [{ playerId: 41, x: .1, y: .1 }, { playerId: 90, x: .2, y: .2 }, { playerId: 92, x: .2, y: .2 }];
+    saved.scenes = [0, 1].map((i) => ({ ...saved.scenes[0], id: `scene-${i}`, positions: { 41: { x: .3, y: .4 }, 90: { x: .2, y: .2 }, 91: { x: .1, y: .1 }, 92: { x: .5, y: .5 } } }));
+    const before = JSON.stringify(saved);
+    const restored = normalizeOperation(saved);
+    assert.equal(JSON.stringify(saved), before);
+    assert.equal(restored.rosterRevision, 2);
+    assert.equal(restored.players.length, 30);
+    assert.equal(new Set(restored.players.map((player) => player.id)).size, 30);
+    const tesla = restored.players.find((player) => player.nickname === "TESLA");
+    assert.equal(tesla.id, 41); assert.equal(playerSlot(tesla), 6);
+    assert.equal(tesla.brief.nickname, "TESLA"); assert.equal(tesla.brief.units[0], "수정 지시");
+    assert.equal(tesla.brief.foot, "담당 미정 호위"); assert.equal(tesla.brief.units[1], "담당 미정 집결");
+    assert.equal(restored.players.find((player) => player.nickname === "TOMAS SHELBY").id, 39);
+    assert.equal(playerSlot(restored.players.find((player) => player.nickname === "TOMAS SHELBY")), 20);
+    assert.ok(restored.players.filter((player) => ![41, 39].includes(player.id)).every((player) => player.id > 91));
+    assert.deepEqual(Array.from(restored.cards, (card) => card.playerId), [41]);
+    for (const scene of restored.scenes) assert.deepEqual(Object.keys(scene.positions), ["41"]);
+    assert.deepEqual(JSON.parse(JSON.stringify(normalizeOperation(JSON.parse(JSON.stringify(restored))))), JSON.parse(JSON.stringify(restored)));
+  }
 });
 
 async function render() {
@@ -95,9 +139,9 @@ test("server-renders the Heinapel War Table", async () => {
   assert.match(html, /전술 맵/);
   assert.match(html, /실전 맵/);
   assert.match(html, /생명의 반석/);
-  assert.equal((html.match(/class="player-row\b/g) ?? []).length, 40);
+  assert.equal((html.match(/class="player-row\b/g) ?? []).length, 30);
   assert.equal((html.match(/class="lineup-badge starter"/g) ?? []).length, 30);
-  assert.equal((html.match(/class="lineup-badge reserve"/g) ?? []).length, 10);
+  assert.equal((html.match(/class="lineup-badge reserve"/g) ?? []).length, 0);
   assert.equal((html.match(/class="role-count-tile\b/g) ?? []).length, 4);
   assert.doesNotMatch(html, /class="role-summary"/);
   assert.equal((html.match(/class="capture-objective owner-neutral"/g) ?? []).length, 12);
@@ -106,8 +150,7 @@ test("server-renders the Heinapel War Table", async () => {
   assert.match(html, /방어 라인/);
   assert.match(html, />집결<\/button>/);
   assert.match(html, />지우개<\/button>/);
-  assert.match(html, />주전<\/button>/);
-  assert.match(html, />예비<\/button>/);
+  assert.doesNotMatch(html, /예비/);
   assert.match(html, />집결장<\/button>/);
   assert.match(html, />주둔장<\/button>/);
   assert.doesNotMatch(html, /PLAYER EDIT|LAYER FILTER/);
@@ -129,15 +172,10 @@ test("keeps the interactive operation features and map assets wired", async () =
 
   assert.match(warTable, /const STORAGE_KEY = "heinapel-war-table-v0\.3"/);
   assert.match(warTable, /const OBJECTIVE_META = \[/);
-  assert.match(roster, /\["핫떠그", "infantry"\]/);
-  assert.equal((roster.match(/^ {2}\{ nickname: /gm) ?? []).length, 30);
-  assert.match(warTable, /const RALLY_PLAYERS = new Set\(\["\[WB\] 진 수", "마법공주간달프", "\[WB\] ᴵᴿᴼᴺ TESLA", "오늘은일찍자야지", "\[WB\] ᴵᴿᴼᴺ Maha"\]\)/);
-  assert.match(roster, /\["마법공주간달프", 2\], \["바르니", 3\]/);
-  assert.match(roster, /\["산삼맨", 19\]/);
-  assert.match(roster, /\["\[WB\] ᴵᴿᴼᴺ Maha", 25\]/);
-  assert.match(warTable, /lineup: SLOT_BY_NICKNAME\.has\(nickname\) \? "starter" : "reserve"/);
-  assert.match(warTable, /const RENAMED = new Map\(\[\["벌꿀오소리", "마법공주간달프"\]\]\)/);
-  assert.match(warTable, /type LineupStatus = "starter" \| "reserve"/);
+  assert.equal((roster.match(/^ {2}\{ nickname: /gm) ?? []).length, 24);
+  assert.match(warTable, /const RALLY_PLAYERS = new Set\(\["진수", "TESLA", "Maha"\]\)/);
+  assert.match(warTable, /type LineupStatus = "starter"/);
+  assert.doesNotMatch(roster, /마법공주간달프|오늘은일찍자야지|핫떠그|산삼맨|서틸로|SIGH/);
   assert.match(warTable, /type SceneEvents =/);
   assert.match(warTable, /const DEFAULT_SCENE_EVENTS/);
   assert.match(warTable, /type FairyDragonPosition = "northwest" \| "southeast"/);

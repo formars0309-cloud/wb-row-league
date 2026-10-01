@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { MISSION_BRIEFS, PLAYER_SOURCE, SLOT_SOURCE, hasStaffOrder, type Brief, type MissionOrders, type PrimaryRole } from "./roster";
+import { MISSION_BRIEFS, PLAYER_SOURCE, SLOT_SOURCE, ROSTER_ALIASES, hasStaffOrder, type Brief, type MissionOrders, type PrimaryRole } from "./roster";
 
 type SecondaryRole = "garrison" | "rally" | "blocker";
-type LineupStatus = "starter" | "reserve";
+type LineupStatus = "starter";
 type Tool = "select" | "moveArrow" | "attackArrow" | "defense" | "rally" | "step" | "text" | "memo" | "delete";
 type ObjectiveOwner = "neutral" | "lucia" | "ian";
 type MapVariant = "tactical" | "field";
@@ -18,7 +18,7 @@ type TacticalObject = { id: string; type: Exclude<Tool, "select" | "delete">; x:
 type SceneEvents = { fairyDragon: string; lifeStone: string; fairyDragonPosition: FairyDragonPosition };
 type Scene = { id: string; name: string; time: string; positions: Record<string, Point>; objects: TacticalObject[]; events: SceneEvents; objectiveOwners?: Record<string, ObjectiveOwner> };
 type SceneDraft = { id: string; name: string; time: string; fairyDragon: string; lifeStone: string; fairyDragonPosition: FairyDragonPosition };
-type Operation = { version: 1; rosterRevision?: 1; name: string; players: Player[]; scenes: Scene[]; activeSceneId: string; updatedAt: string; side?: MissionSide; cards?: MissionCard[] };
+type Operation = { version: 1; rosterRevision?: 1 | 2; name: string; players: Player[]; scenes: Scene[]; activeSceneId: string; updatedAt: string; side?: MissionSide; cards?: MissionCard[] };
 
 const STORAGE_KEY = "heinapel-war-table-v0.3";
 const ROLE_LABEL: Record<PrimaryRole, string> = { infantry: "보병", cavalry: "기병", ranged: "원거리" };
@@ -30,10 +30,10 @@ const TOOL_META: Array<{ id: Tool; label: string; glyph: string; hint: string }>
   { id: "memo", label: "메모", glyph: "▤", hint: "드래그로 영역을 잡고 메모를 입력" },
   { id: "delete", label: "지우개", glyph: "", hint: "지울 오브젝트를 클릭" },
 ];
-// 토큰 아이콘용 지휘 보직. 2026-09-08 오더 기준 — 기병 집결장(오일자·MAHA)과 테슬라도 집결장으로 본다.
-const RALLY_PLAYERS = new Set(["[WB] 진 수", "마법공주간달프", "[WB] ᴵᴿᴼᴺ TESLA", "오늘은일찍자야지", "[WB] ᴵᴿᴼᴺ Maha"]);
-const GARRISON_PLAYERS = new Set(["glen fiddich", "욘 두 Yondu", "예리", "Junkhun", "압 수", "[WB] ᵂᴮ Elega", "5000"]);
-const BLOCKER_PLAYERS = new Set(["핫떠그", "산삼맨", "Kingsway", "서틸로"]);
+// 사진 정본에 남은 선수의 확인된 지휘 보직. 미확인 신규 선수에게 이전 보직을 넘기지 않는다.
+const RALLY_PLAYERS = new Set(["진수", "TESLA", "Maha"]);
+const GARRISON_PLAYERS = new Set(["Glen fiddich", "욘두 Yondu", "예리", "JunkHun", "압수", "Elega", "5000"]);
+const BLOCKER_PLAYERS = new Set(["Kingsway"]);
 const SLOT_BY_NICKNAME = new Map(SLOT_SOURCE);
 function defaultCommandRoles(nickname: string): SecondaryRole[] {
   if (RALLY_PLAYERS.has(nickname)) return ["rally"];
@@ -46,7 +46,7 @@ const INITIAL_PLAYERS: Player[] = PLAYER_SOURCE.map(([nickname, primaryRole], in
   nickname,
   primaryRole,
   secondaryRoles: defaultCommandRoles(nickname),
-  lineup: SLOT_BY_NICKNAME.has(nickname) ? "starter" : "reserve",
+  lineup: "starter",
 }));
 const MEMO_MIN_SIZE = { width: .11, height: .075 };
 // 임무 문안은 app/roster.ts의 브리프에서 온다. 지도 경로·배지는 부대1~5 문장(units)에서 읽는다.
@@ -107,30 +107,34 @@ const OBJECTIVE_META = [
 
 function freshOperation(): Operation {
   const sceneId = "scene-1";
-  return { version: 1, rosterRevision: 1, name: "WB 헤이나펄 리그 2기", side: "ian", players: INITIAL_PLAYERS, scenes: [{ id: sceneId, name: "START", time: "60:00", positions: {}, objects: [], events: { ...DEFAULT_SCENE_EVENTS } }], activeSceneId: sceneId, updatedAt: new Date().toISOString() };
+  return { version: 1, rosterRevision: 2, name: "WB 헤이나펄 리그 2기", side: "ian", players: INITIAL_PLAYERS, scenes: [{ id: sceneId, name: "START", time: "60:00", positions: {}, objects: [], events: { ...DEFAULT_SCENE_EVENTS } }], activeSceneId: sceneId, updatedAt: new Date().toISOString() };
 }
 function clone<T>(value: T): T { return JSON.parse(JSON.stringify(value)) as T; }
 function clamp(value: number) { return Math.max(0.025, Math.min(0.975, value)); }
 function uid(prefix: string) { return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`; }
-// 게임에서 닉네임을 바꾼 사람. 저장본의 옛 이름을 새 이름으로 옮기고, 새 이름으로 이미 붙어 있던 중복 항목은 버린다.
-const RENAMED = new Map([["벌꿀오소리", "마법공주간달프"]]);
+// 사진 정본으로 한 번 이관한다. 유지 선수의 ID를 보존하고 신규 ID는 옛 명단 전체와 겹치지 않게 만든다.
 function mergePlayers(saved: Player[]): Player[] {
-  const seen = new Set<string>();
-  const merged = saved.flatMap((player): Player[] => {
-    const nickname = RENAMED.get(player.nickname) ?? player.nickname;
-    if (seen.has(nickname)) return [];
-    seen.add(nickname);
-    return [{
+  const byName = new Map(saved.map((player) => [ROSTER_ALIASES.get(player.nickname) ?? player.nickname, player]));
+  const removedNames = [...saved.filter((player) => !SLOT_BY_NICKNAME.has(ROSTER_ALIASES.get(player.nickname) ?? player.nickname)).map((player) => player.nickname), "마법공주간달프", "오늘은일찍자야지", "오소리", "오일자", "핫떠그", "산삼맨", "서틸로", "SIGH"];
+  const cleanText = (text: string) => removedNames.reduce((result, name) => result.replaceAll(`${name}님`, "담당 미정").replaceAll(name, "담당 미정"), text);
+  let nextId = Math.max(0, ...saved.map((player) => player.id)) + 1;
+  return INITIAL_PLAYERS.map((player): Player => {
+    const previous = byName.get(player.nickname);
+    const brief = previous?.brief;
+    return {
       ...player,
-      nickname,
-      // 주전 여부는 게임 배치 명단이 정한다. 저장본이 옛 명단이어도 현재 번호표로 다시 맞춘다.
-      lineup: SLOT_BY_NICKNAME.has(nickname) ? "starter" : "reserve",
-      // 지휘 보직도 오더가 정한다. 화면의 보직 토글은 그 세션 안에서만 유지된다.
-      secondaryRoles: defaultCommandRoles(nickname),
-    }];
+      ...(previous ? { ...previous, nickname: player.nickname, brief: brief ? {
+        ...brief, nickname: player.nickname, team: cleanText(brief.team), foot: cleanText(brief.foot),
+        badge: brief.badge === undefined ? undefined : cleanText(brief.badge),
+        units: brief.units.map(cleanText) as MissionOrders,
+        steps: brief.steps.map(([head, body]) => [cleanText(head), cleanText(body)]),
+        common: brief.common?.map(([head, body]) => [cleanText(head), cleanText(body)]),
+        image: brief.image ? { ...brief.image, caption: cleanText(brief.image.caption) } : undefined,
+      } : brief } : { id: nextId++ }),
+      lineup: "starter",
+      slot: SLOT_BY_NICKNAME.get(player.nickname),
+    };
   });
-  INITIAL_PLAYERS.forEach((player) => { if (!seen.has(player.nickname)) merged.push({ ...player }); });
-  return merged;
 }
 function playerBrief(player: Player): Brief | undefined {
   return player.brief === undefined ? BRIEF_BY_NICKNAME.get(player.nickname) : player.brief ?? undefined;
@@ -139,13 +143,14 @@ function playerSlot(player: Player): number | undefined {
   return player.slot === undefined ? SLOT_BY_NICKNAME.get(player.nickname) : player.slot ?? undefined;
 }
 function normalizeRoster(saved: Operation): Player[] {
-  const players = saved.rosterRevision === 1 ? saved.players : mergePlayers(saved.players);
+  const players = saved.players;
+  if (saved.rosterRevision === 2 && players.length > 30) throw new Error("주전은 최대 30명입니다.");
   const ids = new Set<number>();
   const names = new Set<string>();
   for (const player of players) {
     if (!Number.isSafeInteger(player.id) || player.id < 1 || ids.has(player.id) ||
       typeof player.nickname !== "string" || !player.nickname.trim() || names.has(player.nickname.trim().toLowerCase()) ||
-      !Object.hasOwn(ROLE_LABEL, player.primaryRole) || !["starter", "reserve"].includes(player.lineup) ||
+      !Object.hasOwn(ROLE_LABEL, player.primaryRole) || !(saved.rosterRevision === 2 ? ["starter"] : ["starter", "reserve"]).includes(player.lineup) ||
       !Array.isArray(player.secondaryRoles) || player.secondaryRoles.some((role) => !Object.hasOwn(SECONDARY_LABEL, role)) ||
       (player.slot != null && (!Number.isInteger(player.slot) || player.slot < 1 || player.slot > 30))) throw new Error("잘못된 명단");
     const brief = player.brief;
@@ -156,7 +161,18 @@ function normalizeRoster(saved: Operation): Player[] {
       (brief.image && (typeof brief.image.src !== "string" || typeof brief.image.caption !== "string")))) throw new Error("잘못된 임무");
     ids.add(player.id); names.add(player.nickname.trim().toLowerCase());
   }
-  return players;
+  if (saved.rosterRevision === 2) return players;
+  const merged = mergePlayers(players);
+  if (merged.some((player) => !Number.isSafeInteger(player.id))) throw new Error("선수 ID를 이관할 수 없습니다.");
+  return merged;
+}
+function normalizeOperation(saved: Operation): Operation {
+  const players = normalizeRoster(saved);
+  const previousIds = new Set(saved.players.map((player) => player.id));
+  const ids = new Set(players.filter((player) => saved.rosterRevision === 2 || previousIds.has(player.id)).map((player) => String(player.id)));
+  return { ...saved, players, rosterRevision: 2, cards: saved.cards?.filter((card) => ids.has(String(card.playerId))),
+    scenes: saved.scenes.map((item, index) => ({ ...normalizeScene(item, index), positions: Object.fromEntries(Object.entries(item.positions ?? {}).filter(([id]) => ids.has(id))) })),
+  };
 }
 function normalizeScene(item: Scene, index: number): Scene {
   const savedEvents = (item.events ?? {}) as Partial<SceneEvents>;
@@ -189,7 +205,7 @@ function memoRect(start: Point, end: Point) {
   return { left: fitAxis(Math.min(start.x, end.x), width), top: fitAxis(Math.min(start.y, end.y), height), width, height };
 }
 function memoSpan(object: TacticalObject) { return { width: Math.abs((object.x2 ?? object.x) - object.x), height: Math.abs((object.y2 ?? object.y) - object.y) }; }
-const RALLY_LEADER_ALIAS: Array<[string, string]> = [["진수님", "[WB] 진 수"], ["오소리님", "마법공주간달프"], ["오일자님", "오늘은일찍자야지"], ["MAHA님", "[WB] ᴵᴿᴼᴺ Maha"], ["테슬라님", "[WB] ᴵᴿᴼᴺ TESLA"], ["예리님", "예리"]];
+const RALLY_LEADER_ALIAS: Array<[string, string]> = [["진수님", "진수"], ["MAHA님", "Maha"], ["테슬라님", "TESLA"], ["예리님", "예리"]];
 // 적 진영 앞 골짜기 입구. 거점 아이콘이 없는 지형이라 좌표를 직접 잡았다.
 // 전술 맵 값은 지도 원본에서 실측했고, 실전 맵 값은 거점 12쌍의 변위로 환산한 추정치다.
 const ENEMY_GATE: Record<MissionSide, Record<MapVariant, Point>> = {
@@ -351,9 +367,9 @@ function MobileBriefing({ players }: { players: Player[] }) {
         {matches.map((item) => {
           const slot = playerSlot(item);
           return <li key={item.id}><button type="button" onClick={() => pick(item.id)}>
-            <b className={slot ? "" : "is-reserve"}>{slot ?? "—"}</b>
+            <b>{slot ?? "—"}</b>
             <span className={playerNameClass(item)}>{item.nickname}</span>
-            <small>{ROLE_LABEL[item.primaryRole]}{item.lineup === "reserve" ? " · 예비" : ""}</small>
+            <small>{ROLE_LABEL[item.primaryRole]}</small>
           </button></li>;
         })}
         {matches.length === 0 && <li className="mobile-none">검색 결과가 없습니다</li>}
@@ -377,7 +393,7 @@ function MobileBriefing({ players }: { players: Player[] }) {
         <div className="mobile-side">{(Object.keys(MISSION_SIDE_LABEL) as MissionSide[]).map((item) => <button type="button" key={item} className={side === item ? "active" : ""} aria-pressed={side === item} onClick={() => setSide(item)}>{MISSION_SIDE_LABEL[item]}</button>)}</div>
       </header>
 
-      <p className="mobile-meta">{ROLE_LABEL[player.primaryRole]} · {player.lineup === "reserve" ? "예비" : "주전"}{roles.map((role) => ` · ${role.label}`).join("")}</p>
+      <p className="mobile-meta">{ROLE_LABEL[player.primaryRole]} · 주전{roles.map((role) => ` · ${role.label}`).join("")}</p>
 
       {home && (
         <div className="mobile-map">
@@ -404,7 +420,7 @@ function MobileBriefing({ players }: { players: Player[] }) {
         <ol className="mobile-units">{orders.map((text, index) => <li key={index} className={missionEmphasis(text)}><i>{index + 1}</i><span>{text}</span></li>)}</ol>
         {brief && <p className="mobile-team">{brief.foot}</p>}
         <p className="mobile-foot">{MISSION_SIDE_LABEL[side]} 진영 기준{side === "lucia" ? " · 이안 기준 임무표에서 좌우 환산 · 브리프 본문은 이안 기준 원문" : ""}</p>
-      </> : <p className="mobile-empty">임무표에 배정된 부대가 없습니다<small>{player.lineup === "reserve" ? "예비 편성" : "시트 미배정"}</small></p>}
+      </> : <p className="mobile-empty">임무표에 배정된 부대가 없습니다<small>임무 미배정</small></p>}
     </div>
   );
 }
@@ -418,6 +434,7 @@ function PlayerEditor({ initial, players, onSave, onDelete, onClose }: { initial
   const patchBrief = (value: Partial<Brief>) => setDraft((current) => ({ ...current, brief: current.brief ? { ...current.brief, ...value } : null }));
   const save = (event: React.FormEvent) => {
     event.preventDefault();
+    if (!players.some((player) => player.id === draft.id) && players.length >= 30) { setError("주전은 최대 30명입니다."); return; }
     const nickname = draft.nickname.trim();
     if (!nickname) { setError("닉네임을 입력해 주세요."); return; }
     if (players.some((player) => player.id !== draft.id && player.nickname.toLowerCase() === nickname.toLowerCase())) { setError("이미 등록된 닉네임입니다."); return; }
@@ -433,7 +450,6 @@ function PlayerEditor({ initial, players, onSave, onDelete, onClose }: { initial
       <p>변경 내용은 이 브라우저에 저장됩니다. 다른 기기에는 JSON으로 전달하세요.</p>
       <div className="player-fields">
         <label>닉네임<input required maxLength={80} value={draft.nickname} onChange={(event) => patch({ nickname: event.target.value })} /></label>
-        <label>편성<select value={draft.lineup} onChange={(event) => patch({ lineup: event.target.value as LineupStatus })}><option value="starter">주전</option><option value="reserve">예비</option></select></label>
         <label>병종<select value={draft.primaryRole} onChange={(event) => patch({ primaryRole: event.target.value as PrimaryRole })}>{Object.entries(ROLE_LABEL).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
         <label>전투 위치 번호<input type="number" min={1} max={30} value={draft.slot ?? ""} placeholder="미지정" onChange={(event) => patch({ slot: event.target.value ? Number(event.target.value) : null })} /></label>
       </div>
@@ -522,10 +538,13 @@ export default function WarTable() {
         if (raw) {
           const saved = JSON.parse(raw) as Operation;
           if (saved.version === 1 && Array.isArray(saved.players) && saved.scenes?.length) {
-            saved.players = normalizeRoster(saved);
-            saved.rosterRevision = 1;
-            saved.scenes = saved.scenes.map(normalizeScene);
-            setOperation(saved);
+            const restored = normalizeOperation(saved);
+            if (saved.rosterRevision !== 2) {
+              const backupKey = `${STORAGE_KEY}-before-photo-roster-2026-10-01`;
+              if (localStorage.getItem(backupKey) === null) localStorage.setItem(backupKey, raw);
+              localStorage.removeItem(MOBILE_PICK_KEY);
+            }
+            setOperation(restored);
           } else throw new Error("지원하지 않는 저장 데이터");
         }
       } catch { setStorageError("저장 데이터를 읽지 못했습니다. 원본은 보존했습니다. JSON 백업을 확인해 주세요."); }
@@ -785,7 +804,7 @@ export default function WarTable() {
   };
   const importJson = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]; if (!file) return;
-    try { const parsed = JSON.parse(await file.text()) as Operation; if (parsed.version !== 1 || !Array.isArray(parsed.players) || !parsed.scenes?.length) throw new Error(); parsed.players = normalizeRoster(parsed); parsed.rosterRevision = 1; parsed.scenes = parsed.scenes.map(normalizeScene); checkpoint(); setStorageError(""); setOperation(parsed); setSelectedIds([]); setMemoDraft(null); }
+    try { let parsed = JSON.parse(await file.text()) as Operation; if (parsed.version !== 1 || !Array.isArray(parsed.players) || !parsed.scenes?.length) throw new Error(); parsed = normalizeOperation(parsed); checkpoint(); setStorageError(""); setOperation(parsed); setSelectedIds([]); setMemoDraft(null); }
     catch { window.alert("Heinapel War Table v0.1 JSON 파일이 아닙니다."); }
     event.target.value = "";
   };
@@ -851,14 +870,14 @@ export default function WarTable() {
         <aside className="roster-panel panel">
           <div className="panel-heading"><div><span className="eyebrow">BLUE FORCE</span><h2>PLAYER ROSTER</h2></div><span className="count-badge">{visiblePlayers.length} / {operation.players.length}</span></div>
           <div className="roster-controls">
-            <button type="button" onClick={() => setPlayerDraft({ id: Math.max(0, ...operation.players.map((player) => player.id)) + 1, nickname: "", primaryRole: "infantry", secondaryRoles: [], lineup: "reserve", slot: null, brief: null })}>선수 추가</button>
+            <button type="button" disabled={operation.players.length >= 30} onClick={() => setPlayerDraft({ id: Math.max(0, ...operation.players.map((player) => player.id)) + 1, nickname: "", primaryRole: "infantry", secondaryRoles: [], lineup: "starter", slot: null, brief: null })}>선수 추가</button>
             <button type="button" disabled={!editing} onClick={() => editing && setPlayerDraft(clone({ ...editing, slot: playerSlot(editing) ?? null, brief: playerBrief(editing) ?? null }))}>명단·임무 편집</button>
             <select aria-label="역할 필터" value={roleFilter} onChange={(event) => setRoleFilter(event.target.value as "all" | PrimaryRole)}><option value="all">전체 역할</option><option value="infantry">보병</option><option value="cavalry">기병</option><option value="ranged">원거리</option></select>
           </div>
           <div className="roster-list" aria-label={`플레이어 명단 ${visiblePlayers.length}명 표시 · 총 ${operation.players.length}명`}>
             {visiblePlayers.map((player) => (
               <button draggable type="button" key={player.id} className={`player-row ${editingId === player.id ? "is-active" : ""} ${scene.positions[String(player.id)] ? "is-placed" : ""}`} onDragStart={(event) => handleRosterDrag(event, player.id)} onClick={() => { setEditingId(player.id); openMissionCard(player.id); if (!scene.positions[String(player.id)]) setSelectedIds([player.id]); }}>
-                <span className="player-num">{playerSlot(player) ?? "—"}</span><span className="player-copy"><strong className={playerNameClass(player)}>{player.nickname}</strong><span className={`lineup-badge ${player.lineup}`}>{player.lineup === "reserve" ? "예비" : "주전"}</span></span><span className="edit-glyph">{scene.positions[String(player.id)] ? "●" : "⋮⋮"}</span>
+                <span className="player-num">{playerSlot(player) ?? "—"}</span><span className="player-copy"><strong className={playerNameClass(player)}>{player.nickname}</strong><span className={`lineup-badge ${player.lineup}`}>주전</span></span><span className="edit-glyph">{scene.positions[String(player.id)] ? "●" : "⋮⋮"}</span>
               </button>
             ))}
           </div>
@@ -909,7 +928,7 @@ export default function WarTable() {
               {card.route && gaps.length > 0 && <p className="mission-route-gap">{gaps.join("·")}부대는 임무표에 목적지가 없어 지도에 표시할 수 없습니다</p>}
               {brief?.foot && <p>{brief.foot}</p>}
               {!!playerSlot(player) && <div className="mission-deploy"><span>{playerSlot(player)}번 자리로</span>{(Object.keys(MISSION_SIDE_LABEL) as MissionSide[]).map((side) => <button type="button" key={side} className={`deploy-${side}`} onClick={() => deployOne(card.playerId, side)}>{MISSION_SIDE_LABEL[side]} 배치</button>)}</div>}
-            </div> : <p className="mission-empty">임무표에 배정된 부대가 없습니다<small>{player.lineup === "reserve" ? "예비 편성" : "시트 미배정"}</small></p>}
+            </div> : <p className="mission-empty">임무표에 배정된 부대가 없습니다<small>임무 미배정</small></p>}
           </div>)}
           {visibleObjects.filter((object) => object.type === "memo").map((note) => { const span = memoSpan(note); const isEditing = memoDraft?.id === note.id; return <div key={note.id} className={`tactical-object map-memo${isEditing ? " is-editing" : ""}`} style={{ left: `${note.x * 100}%`, top: `${note.y * 100}%`, width: `${span.width * 100}%`, height: `${span.height * 100}%` }}>{isEditing ? <textarea ref={memoInputRef} aria-label="메모 내용" placeholder="메모를 입력하세요" value={memoDraft.text} onChange={(event) => setMemoDraft({ id: note.id, text: event.target.value })} onBlur={() => finishMemoEdit(true)} onKeyDown={(event) => { if (event.key === "Escape") { event.preventDefault(); finishMemoEdit(false); } }} /> : <button type="button" className="memo-face" onPointerDown={(event) => handleMemoPointerDown(event, note)} onClick={(event) => { if (event.detail !== 0) return; if (tool === "delete") deleteObject(note.id); else if (tool === "select") setMemoDraft({ id: note.id, text: note.text ?? "" }); }} title={tool === "delete" ? "클릭해 메모 삭제" : "클릭해 메모 수정 · 드래그로 이동"}><span className={note.text ? "" : "is-placeholder"}>{note.text || "메모 입력"}</span></button>}</div>; })}
           {visibleObjects.filter((object) => object.type === "attackArrow").map((object, index) => { const origin = object.points?.[0] ?? { x: object.x, y: object.y }; return <span key={`${object.id}-order`} className="attack-line-order" style={{ left: `${origin.x * 100}%`, top: `${origin.y * 100}%` }} aria-hidden="true">{index + 1}</span>; })}
@@ -923,11 +942,6 @@ export default function WarTable() {
           <div className="tool-grid">{TOOL_META.map((item) => <button type="button" key={item.id} className={`${tool === item.id ? "active" : ""} tool-${item.id}`} onClick={() => setTool((current) => current === item.id ? "select" : item.id)} title={item.hint}>{item.id === "delete" ? <EraserIcon /> : <span>{item.glyph}</span>}{item.label}</button>)}</div>
           <div className="assignment-panel">
             {editing && <><div className="assignment-player"><span>SELECTED PLAYER</span><strong className={playerNameClass(editing)}>{editing.nickname}</strong><small>명단에서 아이디를 선택한 뒤 역할을 지정하세요.</small></div>
-            <div className="assignment-heading">편성</div>
-            <div className="assignment-grid two-column">
-              <button type="button" className={`assignment-button status-starter ${editing.lineup === "starter" ? "active" : ""}`} onClick={() => patchPlayer(editing.id, { lineup: "starter" })}><span>★</span>주전</button>
-              <button type="button" className={`assignment-button status-reserve ${editing.lineup === "reserve" ? "active" : ""}`} onClick={() => patchPlayer(editing.id, { lineup: "reserve" })}><span>◇</span>예비</button>
-            </div>
             <div className="assignment-heading">병종</div>
             <div className="assignment-grid three-column">
               {(Object.keys(ROLE_LABEL) as PrimaryRole[]).map((role) => <button type="button" key={role} className={`assignment-button role-${role} ${editing.primaryRole === role ? "active" : ""}`} onClick={() => patchPlayer(editing.id, { primaryRole: role })}><UnitRoleIcon unitRole={role} />{ROLE_LABEL[role]}</button>)}
@@ -979,7 +993,7 @@ export default function WarTable() {
         </form>}
       </footer>
     </main>
-    <div className="mobile-management"><button type="button" onClick={() => setPlayerDraft({ id: Math.max(0, ...operation.players.map((player) => player.id)) + 1, nickname: "", primaryRole: "infantry", secondaryRoles: [], lineup: "reserve", slot: null, brief: null })}>선수 추가</button><select aria-label="편집할 선수" value="" onChange={(event) => { const player = operation.players.find((item) => item.id === Number(event.target.value)); if (player) setPlayerDraft(clone({ ...player, slot: playerSlot(player) ?? null, brief: playerBrief(player) ?? null })); }}><option value="">명단·임무 편집</option>{operation.players.map((player) => <option key={player.id} value={player.id}>{player.nickname}</option>)}</select><button type="button" onClick={undo} disabled={!canUndo}>실행 취소</button><button type="button" onClick={exportJson}>JSON ↓</button><button type="button" onClick={() => importRef.current?.click()}>JSON ↑</button>{storageError && <p role="alert">{storageError}</p>}</div>
+    <div className="mobile-management"><button type="button" disabled={operation.players.length >= 30} onClick={() => setPlayerDraft({ id: Math.max(0, ...operation.players.map((player) => player.id)) + 1, nickname: "", primaryRole: "infantry", secondaryRoles: [], lineup: "starter", slot: null, brief: null })}>선수 추가</button><select aria-label="편집할 선수" value="" onChange={(event) => { const player = operation.players.find((item) => item.id === Number(event.target.value)); if (player) setPlayerDraft(clone({ ...player, slot: playerSlot(player) ?? null, brief: playerBrief(player) ?? null })); }}><option value="">명단·임무 편집</option>{operation.players.map((player) => <option key={player.id} value={player.id}>{player.nickname}</option>)}</select><button type="button" onClick={undo} disabled={!canUndo}>실행 취소</button><button type="button" onClick={exportJson}>JSON ↓</button><button type="button" onClick={() => importRef.current?.click()}>JSON ↑</button>{storageError && <p role="alert">{storageError}</p>}</div>
     <MobileBriefing players={operation.players} />
     {playerDraft && <PlayerEditor initial={playerDraft} players={operation.players} onClose={() => setPlayerDraft(null)} onSave={(player) => {
       commit((draft) => { const index = draft.players.findIndex((item) => item.id === player.id); if (index < 0) draft.players.push(player); else draft.players[index] = player; return draft; });

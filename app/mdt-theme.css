@@ -513,10 +513,6 @@ body {
   color: #e2c574;
   background: rgba(226, 197, 116, 0.09);
 }
-.lineup-badge.reserve {
-  color: #ff9d55;
-  background: rgba(255, 116, 55, 0.12);
-}
 
 .assignment-panel {
   margin-top: 8px;
@@ -604,7 +600,6 @@ body {
   height: 25px;
 }
 .assignment-button.status-starter { --role-color: #e2c574; }
-.assignment-button.status-reserve { --role-color: #ff9d55; }
 .assignment-button.command-rally { --role-color: #ff4b4b; }
 .assignment-button.command-garrison { --role-color: #ffc65c; }
 .assignment-button.command-rally .rally-unit-icon {
@@ -1383,7 +1378,6 @@ body {
 .mobile-list { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
 .mobile-list button { width: 100%; display: grid; grid-template-columns: 34px 1fr auto; align-items: center; gap: 10px; padding: 11px 12px; border: 1px solid #2f3237; border-radius: 8px; background: #17191c; color: inherit; text-align: left; cursor: pointer; }
 .mobile-list b { display: grid; place-items: center; height: 26px; border-radius: 6px; background: rgba(255, 255, 255, 0.07); color: var(--side); font: 900 13px ui-monospace, monospace; }
-.mobile-list b.is-reserve { color: #6d7075; }
 .mobile-list span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; font-weight: 700; }
 .mobile-list small { color: #8b8983; font-size: 11px; }
 .mobile-none { padding: 24px; color: #8b8983; text-align: center; }
