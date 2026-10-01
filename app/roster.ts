@@ -17,7 +17,7 @@ export type Brief = {
   foot: string;
 };
 
-// 2026-10-01 전달 사진의 번호순 주전 30명. 길드·장식 문자는 생략한다.
+// 2026-10-01 전달 사진의 번호순 주전 30명. 길드·장식 문자는 생략한다. 26·27번은 같은 날 사용자 요청으로 맞바꿈.
 // 미확인 신규 선수는 임무를 승계하지 않으며, 병종은 편집 가능한 기본 보병이다.
 export const PLAYER_SOURCE: Array<[string, PrimaryRole]> = [
   ["무잔 Muzan", "cavalry"],
@@ -45,8 +45,8 @@ export const PLAYER_SOURCE: Array<[string, PrimaryRole]> = [
   ["떡틸로", "infantry"],
   ["JunkHun", "infantry"],
   ["Maha", "cavalry"],
-  ["Elega", "infantry"],
   ["5000", "ranged"],
+  ["Elega", "infantry"],
   ["보수", "infantry"],
   ["햄수", "ranged"],
   ["늑대장군", "cavalry"],

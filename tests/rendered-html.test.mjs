@@ -55,7 +55,7 @@ test("가져온 명단의 중복 ID·닉네임과 잘못된 임무·번호를 �
 
 test("사진 정본 30명의 번호와 이름이 정확히 일치하고 앱에는 기본 임무가 없다", async () => {
   const { freshOperation, playerSlot, playerBrief } = await rosterHelpers();
-  const expected = ["무잔 Muzan", "게이", "바르니 barunii", "마지태", "마스터", "TESLA", "Mim Mi", "파리스", "마구니", "Glen fiddich", "예리", "압수", "곡곡이", "GINSENG MAN", "Kingsway", "욘두 Yondu", "진수", "조롱말", "마리오", "TOMAS SHELBY", "Bünker", "불개", "떡틸로", "JunkHun", "Maha", "Elega", "5000", "보수", "햄수", "늑대장군"];
+  const expected = ["무잔 Muzan", "게이", "바르니 barunii", "마지태", "마스터", "TESLA", "Mim Mi", "파리스", "마구니", "Glen fiddich", "예리", "압수", "곡곡이", "GINSENG MAN", "Kingsway", "욘두 Yondu", "진수", "조롱말", "마리오", "TOMAS SHELBY", "Bünker", "불개", "떡틸로", "JunkHun", "Maha", "5000", "Elega", "보수", "햄수", "늑대장군"];
   const players = freshOperation().players;
   assert.deepEqual(Array.from(players, (player) => player.nickname), expected);
   assert.deepEqual(Array.from(players, playerSlot), Array.from({ length: 30 }, (_, i) => i + 1));
