@@ -577,7 +577,8 @@ function MobileBriefing({ players }: { players: Player[] }) {
           {mission.sub && <section className="board-box"><h3>서브 임무</h3><MissionLines text={mirrorMission(mission.sub, side)} /></section>}
           {units && <section className="board-box"><h3>부대 배치</h3><ol className="board-units">{groupUnits(units).map((group) => <li key={group.from} className={missionEmphasis(group.text)}><i>{group.from === group.to ? group.from : `${group.from}~${group.to}`}</i><span><MissionText text={group.text} /></span></li>)}</ol></section>}
         </>}
-        {common.length > 0 && <section className="board-box"><h3>공통 임무{common.some((item) => item.head) ? ` · ${common.find((item) => item.head)?.head}` : " · 전원"}</h3><CommonItems items={common} /></section>}
+        {/* 개인 임무가 먼저 보이게 공통 임무는 접어 둔다. */}
+        {common.length > 0 && <details className="board-box board-fold"><summary>공통 임무 · {common.find((item) => item.head)?.head ?? "전원"}<span className="fold-open">펼쳐 보기 ▾</span><span className="fold-close">접기 ▴</span></summary><CommonItems items={common} /></details>}
         {/* 라인 화살표는 임무가 없어도 보여 준다. */}
         {home && line && <section className="board-box"><h3>배치 지도 · {line.top ? "TOP Line" : "Bottom Line"}</h3>
           <div className="mobile-map">
