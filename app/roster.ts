@@ -3,6 +3,13 @@
 // 브리프 문안은 지휘부 오더(2026-09-08) 원문을 사람별로 정리한 것.
 
 export type PrimaryRole = "infantry" | "cavalry" | "ranged";
+export const ROLE_LABEL: Record<PrimaryRole, string> = { infantry: "보병", cavalry: "기병", ranged: "원거리" };
+// 브리프에 스테프 지시가 없을 때 카드에 싣는 병종 공통 STAFF 줄.
+export const STAFF_ORDER: Record<PrimaryRole, string> = {
+  infantry: "첫 스타팅 때 각자 맡은 라인에서 STAFF 사용",
+  ranged: "상대 진영에 페어리 드래곤이 처음 소환되기 전, 약속된 장소에서 STAFF 사용",
+  cavalry: "스테프 자율 사용",
+};
 export type MissionOrders = [string, string, string, string, string];
 export type Brief = {
   nickname: string;

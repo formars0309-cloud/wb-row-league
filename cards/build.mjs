@@ -1,24 +1,23 @@
 // 임무카드 PNG 생성기. 데이터는 app/roster.ts 하나에서 읽는다(작전판·폰 화면과 같은 출처).
 //   node cards/build.mjs            → cards/<팀>-<이름>.png 전부
 //   node cards/build.mjs 기병대      → 파일 이름에 그 문자열이 들어간 카드만
-import { execFileSync } from "node:child_process";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { spawn } from "node:child_process";
+import { existsSync, mkdtempSync, writeFileSync } from "node:fs";
+import { setTimeout as sleep } from "node:timers/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import sharp from "sharp";
-import { MISSION_BRIEFS, PLAYER_SOURCE, SLOT_SOURCE, hasStaffOrder } from "../app/roster.ts";
+import { MISSION_BRIEFS, PLAYER_SOURCE, ROLE_LABEL, SLOT_SOURCE, STAFF_ORDER, hasStaffOrder } from "../app/roster.ts";
 
-const CHROME = "C:/Program Files/Google/Chrome/Application/chrome.exe";
+// 다른 위치의 크롬은 CHROME_PATH로 지정한다.
+const CHROME = process.env.CHROME_PATH ?? {
+  darwin: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+  win32: "C:/Program Files/Google/Chrome/Application/chrome.exe",
+}[process.platform] ?? "google-chrome";
 const OUT_DIR = dirname(fileURLToPath(import.meta.url));
 const ROLE = new Map(PLAYER_SOURCE);
 const SLOT = new Map(SLOT_SOURCE);
-const ROLE_LABEL = { infantry: "보병", cavalry: "기병", ranged: "원거리" };
-const STAFF = {
-  infantry: "첫 스타팅 때 각자 맡은 라인에서 STAFF 사용",
-  ranged: "상대 진영에 페어리 드래곤이 처음 소환되기 전, 약속된 장소에서 STAFF 사용",
-  cavalry: "스테프 자율 사용",
-};
 
 const CSS = `
 html, body { margin: 0; background: #060708; }
@@ -57,10 +56,10 @@ const html = (brief) => {
   return `<!doctype html><meta charset="utf-8"><style>${CSS}</style>
 <div class="card">
   <div class="head"><b class="slot">${SLOT.get(brief.nickname) ?? "—"}</b><div class="name">${brief.nickname}<small>${brief.team}</small></div><span class="role">${brief.badge ?? ROLE_LABEL[role]} · 이안</span></div>
-  ${hasStaffOrder(brief) ? "" : `<p class="staff"><b>STAFF</b>${STAFF[role]}</p>`}
+  ${hasStaffOrder(brief) ? "" : `<p class="staff"><b>STAFF</b>${STAFF_ORDER[role]}</p>`}
   ${brief.common ? `<section class="common">${brief.common.map(([h, p]) => `<h2>${h}</h2><p>${p}</p>`).join("")}</section>` : ""}
   ${brief.steps.length ? `<ol>${brief.steps.map(([when, what]) => `<li class="${/펫|생명석/.test(when) ? "hot" : ""}"><i>${when}</i><span>${what}</span></li>`).join("")}</ol>` : ""}
-  ${brief.image ? `<figure class="figure"><img src="file:///${join(OUT_DIR, "..", "public", brief.image.src).replace(/\\/g, "/")}" alt=""><figcaption>${brief.image.caption}</figcaption></figure>` : ""}
+  ${brief.image ? `<figure class="figure"><img src="${pathToFileURL(join(OUT_DIR, "..", "public", brief.image.src)).href}" alt=""><figcaption>${brief.image.caption}</figcaption></figure>` : ""}
   ${brief.byUnit ? `<p class="units-title">부대 배치</p><ol class="units">${brief.units.map((unit, index) => `<li><i>${index + 1}</i><span>${unit}</span></li>`).join("")}</ol>` : ""}
   <footer>${brief.foot}</footer>
 </div>`;
@@ -72,8 +71,15 @@ for (const brief of MISSION_BRIEFS.filter((item) => item.file.includes(only))) {
   const page = join(work, `${brief.file}.html`);
   const shot = join(work, `${brief.file}.png`);
   writeFileSync(page, html(brief));
-  execFileSync(CHROME, ["--headless=new", "--disable-gpu", "--hide-scrollbars", "--force-device-scale-factor=2", `--user-data-dir=${join(work, "profile")}`,
-    "--window-size=700,2600", `--screenshot=${shot}`, `file:///${page.replace(/\\/g, "/")}`], { stdio: "ignore" });
+  const chrome = spawn(CHROME, ["--headless=new", "--disable-gpu", "--hide-scrollbars", "--force-device-scale-factor=2", `--user-data-dir=${join(work, "profile")}`,
+    "--window-size=700,2600", `--screenshot=${shot}`, pathToFileURL(page).href], { stdio: "ignore" });
+  // 맥 크롬은 스크린샷을 쓰고도 종료하지 않아, 파일이 생기면 직접 끈다.
+  while (!existsSync(shot)) {
+    if (chrome.exitCode !== null) throw new Error(`크롬이 스크린샷 없이 종료됐습니다: ${CHROME}`);
+    await sleep(200);
+  }
+  await sleep(500);
+  chrome.kill();
   const out = join(OUT_DIR, `${brief.file}.png`);
   // 창 높이는 넉넉히 잡고 배경만 잘라 낸 뒤 여백을 다시 두른다.
   await sharp(shot).trim({ background: "#060708" }).extend({ top: 40, bottom: 40, left: 40, right: 40, background: "#060708" }).png().toFile(out);

@@ -1,100 +1,29 @@
-# vinext-starter
+# Heinapel War Table
 
-A clean full-stack starter running on
-[vinext](https://github.com/cloudflare/vinext), with optional Cloudflare D1 and
-Drizzle support.
+WB 헤이나펄 리그 2기 30인 작전판. 지도 위에 선수를 배치하고 장면별 작전을 짜며,
+선수마다 임무 카드와 폰용 임무 확인 화면을 보여 준다.
+vinext(Next 호환) + React 19, Cloudflare Workers 형태로 배포한다.
 
-## Prerequisites
+## 구조
 
-- Node.js `>=22.13.0`
+- `app/roster.ts` — 명단·전투 위치 번호·임무 브리프의 단일 출처
+- `app/war-table.tsx` — 작전판, 폰 화면, 명단·임무 편집기
+- `app/globals.css`, `app/mdt-theme.css` — 기본 배치와 그 위에 덮는 테마 (이 순서로 불러온다)
+- `cards/build.mjs` — 임무 카드 PNG 생성기 (`CHROME_PATH`로 크롬 위치 지정 가능)
+- `tests/rendered-html.test.mjs` — 서버 렌더 HTML과 명단 이관 테스트
+- `harness/` — 에이전트 작업 상태(`PROGRESS.md`)와 작업 단위(`FEATURES.md`)
+- `worker/`, `vite.config.ts`, `db/`, `drizzle.config.ts` — 호스팅 템플릿 구성. 앱은 DB를 쓰지 않는다.
 
-## Quick Start
+## 명령
+
+Node.js `>=22.13.0`.
 
 ```bash
-npm install
-npm run dev
-npm run build
+npm ci
+npm run dev     # 개발 서버
+npm run lint
+npm test        # 빌드 후 tests/rendered-html.test.mjs
 ```
 
-This starter does not use `wrangler.jsonc`.
-
-## Included Shape
-
-- edit site code under `app/`
-- `.openai/hosting.json` declares optional Sites D1 and R2 bindings
-- `vite.config.ts` simulates declared bindings for local development
-- `db/schema.ts` starts intentionally empty
-- `examples/d1/` contains an optional D1 example surface
-- `drizzle.config.ts` supports local migration generation when needed
-
-## Workspace Auth Headers
-
-Signed-in visitors receive both `oai-authenticated-user-id` and `oai-authenticated-user-email`. Private Sites require every visitor to sign in; public Sites may also have anonymous visitors, for whom neither header is present.
-
-The user ID is stable for the same user on the same Site and different across Sites. Email and name are intended for display or contact purposes.
-
-SIWC-authenticated workspace sites may also receive
-`oai-authenticated-user-full-name` when the user's SIWC profile has a non-empty
-`name` claim. The full-name value is percent-encoded UTF-8 and is accompanied by
-`oai-authenticated-user-full-name-encoding: percent-encoded-utf-8`.
-
-Treat the full name as optional and fall back to email when it is absent:
-
-```tsx
-import { headers } from "next/headers";
-
-export default async function Home() {
-  const requestHeaders = await headers();
-  const userId = requestHeaders.get("oai-authenticated-user-id");
-  const email = requestHeaders.get("oai-authenticated-user-email");
-  const encodedFullName = requestHeaders.get("oai-authenticated-user-full-name");
-  const fullName =
-    encodedFullName &&
-    requestHeaders.get("oai-authenticated-user-full-name-encoding") ===
-      "percent-encoded-utf-8"
-      ? decodeURIComponent(encodedFullName)
-      : null;
-
-  const displayName = fullName ?? email;
-  // ...
-}
-```
-
-## Optional Dispatch-Owned ChatGPT Sign-In
-
-Import the ready-to-use helpers from `app/chatgpt-auth.ts` when the site needs
-optional or required ChatGPT sign-in:
-
-- Use `getChatGPTUser()` for optional signed-in UI.
-- Use `requireChatGPTUser(returnTo)` for server-rendered pages that should send
-  anonymous visitors through Sign in with ChatGPT.
-- Use `chatGPTSignInPath(returnTo)` and `chatGPTSignOutPath(returnTo)` for
-  browser links or actions.
-- Pass a same-origin relative `returnTo` path for the destination after sign-in
-  or sign-out. The helper validates and safely encodes it.
-- Mark protected pages with `export const dynamic = "force-dynamic"` because
-  they depend on per-request identity headers.
-
-Dispatch owns `/signin-with-chatgpt`, `/signout-with-chatgpt`, `/callback`, the
-OAuth cookies, and identity header injection. Do not implement app routes for
-those reserved paths. Routes that do not import and call the helper remain
-anonymous-compatible.
-
-SIWC establishes identity only; it does not prove workspace membership. Use the
-Sites hosting platform's access policy controls for workspace-wide restrictions,
-or enforce explicit server-side membership or allowlist checks.
-
-Use SIWC for account pages, user-specific dashboards, saved records, and write
-actions tied to the current ChatGPT user. Leave public content anonymous.
-
-## Useful Commands
-
-- `npm run dev`: start local development
-- `npm run build`: verify the vinext build output
-- `npm test`: build the starter and verify its rendered loading skeleton
-- `npm run db:generate`: generate Drizzle migrations after schema changes
-
-## Learn More
-
-- [vinext Documentation](https://github.com/cloudflare/vinext)
-- [Drizzle D1 Guide](https://orm.drizzle.team/docs/get-started/d1-new)
+작전 상태는 브라우저 localStorage(`heinapel-war-table-v0.3`)에 저장되고,
+다른 기기에는 JSON 내보내기·가져오기로 옮긴다.

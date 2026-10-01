@@ -1,5 +1,37 @@
 # 진행 상황
 
+갱신: 2026-10-01 — 앱 코드 정리(중복·죽은 코드 제거)
+
+## 최신 세션 결과
+
+- CSS: 마크업에 없는 클래스 선택자 86개, 같은 선택자가 뒤(globals → mdt-theme 순)에서
+  다시 선언해 덮이던 속성 293개, 빈 규칙 36개 제거. 덮여 쓰이지 않던 지도 배경 선언을 지우고
+  참조가 사라진 `public/maps/heinapel-map.png`·`heinapel-tactical.png` 삭제(git 이력에 보존).
+- `war-table.tsx`: 카드·폰 화면의 임무 계산을 `missionView`/`missionsByNickname`으로,
+  저장본·JSON 가져오기 검사를 `readOperation`으로, 선수 편집 진입을 `newPlayer`/`editablePlayer`로
+  묶었다. 카드·메모 드래그, 실행 취소 기록, 그리기 종료 정리의 중복 제거. 도구 타입에서
+  없어진 이동 화살표·스텝·텍스트를 빼고 저장 오브젝트 타입(`ObjectType`)으로만 남겼다(옛 저장본 표시 유지).
+- 오류 수정: 필드 판정이 옛 문안 `필드전투`로 시작하는지만 봐서 현재 문안("필드 전쟁", "필드 운용",
+  "필드쟁")이 경로에 안 잡혔다. `필드` 포함으로 고쳐 TESLA 4·5부대 등이 유동 경로로 표시된다.
+  `missionTargets`의 도달 불가 조건(12시/6시의 목명·군왕 재검사) 제거.
+- `ROLE_LABEL`·`STAFF_ORDER`를 `roster.ts`로 옮겨 작전판과 `cards/build.mjs`가 같이 쓴다.
+  `build.mjs`는 Windows 고정 크롬 경로 → 플랫폼별 기본값·`CHROME_PATH`, file URL은 `pathToFileURL`.
+  맥 크롬 154가 스크린샷 후 종료하지 않아 파일이 생기면 직접 끈다. 카드 2장 시험 생성 후 원래 PNG로 되돌림.
+- 쓰지 않던 호스팅 템플릿 `examples/d1/`, `app/chatgpt-auth.ts` 삭제. README를 이 프로젝트 안내로 교체.
+- 보류: `db/`·`drizzle.config.ts`·`drizzle-orm`(앱 미사용이나 호스팅 템플릿·스크립트에 연결),
+  `cards/*.png`(사진 정본 이전 명단의 낡은 산출물), `heinapel-tactical-original.png`(지도 원본).
+- 공개 배포는 하지 않았다. 배포본에 반영하려면 별도 요청 필요.
+
+## 최신 검증
+
+- 시작·최종 `npm run lint`, `npm test`(빌드 포함) 통과, 테스트 7개. `git diff --check` 통과.
+- 같은 브라우저 세션에서 정리 전후 계산된 스타일(가상요소 포함)을 요소별 해시로 비교:
+  데스크톱 초기·폰 목록은 완전 동일. 카드 열기·편집 창·폰 임무 화면은 TESLA 필드 경로 수정으로
+  생긴 유동 경로·태그 추가, 4·5부대 `is-muted`, 목적지 없음 안내 제거만 다르다.
+- 추가 `npx tsc --noEmit`은 기존 Cloudflare 템플릿 오류(db/index.ts, vite.config.ts, worker/index.ts)만 남음.
+
+---
+
 갱신: 2026-10-01 — 사진 정본 공개 배포·번호순 명단 이미지·구글 시트
 
 ## 최신 세션 결과
