@@ -211,6 +211,14 @@ function normalizeScene(item: Scene, index: number): Scene {
 const MISSION_SHEET_CSV = `https://docs.google.com/spreadsheets/d/1NUorQ8zecl1mDRstKk-F1T7hRF2YYBgS_ZG21gIvcgc/gviz/tq?tqx=out:csv&headers=1&sheet=${encodeURIComponent("스타팅 명단")}`;
 type SheetMission = { slot: number; nickname: string; team: string; main: string; sub: string; units: MissionOrders };
 type MissionSheet = { missions: Map<number, SheetMission>; common: string[] };
+function entranceBlock(mission: SheetMission | undefined, side: MissionSide, variant: MapVariant) {
+  if (mission?.team.replace(/\s/g, "") !== "입구막팀" || !/입구\s*막(?:기|음)/.test(mission.main)) return null;
+  const top = /탑|top/i.test(mission.main);
+  if (!top && !/바텀|bottom/i.test(mission.main)) return null;
+  // 같은 전장 라인은 상대 진형의 반대쪽 출구와 연결된다(진형은 180도 회전).
+  const enemy = lineExit(top ? 25 : 1, side === "ian" ? "lucia" : "ian", variant);
+  return { top, point: enemy.start };
+}
 function parseCsv(text: string): string[][] {
   const rows: string[][] = [];
   let row: string[] = [];
@@ -568,7 +576,8 @@ function MobileBriefing({ players }: { players: Player[] }) {
   const units = orders?.some(Boolean) ? orders : null;
   const ready = !!mission && !!(mission.main || mission.sub || units);
   const leaders = new Map([...(missions?.values() ?? [])].map((item): [string, MissionOrders] => [item.nickname, item.units]));
-  const routes = buildMissionPlan(units, side, "tactical", leaders).routes;
+  const block = entranceBlock(mission, side, "tactical");
+  const routes = block ? [] : buildMissionPlan(units, side, "tactical", leaders).routes;
   const home = slotPoint(picked, side, "tactical");
   const line = home ? lineExit(picked, side, "tactical") : null;
   const common = teamCommon((sheet.data?.common ?? []).map((item) => mirrorMission(item, side)), mission?.team ?? "");
@@ -588,19 +597,22 @@ function MobileBriefing({ players }: { players: Player[] }) {
         {/* 개인 임무가 먼저 보이게 공통 임무는 접어 둔다. */}
         {common.length > 0 && <details className="board-box board-fold"><summary>공통 임무 · {common.find((item) => item.head)?.head ?? "전원"}<span className="fold-open">펼쳐 보기 ▾</span><span className="fold-close">접기 ▴</span></summary><CommonItems items={common} /></details>}
         {/* 라인 화살표는 임무가 없어도 보여 준다. */}
-        {home && line && <section className="board-box"><h3>배치 지도 · {line.top ? "TOP Line" : "Bottom Line"}</h3>
+        {home && line && <section className="board-box"><h3>배치 지도 · {block ? `적 ${block.top ? "TOP" : "BOTTOM"} 입구 차단` : line.top ? "TOP Line" : "Bottom Line"}</h3>
           <div className="mobile-map">
             <div className="mobile-map-art" />
-            <svg viewBox="0 0 1000 1000" preserveAspectRatio="none" aria-label="내 자리, 라인 출구와 부대 목적지">
+            <svg viewBox="0 0 1000 1000" preserveAspectRatio="none" aria-label={block ? "내 자리와 적 입구 차단 위치" : "내 자리, 라인 출구와 부대 목적지"}>
               <defs>
                 <marker id="mobile-head" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" /></marker>
+                <marker id="block-head" viewBox="0 0 9 6" markerWidth="3" markerHeight="2.4" refX="6" refY="3" orient="auto"><path className="block-head" d="M0,0 L0,6 L9,3 z" /></marker>
                 {(["top", "bottom"] as const).map((key) => <marker key={key} id={`line-head-${key}`} viewBox="0 0 9 6" markerWidth="3" markerHeight="2.4" refX="6" refY="3" orient="auto"><path className={`line-head is-${key}`} d="M0,0 L0,6 L9,3 z" /></marker>)}
               </defs>
               {routes.map((route) => <line key={route.target} className={route.roaming ? "is-roaming" : ""} x1={home.x * 1000} y1={home.y * 1000} x2={route.to.x * 1000} y2={route.to.y * 1000} markerEnd="url(#mobile-head)" />)}
-              <line className={`line-route ${line.top ? "is-top" : "is-bottom"}`} x1={line.start.x * 1000} y1={line.start.y * 1000} x2={line.point.x * 1000} y2={line.point.y * 1000} markerEnd={`url(#line-head-${line.top ? "top" : "bottom"})`} />
+              {block ? <line className="block-route" x1={home.x * 1000} y1={home.y * 1000} x2={block.point.x * 1000} y2={block.point.y * 1000} markerEnd="url(#block-head)" /> :
+                <line className={`line-route ${line.top ? "is-top" : "is-bottom"}`} x1={line.start.x * 1000} y1={line.start.y * 1000} x2={line.point.x * 1000} y2={line.point.y * 1000} markerEnd={`url(#line-head-${line.top ? "top" : "bottom"})`} />}
             </svg>
-            {OBJECTIVE_META.map((objective) => <span key={objective.id} className="mobile-objective" style={{ left: `${objective.tactical.x}%`, top: `${objective.tactical.y}%` }}>{objective.label}</span>)}
-            <span className={`mobile-line ${line.top ? "is-top" : "is-bottom"}`} style={{ left: `${clamp(line.start.x + (line.point.x - line.start.x) * 1.4) * 100}%`, top: `${clamp(line.start.y + (line.point.y - line.start.y) * 1.4) * 100}%` }}>{line.top ? "TOP" : "BOTTOM"}</span>
+            {OBJECTIVE_META.filter((objective) => !objective.id.startsWith("lookout-") || objective.id.startsWith(`lookout-${side}-`)).map((objective) => <span key={objective.id} className={`mobile-objective${objective.id.startsWith("lookout-") ? ` is-lookout-${objective.id.endsWith("west") ? "west" : "east"}` : ""}`} style={{ left: `${objective.tactical.x}%`, top: `${objective.tactical.y}%` }}>{objective.id.startsWith("lookout-") ? `전망대 ${objective.id.endsWith("west") ? 1 : 2}` : objective.label}</span>)}
+            {block ? <span className="mobile-block" style={{ left: `${block.point.x * 100}%`, top: `${block.point.y * 100}%` }}>⊣<b>적 {block.top ? "TOP" : "BOTTOM"} 입구 차단</b></span> :
+              <span className={`mobile-line ${line.top ? "is-top" : "is-bottom"}`} style={{ left: `${clamp(line.start.x + (line.point.x - line.start.x) * 1.4) * 100}%`, top: `${clamp(line.start.y + (line.point.y - line.start.y) * 1.4) * 100}%` }}>{line.top ? "TOP" : "BOTTOM"}</span>}
             {routes.map((route) => { const at = .8; return <span key={route.target} className={`mobile-tag${route.roaming ? " is-roaming" : ""}`} style={{ left: `${(home.x + (route.to.x - home.x) * at) * 100}%`, top: `${(home.y + (route.to.y - home.y) * at) * 100}%` }}>{route.units.join("·")}</span>; })}
             <span className="mobile-home" style={{ left: `${home.x * 100}%`, top: `${home.y * 100}%` }}>{picked}</span>
           </div>

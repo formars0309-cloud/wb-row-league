@@ -11,7 +11,7 @@ async function rosterHelpers() {
   const source = await readFile(new URL("../app/war-table.tsx", import.meta.url), "utf8");
   const helpers = source.slice(0, source.indexOf("function smoothPath")).replace(/^import .*;$/gm, "");
   const js = ts.transpileModule(helpers, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
-  return runInNewContext(`${js}\n({ freshOperation, normalizeRoster, normalizeOperation, playerBrief, playerSlot, readMissionSheet, mirrorMission, lineExit, missionLines, missionParts, teamCommon, groupUnits })`, { ...roster });
+  return runInNewContext(`${js}\n({ freshOperation, normalizeRoster, normalizeOperation, playerBrief, playerSlot, readMissionSheet, mirrorMission, lineExit, entranceBlock, missionLines, missionParts, teamCommon, groupUnits })`, { ...roster });
 }
 
 test("새 정본의 편집 명단은 이름·보직·임무 삭제와 빈 명단을 JSON 왕복 후에도 보존한다", async () => {
@@ -169,6 +169,24 @@ test("안내 이미지대로 TOP·Bottom Line을 15명씩 나누고 출구를 �
       if (variant === "tactical") assert.ok(slot === 1 ? ian.start.x > .642 && ian.start.y < .412 : ian.start.x < .563 && ian.start.y > .613, "출구는 해당 성의 바깥쪽");
     }
   }
+});
+
+test("입구막팀의 메인 임무만 담당 라인의 적 입구 차단 표시를 만든다", async () => {
+  const { entranceBlock, lineExit } = await rosterHelpers();
+  const mission = { team: "입구막팀", main: "주력보병 4부대로 적 탑라인 입구 막기", sub: "", units: ["", "", "", "", ""] };
+  for (const side of ["ian", "lucia"]) {
+    for (const [main, top, enemySlot] of [[mission.main, true, 25], ["적 바텀 라인 입구막기", false, 1], ["적 TOP 입구 막기", true, 25], ["적 Bottom 입구 막기", false, 1]]) {
+      const block = entranceBlock({ ...mission, main }, side, "tactical");
+      assert.equal(block.top, top);
+      assert.equal(JSON.stringify(block.point), JSON.stringify(lineExit(enemySlot, side === "ian" ? "lucia" : "ian", "tactical").start));
+    }
+  }
+  assert.equal(entranceBlock(undefined, "ian", "tactical"), null);
+  assert.equal(entranceBlock({ ...mission, team: "필드컨트롤팀" }, "ian", "tactical"), null);
+  assert.equal(entranceBlock({ ...mission, main: "입구막는 적 보병 밀기" }, "ian", "tactical"), null);
+  assert.equal(entranceBlock({ ...mission, main: "거점 주유", sub: mission.main }, "ian", "tactical"), null);
+  assert.equal(entranceBlock({ ...mission, main: "적 입구 막기" }, "ian", "tactical"), null);
+  assert.ok(entranceBlock({ ...mission, team: "입구 막 팀", main: "적 탑 입구  막기" }, "ian", "tactical"));
 });
 
 test("모바일 카드 가독성: 문장 줄 나누기·위치/타이밍 강조·팀 공통 임무·같은 부대 묶기", async () => {
