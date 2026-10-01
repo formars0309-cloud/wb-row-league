@@ -1,5 +1,22 @@
 # 진행 상황
 
+갱신: 2026-10-01 — 하단 STAFF 포인트 왼쪽 이동
+
+## 최신 세션 결과
+
+- 사용자 요청대로 하단 STAFF 원·글자를 넓은 빈 잔디 쪽으로 약 170px 왼쪽 이동했다.
+  v3와 결과를 직접 열어 원래 표시 제거와 새 위치, 성 1~30·사선·상단 STAFF·화살표 보존 확인.
+- 내장 `image_gen` 사용. `output/imagegen/ian-top-bottom-staff-v4.png`와
+  `ian-top-bottom-staff-v4-prompt.md`에 결과·프롬프트·드라이브 링크 저장. 이전 결과 보존.
+- 드라이브 수정본: https://drive.google.com/file/d/1i9kmZkuMSjB25HJ4Q5IC0DRsKBgGc5Jp/view?usp=drivesdk
+  업로드 성공 후 커넥터 메타데이터를 재조회했다. 기존 드라이브 파일·공유 설정 변경 없음.
+- 시작 `npm run lint`, `npm test`(빌드 포함) 통과, 테스트 7개.
+  변경 문서 자격증명 패턴 검사와 `git diff --check` 통과.
+- 세션 시작에 타 작업의 앱 CSS·로스터·카드 생성기 수정과 지도 파일 2개 삭제가 있었다.
+  이를 변경·커밋하지 않고 이번 이미지 산출물·기록 경로만 커밋한다. 공개 배포 없음.
+
+---
+
 갱신: 2026-10-01 — 최신 이미지 구글 드라이브 저장
 
 ## 최신 세션 결과
