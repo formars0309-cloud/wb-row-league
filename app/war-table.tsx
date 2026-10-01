@@ -51,9 +51,14 @@ const INITIAL_PLAYERS: Player[] = PLAYER_SOURCE.map(([nickname, primaryRole], in
 }));
 const MEMO_MIN_SIZE = { width: .11, height: .075 };
 // 맵을 180도 돌린 관계라 시계 위치와 진영 거점 이름이 짝을 이뤄 바뀐다.
-const MISSION_MIRROR_PAIRS: Array<[string, string]> = [["12시", "6시"], ["1시", "7시"], ["3시", "9시"], ["군왕", "목명"], ["축복", "천무"]];
+// 시트 문구의 "이안기준"도 함께 바꿔, 루시아 카드가 스스로 맞는 문장이 되게 한다.
+const MISSION_MIRROR_PAIRS: Array<[string, string]> = [["12시", "6시"], ["1시", "7시"], ["3시", "9시"], ["군왕", "목명"], ["축복", "천무"], ["이안기준", "루시아기준"], ["이안 기준", "루시아 기준"]];
 const MISSION_MIRROR = new Map<string, string>(MISSION_MIRROR_PAIRS.flatMap(([left, right]) => [[left, right], [right, left]] as Array<[string, string]>));
-const MISSION_MIRROR_PATTERN = new RegExp([...MISSION_MIRROR.keys()].sort((a, b) => b.length - a.length).join("|"), "g");
+// 앞에 숫자가 붙은 시계("11시"의 "1시")는 건드리지 않는다.
+const MISSION_MIRROR_PATTERN = new RegExp(`(?<!\\d)(?:${[...MISSION_MIRROR.keys()].sort((a, b) => b.length - a.length).join("|")})`, "g");
+function mirrorMission(text: string, side: MissionSide) {
+  return side === "ian" ? text : text.replace(MISSION_MIRROR_PATTERN, (token) => MISSION_MIRROR.get(token) ?? token);
+}
 const MISSION_SIDE_LABEL: Record<MissionSide, string> = { ian: "이안", lucia: "루시아" };
 const MISSION_SIDES = Object.keys(MISSION_SIDE_LABEL) as MissionSide[];
 // 카드는 내용 길이에 따라 높이가 달라져, 맵 밖으로 나가지 않게 넉넉한 공칭 크기로만 잡아 둔다.
@@ -294,9 +299,6 @@ function missionTargets(text: string, side: MissionSide, variant: MapVariant, mi
   })();
   return ids.map((id) => { const point = objectivePoint(id, variant); return point ? { key: id, point } : null; }).filter((target) => target !== null);
 }
-function mirrorMission(text: string, side: MissionSide) {
-  return side === "ian" ? text : text.replace(MISSION_MIRROR_PATTERN, (token) => MISSION_MIRROR.get(token) ?? token);
-}
 // 카드는 진영색 한 가지로 칠하므로, 색상 대신 강조 단계로 위계를 준다.
 function missionEmphasis(text: string) {
   const tone = missionTone(text);
@@ -462,9 +464,9 @@ function MobileBriefing({ players }: { players: Player[] }) {
         <p className="board-team">30명 전원</p>
         {!sheet.data ? loading : !sheet.data.common.length ? <p className="board-empty">임무 준비 중</p> : <section className="board-box"><h3>공통 임무</h3>
           {/* "기병대 = …"처럼 앞에 대상이 붙은 항목은 대상을 제목으로 세운다. */}
-          <ol className="board-units">{sheet.data.common.map((text, index) => { const [, head, body] = text.match(/^([^=]{1,12}?)\s*=\s*([\s\S]+)$/) ?? []; return <li key={index}><i>{index + 1}</i><span>{head ? <><b>{head}</b>{body}</> : text}</span></li>; })}</ol>
+          <ol className="board-units">{sheet.data.common.map((item, index) => { const text = mirrorMission(item, side); const [, head, body] = text.match(/^([^=]{1,12}?)\s*=\s*([\s\S]+)$/) ?? []; return <li key={index}><i>{index + 1}</i><span>{head ? <><b>{head}</b>{body}</> : text}</span></li>; })}</ol>
         </section>}
-        <p className="board-foot">시트 원문 그대로 · 30 vs 30 · 1인 5부대</p>
+        <p className="board-foot">{MISSION_SIDE_LABEL[side]} 진영 기준{side === "lucia" ? " · 시트의 이안 기준 위치를 루시아 기준으로 환산" : ""} · 30 vs 30 · 1인 5부대</p>
       </article>
     </div>
   );
@@ -485,8 +487,8 @@ function MobileBriefing({ players }: { players: Player[] }) {
         <header className="board-head"><b>{String(picked).padStart(2, "0")}</b><strong>{nameOf(picked)}</strong><span>{MISSION_SIDE_LABEL[side]}</span></header>
         <p className="board-team">{mission?.team || "소속팀 미정"}</p>
         {!missions ? loading : !ready ? <p className="board-empty">임무 준비 중</p> : <>
-          {mission.main && <section className="board-box"><h3>메인 임무</h3><p>{mission.main}</p></section>}
-          {mission.sub && <section className="board-box"><h3>서브 임무</h3><p>{mission.sub}</p></section>}
+          {mission.main && <section className="board-box"><h3>메인 임무</h3><p>{mirrorMission(mission.main, side)}</p></section>}
+          {mission.sub && <section className="board-box"><h3>서브 임무</h3><p>{mirrorMission(mission.sub, side)}</p></section>}
           {units && <section className="board-box"><h3>부대 배치</h3><ol className="board-units">{units.map((text, index) => text && <li key={index} className={missionEmphasis(text)}><i>{index + 1}</i><span>{text}</span></li>)}</ol></section>}
           {home && <section className="board-box"><h3>배치 지도</h3>
             <div className="mobile-map">
@@ -501,7 +503,7 @@ function MobileBriefing({ players }: { players: Player[] }) {
             </div>
           </section>}
         </>}
-        <p className="board-foot">{MISSION_SIDE_LABEL[side]} 진영 기준{side === "lucia" ? " · 부대 배치만 좌우 환산, 임무 문구는 이안 기준 원문" : ""} · 30 vs 30 · 1인 5부대</p>
+        <p className="board-foot">{MISSION_SIDE_LABEL[side]} 진영 기준{side === "lucia" ? " · 시트의 이안 기준 위치를 루시아 기준으로 환산" : ""} · 30 vs 30 · 1인 5부대</p>
       </article>
     </div>
   );

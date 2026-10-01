@@ -11,7 +11,7 @@ async function rosterHelpers() {
   const source = await readFile(new URL("../app/war-table.tsx", import.meta.url), "utf8");
   const helpers = source.slice(0, source.indexOf("function smoothPath")).replace(/^import .*;$/gm, "");
   const js = ts.transpileModule(helpers, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
-  return runInNewContext(`${js}\n({ freshOperation, normalizeRoster, normalizeOperation, playerBrief, playerSlot, readMissionSheet })`, { ...roster });
+  return runInNewContext(`${js}\n({ freshOperation, normalizeRoster, normalizeOperation, playerBrief, playerSlot, readMissionSheet, mirrorMission })`, { ...roster });
 }
 
 test("새 정본의 편집 명단은 이름·보직·임무 삭제와 빈 명단을 JSON 왕복 후에도 보존한다", async () => {
@@ -120,6 +120,15 @@ test("구글 시트 임무는 머리글 이름으로 열을 찾고 따옴표·�
   assert.deepEqual(Array.from(gay.units), ["1시 천무의 전당 집결", "주력 기마", "", "", ""]);
   assert.deepEqual(Array.from(missions.get(1).units), ["", "", "", "", ""]);
   assert.throws(() => readMissionSheet('"번호","닉네임"\n"1","무잔"'));
+});
+
+test("루시아 카드는 시트의 이안 기준 위치 문구를 좌우 환산한다", async () => {
+  const { mirrorMission } = await rosterHelpers();
+  const text = "이안기준 : 1시 천무의 전당 집결, 3시 치료·12시 용기 주유, 이안 기준 6시 군왕";
+  assert.equal(mirrorMission(text, "ian"), text);
+  assert.equal(mirrorMission(text, "lucia"), "루시아기준 : 7시 축복의 전당 집결, 9시 치료·6시 용기 주유, 루시아 기준 12시 목명");
+  assert.equal(mirrorMission(mirrorMission(text, "lucia"), "lucia"), text);
+  assert.equal(mirrorMission("11시 방향, 적 원거리 0순위", "lucia"), "11시 방향, 적 원거리 0순위");
 });
 
 async function render() {
