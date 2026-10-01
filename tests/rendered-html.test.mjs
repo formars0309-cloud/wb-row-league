@@ -96,7 +96,7 @@ test("구버전 명단은 ID와 편집을 보존하며 30명으로 이관하고 
   }
 });
 
-test("구글 시트 임무는 머리글 이름으로 열을 찾고 따옴표·줄바꿈·빈 칸·잘못된 행을 처리한다", async () => {
+test("구글 시트 임무는 머리글 이름으로 열을 찾고 따옴표·줄바꿈·빈 칸·잘못된 행·공통 임무 행을 처리한다", async () => {
   const { readMissionSheet } = await rosterHelpers();
   const csv = [
     '"닉네임","스타팅 포인트 번호","소속팀","메인임무","서브임무","1번부대","2번부대","3번부대","4번부대","5번부대","","원본 사진"',
@@ -105,8 +105,14 @@ test("구글 시트 임무는 머리글 이름으로 열을 찾고 따옴표·�
     '"중복","2","x","x","","","","","","","",""',
     '"범위 밖","31","x","x","","","","","","","",""',
     '"","5","x","x","","","","","","","",""',
+    '"","","","","","","","","","","",""',
+    '"0순위 주유","공통 임무","기병대 = 1보병 4기마","","","","","","","","",""',
+    '"다른 공통","0","무시","","","","","","","","",""',
   ].join("\r\n");
-  const missions = readMissionSheet(csv);
+  const { missions, common } = readMissionSheet(csv);
+  assert.deepEqual(Array.from(common), ["0순위 주유", "기병대 = 1보병 4기마"]);
+  const blank = readMissionSheet('"닉네임","스타팅 포인트 번호","소속팀","메인임무","서브임무","1번부대","2번부대","3번부대","4번부대","5번부대"\n"","","주유 0순위","","","","","","",""');
+  assert.deepEqual(Array.from(blank.common), ["주유 0순위"]); assert.equal(blank.missions.size, 0);
   assert.deepEqual([...missions.keys()], [2, 1]);
   const gay = missions.get(2);
   assert.equal(gay.nickname, "게이"); assert.equal(gay.team, "집결장팀");
@@ -151,6 +157,7 @@ test("server-renders the Heinapel War Table", async () => {
   assert.match(roster, /<b>1<\/b><span>무잔 Muzan<\/span>/);
   assert.match(roster, /<b>30<\/b><span>늑대장군<\/span>/);
   assert.doesNotMatch(html, /mobile-management/);
+  assert.match(html, /class="mobile-common"><b>0<\/b><span>공통 임무<\/span>/);
   assert.match(html, /PLAYER ROSTER/);
   assert.match(html, /핵심 작전 도구/);
   assert.match(html, /OPERATION TIMELINE/);

@@ -1308,6 +1308,11 @@ body {
 .mobile-side button { padding: 7px 10px; border: 1px solid #d5d0c4; border-radius: 8px; background: #fff; color: #7a7f8a; font-size: 12px; font-weight: 800; cursor: pointer; }
 .mobile-side button.active { border-color: var(--side); background: var(--side-head); color: #14213a; }
 .mobile-sync { margin: 0 2px 10px; color: #b4471f; font-size: 12px; line-height: 1.4; }
+.mobile-common { width: 100%; display: flex; align-items: center; gap: 8px; min-height: 48px; margin-bottom: 8px; padding: 8px 10px; border: 2px solid var(--side); border-radius: 10px; background: var(--side-head); color: inherit; text-align: left; cursor: pointer; }
+.mobile-common b { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 7px; background: #fff; font: 900 13px ui-monospace, monospace; }
+.mobile-common span { font-size: 16px; font-weight: 900; }
+.mobile-common small { margin-left: auto; color: #4b5563; font-size: 12px; font-weight: 700; }
+.board-units li span b { display: block; margin-bottom: 2px; font-weight: 900; }
 /* 번호순으로 위에서 아래로 채운다: 왼쪽 1~10, 가운데 11~20, 오른쪽 21~30. */
 .mobile-roster { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: repeat(10, auto); grid-auto-flow: column; gap: 6px; margin: 0; padding: 0; list-style: none; }
 .mobile-roster button { width: 100%; height: 100%; display: flex; align-items: center; gap: 6px; min-height: 44px; padding: 7px 6px; border: 1px solid #e1dccf; border-radius: 8px; background: #fff; color: inherit; text-align: left; cursor: pointer; }
