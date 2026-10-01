@@ -9,9 +9,11 @@
 - 친구 편집자(사용자 직접 추가) 확인: 해당 계정 writer, 링크 공유 reader 유지.
 - 가독성: `missionLines`(줄 나눔), `missionParts`(위치·타이밍 강조), `teamCommon`(전원 + 내 팀 공통),
   `groupUnits`(연속 같은 부대 묶기), 진영 선택 기억(`heinapel-mobile-side`), 16px 본문, 카드 머리 sticky
-  (`.board`를 overflow: clip으로). 0번 공통 카드도 같은 렌더러를 쓴다. 이 변경은 아직 배포하지 않았다.
+  (`.board`를 overflow: clip으로). 0번 공통 카드도 같은 렌더러를 쓴다.
 - 후속 요청: 개인 카드의 공통 임무는 `<details>`로 접어 둔다(펼쳐 보기/접기). 폰 카드의 필드 지시 회색(is-muted) 스타일 제거.
   확인: 기본 접힘, 탭하면 3항목 펼침, 3~4번부대 글자색 본문과 동일.
+- 공개 배포 버전 16(소스 70ac3ca, 배포 ID appgdep_6abe7115f4908191a191a9466ce9ff71, succeeded). 공개 주소 HTTP 200,
+  공개 사이트에서 접힘·펼침·필드 지시 글자색·카드 머리 고정·진영 기억 확인.
 
 ## 최신 검증
 
