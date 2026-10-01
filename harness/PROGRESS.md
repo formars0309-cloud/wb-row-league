@@ -1,5 +1,25 @@
 # 진행 상황
 
+갱신: 2026-10-02 — 공개 배포 준비, Sites 소스 저장소 인증 대기
+
+## 최신 세션 결과
+
+- 사용자가 공개 배포를 명시 요청. 대상 Sites 프로젝트 appgprj_6a8aa14508008191953a7a38df357899,
+  공개 접근 public 유지, 현재 공개 버전 16. 공개 주소 https://heinapel-war-table.formars0309.chatgpt.site.
+- 배포 대상 소스 768d8530e4a9fe1740e0c3f27b3088afab601f34(앱 최신 수정), GitHub origin에는 푸시 완료.
+- 배포 전 lint·build+테스트 13개 및 diff 검사 통과, 추적 파일 자격증명 패턴 미검출.
+- 현재 소스로 빌드한 아카이브 /tmp/wb-row-deploy-768d853.tar.gz(9,250,288 bytes), 루트에
+  .openai/hosting.json과 dist/server/index.js 포함. 배포 파일 준비 완료.
+- save_site_version 시도는 stale_commit_sha(CONFLICT): Sites 전용 main HEAD는
+  70ac3ca98b8afd8e69b932e7760f6788e55f27e8. 버전 저장·공개 배포는 실행되지 않음.
+- get_site의 source_repository_credential은 null. 새 단기 쓰기 자격증명을 발급해야 Sites 소스를 푸시할 수 있으나,
+  사용자 제공 전역 규칙의 자격증명 발급·교체 사용자 담당 조건에 따라 별도 허용을 요청함.
+- 다음: 사용자가 배포용 일회성 자격증명 발급을 허용하면 Sites 도구로 단기 credential 확보(토큰 출력·저장 금지),
+  관측된 remote_url/branch에 배포 소스 768d853 푸시, 위 아카이브로 save_site_version → deploy_site_version,
+  succeeded 확인 후 공개 모바일 검수. 자동 승인 거절이 아니라 소스 SHA 불일치 오류임.
+
+---
+
 갱신: 2026-10-02 — 입구막팀 차단 화살표·진영별 전망대 표시
 
 ## 최신 세션 결과
