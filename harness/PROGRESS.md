@@ -1,5 +1,13 @@
 # 진행 상황
 
+갱신: 2026-10-04 — 야간 저장소 정리(브랜치 formars0309-cloud/cleanup-20261004, FEATURES 항목 아님, 배포 없음. 2026-10-08 cleanup-20261008에서 main에 반영)
+
+- 삭제: 미참조 create-next-app 아이콘 public/file.svg·globe.svg·window.svg. db/schema.ts의 삭제된 examples/d1 예제 주석 한 줄(스키마 내용 그대로).
+- 보류: public/favicon.svg(링크 태그 없음), public/maps/heinapel-tactical-original.png(지도 원본), output/imagegen(기록 자료), db/·drizzle(호스팅 템플릿), war-table.tsx 분리.
+- 검증: 정리 전후 npm run lint 통과, npm test(빌드 포함) 23개 통과, git diff --check. npx tsc --noEmit은 기존 Cloudflare 타입 오류 5건 그대로.
+
+---
+
 갱신: 2026-10-06 — Mim Mi 시트 임무 수정 및 공개 카드 반영 확인
 
 - 사용자 두 차례 지시에 따라 `스타팅 명단` 13행의 12번 Mim Mi를 확인하고 C13 소속팀을 `탑 거점 주유팀`, E13 서브 임무를 공란, F13 1번 부대를 `1시 거점 및 집결 주유대기`, H13 3번 부대를 `전투 보병으로 집결 및 거점 주유`로 수정. 바르툰/바르둔·칸트만 지원 문구를 제거했다. 메인 D13과 2번 부대 G13의 기존 서브주둔장 문구는 추가 지시가 없어 그대로다.
