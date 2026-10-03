@@ -390,6 +390,11 @@ test("keeps the interactive operation features and map assets wired", async () =
   assert.match(warTable, /const OBJECTIVE_META = \[/);
   assert.doesNotMatch(roster, /MISSION_BRIEFS|STAFF_ORDER/);
   assert.match(warTable, /spreadsheets\/d\/1NUorQ8zecl1mDRstKk-F1T7hRF2YYBgS_ZG21gIvcgc\/gviz\/tq\?tqx=out:csv/);
+  // PC 지도 도구줄의 스테프 카드 버튼은 폰과 같은 S 카드 부품을 창으로 띄운다.
+  assert.match(warTable, /className="staff-open" onClick=\{\(\) => setStaffOpen\(true\)\}/);
+  assert.match(warTable, /\{staffOpen && <StaffDialog /);
+  assert.equal(warTable.match(/<StaffBoard /g)?.length, 2, "폰 S 카드와 PC 창이 같은 부품");
+  assert.equal(warTable.match(/useMissionSheets\(\)/g)?.length, 2, "시트 읽기는 한 곳(정의 1·호출 1)");
   assert.match(warTable, /const RALLY_PLAYERS = new Set\(\["진수", "TESLA", "Maha"\]\)/);
   assert.match(warTable, /type LineupStatus = "starter"/);
   assert.doesNotMatch(roster, /마법공주간달프|오늘은일찍자야지|핫떠그|산삼맨|서틸로|SIGH/);

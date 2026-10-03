@@ -551,22 +551,12 @@ function CommonItems({ items }: { items: Array<{ head: string; body: string }> }
 const MOBILE_SLOTS = Array.from({ length: 30 }, (_, index) => index + 1);
 const COMMON_SLOT = 0;
 const STAFF_SLOT = -1;
-function MobileBriefing({ players }: { players: Player[] }) {
-  const [side, setSide] = useState<MissionSide>("ian");
-  const [picked, setPicked] = useState<number | null>(null);
-  const [sheet, setSheet] = useState<{ data: MissionSheet | null; failed: boolean }>({ data: null, failed: false });
-  const [staff, setStaff] = useState<{ data: StaffSheet | null; failed: boolean }>({ data: null, failed: false });
-
+type SheetState<T> = { data: T | null; failed: boolean };
+// 폰 화면과 PC 스테프 창이 같은 시트 읽기를 쓴다. 시트를 고치면 새로고침, 앱으로 돌아올 때, 또는 30초 안에 반영된다.
+function useMissionSheets() {
+  const [sheet, setSheet] = useState<SheetState<MissionSheet>>({ data: null, failed: false });
+  const [staff, setStaff] = useState<SheetState<StaffSheet>>({ data: null, failed: false });
   useEffect(() => {
-    queueMicrotask(() => {
-      try {
-        // 저장값이 없으면 null이 0(공통 임무)으로 바뀌지 않게 문자열 그대로 비교한다.
-        if (localStorage.getItem(MOBILE_SIDE_KEY) === "lucia") setSide("lucia");
-        const saved = localStorage.getItem(MOBILE_PICK_KEY);
-        const slot = Number(saved);
-        if (saved && (slot === COMMON_SLOT || slot === STAFF_SLOT || MOBILE_SLOTS.includes(slot))) setPicked(slot);
-      } catch { /* 사생활 모드에서는 그냥 고르게 둔다. */ }
-    });
     let alive = true;
     // 실패해도 마지막으로 읽은 임무는 그대로 두고 경고만 띄운다.
     const load = () => fetch(MISSION_SHEET_CSV, { cache: "no-store" })
@@ -585,6 +575,63 @@ function MobileBriefing({ players }: { players: Player[] }) {
     document.addEventListener("visibilitychange", onVisible);
     return () => { alive = false; clearInterval(timer); document.removeEventListener("visibilitychange", onVisible); };
   }, []);
+  return { sheet, staff };
+}
+// 시트를 읽기 전에는 앱 명단의 이름을 보여 준다.
+function slotName(missions: Map<number, SheetMission> | undefined, players: Player[], slot: number) {
+  return missions?.get(slot)?.nickname ?? players.find((player) => playerSlot(player) === slot)?.nickname ?? "—";
+}
+// S 스테프 카드: 공통 규칙, 시작군 명단, 지정군 포인트별 순번표, 미배정. 폰 화면과 PC 창이 같이 쓴다.
+function StaffBoard({ staff, side, nameOf }: { staff: SheetState<StaffSheet>; side: MissionSide; nameOf: (slot: number) => string }) {
+  const plans = staff.data?.plans;
+  const list = [...(plans?.values() ?? [])];
+  const pointGroup = (top: boolean) => list.filter((plan) => plan.group === "point" && (plan.top ?? TOP_LINE_SLOTS.has(plan.slot)) === top)
+    .sort((a, b) => (a.order ?? 99) - (b.order ?? 99) || a.slot - b.slot);
+  const groups: Array<{ title: string; items: StaffPlan[]; badge: (plan: StaffPlan) => string | number }> = [
+    { title: "시작 스테프 · 게임 시작 직후 자기 5부대", items: list.filter((plan) => plan.group === "start"), badge: (plan) => plan.slot },
+    { title: "지정 스테프 · TOP 포인트 순번", items: pointGroup(true), badge: (plan) => plan.order ?? "–" },
+    { title: "지정 스테프 · BOTTOM 포인트 순번", items: pointGroup(false), badge: (plan) => plan.order ?? "–" },
+  ];
+  const unassigned = MOBILE_SLOTS.filter((slot) => !plans?.get(slot)?.group);
+  return (
+    <article className="board">
+      <header className="board-head"><b>S</b><strong>스테프 카드</strong><span>{MISSION_SIDE_LABEL[side]}</span></header>
+      <p className="board-team">지팡이 아티 순간이동</p>
+      {!staff.data ? <p className="board-empty">{staff.failed ? "스테프 표를 불러오지 못했습니다" : "스테프 표를 불러오는 중…"}</p> : <>
+        {staff.data.common && <section className="board-box"><h3>공통 규칙</h3><MissionLines text={mirrorMission(staff.data.common, side)} /></section>}
+        {groups.map((group) => <section key={group.title} className="board-box"><h3>{group.title}</h3>
+          {group.items.length ? <ol className="board-units">{group.items.map((plan) => <li key={plan.slot}><i>{group.badge(plan)}</i><span>{plan.group === "point" && `${plan.slot} `}{nameOf(plan.slot)}{plan.target && <> → <MissionText text={mirrorMission(plan.target, side)} /></>}</span></li>)}</ol>
+            : <p className="board-empty">배정 없음</p>}
+        </section>)}
+        {unassigned.length > 0 && <section className="board-box"><h3>미배정 {unassigned.length}명</h3><p>{unassigned.map((slot) => `${slot} ${nameOf(slot)}`).join(" · ")}</p></section>}
+      </>}
+      <p className="board-foot">{MISSION_SIDE_LABEL[side]} 진영 기준 · 지팡이 콜은 디스코드 보이스 오더</p>
+    </article>
+  );
+}
+function StaffDialog({ staff, side, nameOf, onClose }: { staff: SheetState<StaffSheet>; side: MissionSide; nameOf: (slot: number) => string; onClose: () => void }) {
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  useEffect(() => { dialogRef.current?.showModal(); }, []);
+  return <dialog ref={dialogRef} className={`staff-dialog side-${side}`} onCancel={onClose} aria-label="스테프 카드">
+    <button type="button" className="staff-dialog-close" onClick={onClose} aria-label="스테프 카드 닫기">×</button>
+    <StaffBoard staff={staff} side={side} nameOf={nameOf} />
+  </dialog>;
+}
+function MobileBriefing({ players, sheet, staff }: { players: Player[]; sheet: SheetState<MissionSheet>; staff: SheetState<StaffSheet> }) {
+  const [side, setSide] = useState<MissionSide>("ian");
+  const [picked, setPicked] = useState<number | null>(null);
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      try {
+        // 저장값이 없으면 null이 0(공통 임무)으로 바뀌지 않게 문자열 그대로 비교한다.
+        if (localStorage.getItem(MOBILE_SIDE_KEY) === "lucia") setSide("lucia");
+        const saved = localStorage.getItem(MOBILE_PICK_KEY);
+        const slot = Number(saved);
+        if (saved && (slot === COMMON_SLOT || slot === STAFF_SLOT || MOBILE_SLOTS.includes(slot))) setPicked(slot);
+      } catch { /* 사생활 모드에서는 그냥 고르게 둔다. */ }
+    });
+  }, []);
   const chooseSide = (next: MissionSide) => {
     setSide(next);
     try { localStorage.setItem(MOBILE_SIDE_KEY, next); } catch { /* 저장 실패는 조회를 막지 않는다. */ }
@@ -593,9 +640,8 @@ function MobileBriefing({ players }: { players: Player[] }) {
     setPicked(slot);
     try { if (slot !== null) localStorage.setItem(MOBILE_PICK_KEY, String(slot)); else localStorage.removeItem(MOBILE_PICK_KEY); } catch { /* 저장 실패는 조회를 막지 않는다. */ }
   };
-  // 시트를 읽기 전에는 앱 명단의 이름을 보여 준다.
   const missions = sheet.data?.missions;
-  const nameOf = (slot: number) => missions?.get(slot)?.nickname ?? players.find((player) => playerSlot(player) === slot)?.nickname ?? "—";
+  const nameOf = (slot: number) => slotName(missions, players, slot);
   const warning = sheet.failed && <p className="mobile-sync" role="alert">{sheet.data ? "최신 임무를 불러오지 못했습니다. 마지막으로 받은 내용입니다." : "임무를 불러오지 못했습니다. 연결을 확인하고 새로고침해 주세요."}</p>;
 
   if (picked === null) return (
@@ -633,38 +679,14 @@ function MobileBriefing({ players }: { players: Player[] }) {
 
   const plans = staff.data?.plans;
   const staffLabel = (plan: StaffPlan, slot: number) => plan.group === "start" ? "시작 스테프 · 자기 5부대" : `지정 스테프 · ${plan.top ?? TOP_LINE_SLOTS.has(slot) ? "TOP" : "BOTTOM"} 포인트${plan.order ? ` ${plan.order}번째` : ""}`;
-  const staffLoading = <p className="board-empty">{staff.failed ? "스테프 표를 불러오지 못했습니다" : "스테프 표를 불러오는 중…"}</p>;
 
-  if (picked === STAFF_SLOT) {
-    const list = [...(plans?.values() ?? [])];
-    const pointGroup = (top: boolean) => list.filter((plan) => plan.group === "point" && (plan.top ?? TOP_LINE_SLOTS.has(plan.slot)) === top)
-      .sort((a, b) => (a.order ?? 99) - (b.order ?? 99) || a.slot - b.slot);
-    const groups: Array<{ title: string; items: StaffPlan[]; badge: (plan: StaffPlan) => string | number }> = [
-      { title: "시작 스테프 · 게임 시작 직후 자기 5부대", items: list.filter((plan) => plan.group === "start"), badge: (plan) => plan.slot },
-      { title: "지정 스테프 · TOP 포인트 순번", items: pointGroup(true), badge: (plan) => plan.order ?? "–" },
-      { title: "지정 스테프 · BOTTOM 포인트 순번", items: pointGroup(false), badge: (plan) => plan.order ?? "–" },
-    ];
-    const unassigned = MOBILE_SLOTS.filter((slot) => !plans?.get(slot)?.group);
-    return (
-      <div className={`mobile-shell side-${side}`}>
-        {top}
-        {warning}
-        <article className="board">
-          <header className="board-head"><b>S</b><strong>스테프 카드</strong><span>{MISSION_SIDE_LABEL[side]}</span></header>
-          <p className="board-team">지팡이 아티 순간이동</p>
-          {!staff.data ? staffLoading : <>
-            {staff.data.common && <section className="board-box"><h3>공통 규칙</h3><MissionLines text={mirrorMission(staff.data.common, side)} /></section>}
-            {groups.map((group) => <section key={group.title} className="board-box"><h3>{group.title}</h3>
-              {group.items.length ? <ol className="board-units">{group.items.map((plan) => <li key={plan.slot}><i>{group.badge(plan)}</i><span>{plan.group === "point" && `${plan.slot} `}{nameOf(plan.slot)}{plan.target && <> → <MissionText text={mirrorMission(plan.target, side)} /></>}</span></li>)}</ol>
-                : <p className="board-empty">배정 없음</p>}
-            </section>)}
-            {unassigned.length > 0 && <section className="board-box"><h3>미배정 {unassigned.length}명</h3><p>{unassigned.map((slot) => `${slot} ${nameOf(slot)}`).join(" · ")}</p></section>}
-          </>}
-          <p className="board-foot">{MISSION_SIDE_LABEL[side]} 진영 기준 · 지팡이 콜은 디스코드 보이스 오더</p>
-        </article>
-      </div>
-    );
-  }
+  if (picked === STAFF_SLOT) return (
+    <div className={`mobile-shell side-${side}`}>
+      {top}
+      {warning}
+      <StaffBoard staff={staff} side={side} nameOf={nameOf} />
+    </div>
+  );
 
   const mission = missions?.get(picked);
   const orders = mission?.units.map((text) => mirrorMission(text, side));
@@ -784,6 +806,8 @@ function PlayerEditor({ initial, players, onSave, onDelete, onClose }: { initial
 export default function WarTable() {
   const [operation, setOperation] = useState<Operation>(freshOperation);
   const [playerDraft, setPlayerDraft] = useState<Player | null>(null);
+  const [staffOpen, setStaffOpen] = useState(false);
+  const { sheet, staff } = useMissionSheets();
   const [storageError, setStorageError] = useState("");
   const [ready, setReady] = useState(false);
   const [editingId, setEditingId] = useState(1);
@@ -1184,6 +1208,7 @@ export default function WarTable() {
             <div className="map-toolbar-left">
               <div className="map-switcher" aria-label="지도 선택"><button type="button" className={mapVariant === "tactical" ? "active" : ""} onClick={() => setMapVariant("tactical")}>전술 맵</button><button type="button" className={mapVariant === "field" ? "active" : ""} onClick={() => setMapVariant("field")}>실전 맵</button></div>
               <div className={`mission-side-switch side-${missionSide}`} role="group" aria-label="임무 기준 진영">{MISSION_SIDES.map((side) => <button type="button" key={side} className={missionSide === side ? "active" : ""} aria-pressed={missionSide === side} onClick={() => setMissionSide(side)}>{MISSION_SIDE_LABEL[side]}</button>)}</div>
+              <button type="button" className="staff-open" onClick={() => setStaffOpen(true)}>스테프 카드</button>
               {missionCards.length > 0 && <button type="button" className="mission-clear" onClick={closeAllMissionCards}>카드 {missionCards.length}장 닫기</button>}
             </div>
             <div className="map-toolbar-stats"><span>배치 <b>{placedCount}/{operation.players.length}</b></span><span>중립 <b>{objectiveCounts.neutral}</b></span><span className="stat-lucia">루시아 <b>{objectiveCounts.lucia}</b></span><span className="stat-ian">이안 <b>{objectiveCounts.ian}</b></span></div>
@@ -1285,7 +1310,8 @@ export default function WarTable() {
         </form>}
       </footer>
     </main>
-    <MobileBriefing players={operation.players} />
+    <MobileBriefing players={operation.players} sheet={sheet} staff={staff} />
+    {staffOpen && <StaffDialog staff={staff} side={missionSide} nameOf={(slot) => slotName(sheet.data?.missions, operation.players, slot)} onClose={() => setStaffOpen(false)} />}
     {playerDraft && <PlayerEditor initial={playerDraft} players={operation.players} onClose={() => setPlayerDraft(null)} onSave={(player) => {
       commit((draft) => { const index = draft.players.findIndex((item) => item.id === player.id); if (index < 0) draft.players.push(player); else draft.players[index] = player; return draft; });
       setEditingId(player.id); setRoleFilter("all"); setPlayerDraft(null);
