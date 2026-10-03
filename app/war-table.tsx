@@ -262,6 +262,37 @@ function readMissionSheet(text: string): MissionSheet {
   }
   return { missions, common: common ?? [] };
 }
+// 스테프(지팡이 아티 순간이동)는 같은 시트의 「스테프」 탭에서 읽는다. 0번 행의 사용 방법은 전원 공통 규칙이다.
+// 군: 시작 = 게임 시작 직후 자기 5부대 탑승, 지정 = STAFF 포인트에서 다른 사람 부대를 태워 순차 사용.
+const STAFF_SHEET_CSV = `https://docs.google.com/spreadsheets/d/1NUorQ8zecl1mDRstKk-F1T7hRF2YYBgS_ZG21gIvcgc/gviz/tq?tqx=out:csv&headers=1&sheet=${encodeURIComponent("스테프")}`;
+type StaffPlan = { slot: number; group: "start" | "point" | null; order: number | null; top: boolean | null; target: string; method: string };
+type StaffSheet = { plans: Map<number, StaffPlan>; common: string };
+function readStaffSheet(text: string): StaffSheet {
+  const [head = [], ...rows] = parseCsv(text);
+  const column = (name: string) => head.findIndex((cell) => cell.replace(/\s/g, "") === name);
+  const at = { slot: column("번호"), group: column("군"), order: column("순번"), place: column("사용위치"), target: column("목적지"), method: column("사용방법") };
+  // 없는 탭을 요청하면 gviz가 첫 탭을 돌려주므로 머리글로 걸러낸다.
+  if (Object.values(at).some((index) => index < 0)) throw new Error("스테프 시트 머리글을 찾지 못했습니다");
+  const plans = new Map<number, StaffPlan>();
+  let common = "";
+  for (const row of rows) {
+    const cell = (index: number) => (row[index] ?? "").trim();
+    const label = cell(at.slot);
+    if (label === "0") { common ||= cell(at.method); continue; }
+    const slot = Number(label);
+    if (!label || !Number.isInteger(slot) || slot < 1 || slot > 30 || plans.has(slot)) continue;
+    const group = cell(at.group), place = cell(at.place);
+    plans.set(slot, {
+      slot,
+      group: group.includes("시작") ? "start" : /지정|중간/.test(group) ? "point" : null,
+      order: Number.parseInt(cell(at.order), 10) || null,
+      top: /탑|top/i.test(place) ? true : /바텀|bottom/i.test(place) ? false : null,
+      target: cell(at.target),
+      method: cell(at.method),
+    });
+  }
+  return { plans, common };
+}
 // 시트 문장을 지시 하나씩 끊는다. "/"·"+"·문장 끝 마침표에서 끊되, 괄호 안과 "1."처럼 숫자 뒤 마침표는 그대로 둔다.
 function missionLines(text: string): string[] {
   const lines: string[] = [];
@@ -446,10 +477,32 @@ function editablePlayer(player: Player): Player {
 }
 function slotPoint(slot: number, side: MissionSide, variant: MapVariant): Point | null {
   const offset = SLOT_POINTS.get(slot);
-  if (!offset) return null;
+  return offset ? formationPoint(offset, side, variant) : null;
+}
+function formationPoint(offset: Point, side: MissionSide, variant: MapVariant): Point {
   const center = STARTING_POINT_CENTER[variant][side];
   const turn = side === "ian" ? 1 : -1;
   return { x: clamp(center.x + offset.x * turn), y: clamp(center.y + offset.y * turn) };
+}
+// 이안 안내 이미지의 STAFF 포인트 2곳을 진형 격자 단위로 둔다. 행 안 칸 방향과 행 방향이 거의 직각이라
+// TOP은 12번의 2시 방향으로 6번·19번과 같은 간격, BOTTOM은 24번·25번 사이 바로 아래로 두 성과 같은 간격이다.
+const STAFF_OFFSETS = (() => {
+  const shift = (slot: number, along: number, row: number) => {
+    const base = SLOT_POINTS.get(slot)!;
+    return { x: base.x + along * SLOT_STEP_ALONG.x + row * SLOT_STEP_ROW.x, y: base.y + along * SLOT_STEP_ALONG.y + row * SLOT_STEP_ROW.y };
+  };
+  return { top: shift(12, -1.2, 0), bottom: shift(24, .5, .9) };
+})();
+function staffPoint(top: boolean, side: MissionSide, variant: MapVariant): Point {
+  return formationPoint(STAFF_OFFSETS[top ? "top" : "bottom"], side, variant);
+}
+// 시작군은 내 자리에서, 지정군은 사용할 STAFF 포인트(빈칸이면 내 라인)에서 목적지로 순간이동한다.
+function staffRoute(plan: StaffPlan | undefined, slot: number, side: MissionSide, variant: MapVariant, missions: Map<string, MissionOrders>) {
+  if (!plan?.group) return null;
+  const top = plan.top ?? TOP_LINE_SLOTS.has(slot);
+  const from = plan.group === "start" ? slotPoint(slot, side, variant) : staffPoint(top, side, variant);
+  if (!from) return null;
+  return { from, top, targets: plan.target ? missionTargets(mirrorMission(plan.target, side), side, variant, missions) : [] };
 }
 function playerNameClass(player: Player) {
   if (player.secondaryRoles.includes("rally")) return "name-rally";
@@ -497,10 +550,12 @@ function CommonItems({ items }: { items: Array<{ head: string; body: string }> }
 }
 const MOBILE_SLOTS = Array.from({ length: 30 }, (_, index) => index + 1);
 const COMMON_SLOT = 0;
+const STAFF_SLOT = -1;
 function MobileBriefing({ players }: { players: Player[] }) {
   const [side, setSide] = useState<MissionSide>("ian");
   const [picked, setPicked] = useState<number | null>(null);
   const [sheet, setSheet] = useState<{ data: MissionSheet | null; failed: boolean }>({ data: null, failed: false });
+  const [staff, setStaff] = useState<{ data: StaffSheet | null; failed: boolean }>({ data: null, failed: false });
 
   useEffect(() => {
     queueMicrotask(() => {
@@ -509,7 +564,7 @@ function MobileBriefing({ players }: { players: Player[] }) {
         if (localStorage.getItem(MOBILE_SIDE_KEY) === "lucia") setSide("lucia");
         const saved = localStorage.getItem(MOBILE_PICK_KEY);
         const slot = Number(saved);
-        if (saved && (slot === COMMON_SLOT || MOBILE_SLOTS.includes(slot))) setPicked(slot);
+        if (saved && (slot === COMMON_SLOT || slot === STAFF_SLOT || MOBILE_SLOTS.includes(slot))) setPicked(slot);
       } catch { /* 사생활 모드에서는 그냥 고르게 둔다. */ }
     });
     let alive = true;
@@ -518,9 +573,15 @@ function MobileBriefing({ players }: { players: Player[] }) {
       .then((response) => { if (!response.ok) throw new Error(String(response.status)); return response.text(); })
       .then((text) => { const data = readMissionSheet(text); if (alive) setSheet({ data, failed: false }); })
       .catch(() => { if (alive) setSheet((current) => ({ ...current, failed: true })); });
-    const onVisible = () => { if (document.visibilityState === "visible") load(); };
-    load();
-    const timer = setInterval(load, 30000);
+    // 스테프 탭은 따로 읽어, 실패해도 임무 카드는 그대로 보인다.
+    const loadStaff = () => fetch(STAFF_SHEET_CSV, { cache: "no-store" })
+      .then((response) => { if (!response.ok) throw new Error(String(response.status)); return response.text(); })
+      .then((text) => { const data = readStaffSheet(text); if (alive) setStaff({ data, failed: false }); })
+      .catch(() => { if (alive) setStaff((current) => ({ ...current, failed: true })); });
+    const loadAll = () => { load(); loadStaff(); };
+    const onVisible = () => { if (document.visibilityState === "visible") loadAll(); };
+    loadAll();
+    const timer = setInterval(loadAll, 30000);
     document.addEventListener("visibilitychange", onVisible);
     return () => { alive = false; clearInterval(timer); document.removeEventListener("visibilitychange", onVisible); };
   }, []);
@@ -542,6 +603,7 @@ function MobileBriefing({ players }: { players: Player[] }) {
       <header className="mobile-top"><span>HEINAPEL WAR TABLE</span><strong>스타팅 멤버</strong></header>
       {warning}
       <button type="button" className="mobile-common" onClick={() => pick(COMMON_SLOT)}><b>0</b><span>공통 임무</span><small>30명 전원</small></button>
+      <button type="button" className="mobile-common" onClick={() => pick(STAFF_SLOT)}><b>S</b><span>스테프 카드</span><small>지팡이 순간이동</small></button>
       <ol className="mobile-roster">{MOBILE_SLOTS.map((slot) => <li key={slot}><button type="button" onClick={() => pick(slot)}><b>{slot}</b><span>{nameOf(slot)}</span></button></li>)}</ol>
     </div>
   );
@@ -569,6 +631,41 @@ function MobileBriefing({ players }: { players: Player[] }) {
     </div>
   );
 
+  const plans = staff.data?.plans;
+  const staffLabel = (plan: StaffPlan, slot: number) => plan.group === "start" ? "시작 스테프 · 자기 5부대" : `지정 스테프 · ${plan.top ?? TOP_LINE_SLOTS.has(slot) ? "TOP" : "BOTTOM"} 포인트${plan.order ? ` ${plan.order}번째` : ""}`;
+  const staffLoading = <p className="board-empty">{staff.failed ? "스테프 표를 불러오지 못했습니다" : "스테프 표를 불러오는 중…"}</p>;
+
+  if (picked === STAFF_SLOT) {
+    const list = [...(plans?.values() ?? [])];
+    const pointGroup = (top: boolean) => list.filter((plan) => plan.group === "point" && (plan.top ?? TOP_LINE_SLOTS.has(plan.slot)) === top)
+      .sort((a, b) => (a.order ?? 99) - (b.order ?? 99) || a.slot - b.slot);
+    const groups: Array<{ title: string; items: StaffPlan[]; badge: (plan: StaffPlan) => string | number }> = [
+      { title: "시작 스테프 · 게임 시작 직후 자기 5부대", items: list.filter((plan) => plan.group === "start"), badge: (plan) => plan.slot },
+      { title: "지정 스테프 · TOP 포인트 순번", items: pointGroup(true), badge: (plan) => plan.order ?? "–" },
+      { title: "지정 스테프 · BOTTOM 포인트 순번", items: pointGroup(false), badge: (plan) => plan.order ?? "–" },
+    ];
+    const unassigned = MOBILE_SLOTS.filter((slot) => !plans?.get(slot)?.group);
+    return (
+      <div className={`mobile-shell side-${side}`}>
+        {top}
+        {warning}
+        <article className="board">
+          <header className="board-head"><b>S</b><strong>스테프 카드</strong><span>{MISSION_SIDE_LABEL[side]}</span></header>
+          <p className="board-team">지팡이 아티 순간이동</p>
+          {!staff.data ? staffLoading : <>
+            {staff.data.common && <section className="board-box"><h3>공통 규칙</h3><MissionLines text={mirrorMission(staff.data.common, side)} /></section>}
+            {groups.map((group) => <section key={group.title} className="board-box"><h3>{group.title}</h3>
+              {group.items.length ? <ol className="board-units">{group.items.map((plan) => <li key={plan.slot}><i>{group.badge(plan)}</i><span>{plan.group === "point" && `${plan.slot} `}{nameOf(plan.slot)}{plan.target && <> → <MissionText text={mirrorMission(plan.target, side)} /></>}</span></li>)}</ol>
+                : <p className="board-empty">배정 없음</p>}
+            </section>)}
+            {unassigned.length > 0 && <section className="board-box"><h3>미배정 {unassigned.length}명</h3><p>{unassigned.map((slot) => `${slot} ${nameOf(slot)}`).join(" · ")}</p></section>}
+          </>}
+          <p className="board-foot">{MISSION_SIDE_LABEL[side]} 진영 기준 · 지팡이 콜은 디스코드 보이스 오더</p>
+        </article>
+      </div>
+    );
+  }
+
   const mission = missions?.get(picked);
   const orders = mission?.units.map((text) => mirrorMission(text, side));
   const units = orders?.some(Boolean) ? orders : null;
@@ -579,6 +676,8 @@ function MobileBriefing({ players }: { players: Player[] }) {
   const home = slotPoint(picked, side, "tactical");
   const line = home ? lineExit(picked, side, "tactical") : null;
   const common = teamCommon((sheet.data?.common ?? []).map((item) => mirrorMission(item, side)), mission?.team ?? "");
+  const plan = plans?.get(picked);
+  const staffPath = staffRoute(plan, picked, side, "tactical", leaders);
 
   return (
     <div className={`mobile-shell side-${side}`}>
@@ -592,6 +691,9 @@ function MobileBriefing({ players }: { players: Player[] }) {
           {mission.sub && <section className="board-box"><h3>서브 임무</h3><MissionLines text={mirrorMission(mission.sub, side)} /></section>}
           {units && <section className="board-box"><h3>부대 배치</h3><ol className="board-units">{groupUnits(units).map((group) => <li key={group.from} className={missionEmphasis(group.text)}><i>{group.from === group.to ? group.from : `${group.from}~${group.to}`}</i><span><MissionText text={group.text} /></span></li>)}</ol></section>}
         </>}
+        {plan?.group && <section className="board-box board-staff"><h3>스테프 사용 · {staffLabel(plan, picked)}</h3>
+          <MissionLines text={mirrorMission([plan.target && `목적지 ${plan.target}`, plan.method].filter(Boolean).join(" / ") || "목적지 미정", side)} />
+        </section>}
         {/* 개인 임무가 먼저 보이게 공통 임무는 접어 둔다. */}
         {common.length > 0 && <details className="board-box board-fold"><summary>공통 임무 · {common.find((item) => item.head)?.head ?? "전원"}<span className="fold-open">펼쳐 보기 ▾</span><span className="fold-close">접기 ▴</span></summary><CommonItems items={common} /></details>}
         {/* 라인 화살표는 임무가 없어도 보여 준다. */}
@@ -602,16 +704,20 @@ function MobileBriefing({ players }: { players: Player[] }) {
               <defs>
                 <marker id="mobile-head" markerWidth="9" markerHeight="9" refX="9" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" /></marker>
                 <marker id="block-head" viewBox="0 0 9 6" markerWidth="3" markerHeight="2.4" refX="9" refY="3" orient="auto"><path className="block-head" d="M0,0 L0,6 L9,3 z" /></marker>
+                <marker id="staff-head" viewBox="0 0 9 6" markerWidth="3" markerHeight="2.4" refX="9" refY="3" orient="auto"><path className="staff-head" d="M0,0 L0,6 L9,3 z" /></marker>
                 {(["top", "bottom"] as const).map((key) => <marker key={key} id={`line-head-${key}`} viewBox="0 0 9 6" markerWidth="3" markerHeight="2.4" refX="9" refY="3" orient="auto"><path className={`line-head is-${key}`} d="M0,0 L0,6 L9,3 z" /></marker>)}
               </defs>
               {routes.map((route) => <line key={route.target} className={route.roaming ? "is-roaming" : ""} x1={home.x * 1000} y1={home.y * 1000} x2={route.to.x * 1000} y2={route.to.y * 1000} markerEnd="url(#mobile-head)" />)}
               {block ? <line className="block-route" x1={home.x * 1000} y1={home.y * 1000} x2={block.point.x * 1000} y2={block.point.y * 1000} markerEnd="url(#block-head)" /> :
                 <line className={`line-route ${line.top ? "is-top" : "is-bottom"}`} x1={line.start.x * 1000} y1={line.start.y * 1000} x2={line.point.x * 1000} y2={line.point.y * 1000} markerEnd={`url(#line-head-${line.top ? "top" : "bottom"})`} />}
+              {staffPath?.targets.map((target) => <line key={target.key} className="staff-route" x1={staffPath.from.x * 1000} y1={staffPath.from.y * 1000} x2={target.point.x * 1000} y2={target.point.y * 1000} markerEnd="url(#staff-head)" />)}
             </svg>
             {OBJECTIVE_META.filter((objective) => !objective.id.startsWith("lookout-") || objective.id.startsWith(`lookout-${side}-`)).map((objective) => <span key={objective.id} className={`mobile-objective${objective.id.startsWith("lookout-") ? ` is-lookout-${objective.id.endsWith("west") ? "west" : "east"}` : ""}`} style={{ left: `${objective.tactical.x}%`, top: `${objective.tactical.y}%` }}>{objective.id.startsWith("lookout-") ? `전망대 ${objective.id.endsWith("west") ? 1 : 2}` : objective.label}</span>)}
             {block ? <span className="mobile-block" style={{ left: `${block.point.x * 100}%`, top: `${block.point.y * 100}%` }}>⊣<b>적 {block.top ? "TOP" : "BOTTOM"} 입구 차단</b></span> :
               <span className={`mobile-line ${line.top ? "is-top" : "is-bottom"}`} style={{ left: `${clamp(line.start.x + (line.point.x - line.start.x) * 1.4) * 100}%`, top: `${clamp(line.start.y + (line.point.y - line.start.y) * 1.4) * 100}%` }}>{line.top ? "TOP" : "BOTTOM"}</span>}
             {routes.map((route) => { const at = .8; return <span key={route.target} className={`mobile-tag${route.roaming ? " is-roaming" : ""}`} style={{ left: `${(home.x + (route.to.x - home.x) * at) * 100}%`, top: `${(home.y + (route.to.y - home.y) * at) * 100}%` }}>{route.units.join("·")}</span>; })}
+            {/* 지도가 작아 내가 쓸 STAFF 포인트만 점과 이름표로 보인다. 이름표는 진형 바깥쪽에 붙인다. */}
+            {staffPath && plan?.group === "point" && <span className={`mobile-staff is-${staffPath.top === (side === "ian") ? "right" : "left"}`} style={{ left: `${staffPath.from.x * 100}%`, top: `${staffPath.from.y * 100}%` }}><b>STAFF</b></span>}
             <span className="mobile-home" style={{ left: `${home.x * 100}%`, top: `${home.y * 100}%` }}>{picked}</span>
           </div>
         </section>}

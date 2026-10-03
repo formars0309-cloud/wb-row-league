@@ -11,7 +11,7 @@ async function rosterHelpers() {
   const source = await readFile(new URL("../app/war-table.tsx", import.meta.url), "utf8");
   const helpers = source.slice(0, source.indexOf("function UnitRoleIcon")).replace(/^import .*;$/gm, "");
   const js = ts.transpileModule(helpers, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
-  return runInNewContext(`${js}\n({ freshOperation, normalizeRoster, normalizeOperation, playerBrief, playerSlot, readMissionSheet, mirrorMission, lineExit, entranceBlock, missionTargets, buildMissionPlan, objectivePoint, OBJECTIVE_META, missionLines, missionParts, teamCommon, groupUnits })`, { ...roster });
+  return runInNewContext(`${js}\n({ freshOperation, normalizeRoster, normalizeOperation, playerBrief, playerSlot, readMissionSheet, mirrorMission, lineExit, entranceBlock, missionTargets, buildMissionPlan, objectivePoint, OBJECTIVE_META, missionLines, missionParts, teamCommon, groupUnits, readStaffSheet, staffPoint, staffRoute, slotPoint })`, { ...roster });
 }
 
 test("새 정본의 편집 명단은 이름·보직·임무 삭제와 빈 명단을 JSON 왕복 후에도 보존한다", async () => {
@@ -138,6 +138,58 @@ test("구글 시트 임무는 머리글 이름으로 열을 찾고 따옴표·�
   assert.deepEqual(Array.from(gay.units), ["1시 천무의 전당 집결", "주력 기마", "", "", ""]);
   assert.deepEqual(Array.from(missions.get(1).units), ["", "", "", "", ""]);
   assert.throws(() => readMissionSheet('"번호","닉네임"\n"1","무잔"'));
+});
+
+test("스테프 탭은 머리글로 열을 찾고 공통 규칙·군·순번·사용 위치를 읽으며 잘못된 행을 무시한다", async () => {
+  const { readStaffSheet } = await rosterHelpers();
+  const csv = [
+    '"닉네임","번호","군","순번","사용 위치","목적지","사용 방법",""',
+    '"공통 규칙","0","","","","","지팡이 아티는 보병 / 콜은 보이스",""',
+    '"무잔","1","시작","","","1시 천무","",""',
+    '"곡곡이","13","지정","2","TOP","3시 치료","5000님 부대 탑승",""',
+    '"5000","26","지정 ","1번","","","",""',
+    '"늑대","30","중간","","바텀","","",""',
+    '"미배정","4","","","","","",""',
+    '"중복","13","시작","","","","",""',
+    '"범위 밖","31","시작","","","","",""',
+    '"","","","","","","",""',
+  ].join("\r\n");
+  const { plans, common } = readStaffSheet(csv);
+  assert.equal(common, "지팡이 아티는 보병 / 콜은 보이스");
+  assert.deepEqual([...plans.keys()], [1, 13, 26, 30, 4]);
+  assert.deepEqual(JSON.parse(JSON.stringify(plans.get(1))), { slot: 1, group: "start", order: null, top: null, target: "1시 천무", method: "" });
+  assert.deepEqual(JSON.parse(JSON.stringify(plans.get(13))), { slot: 13, group: "point", order: 2, top: true, target: "3시 치료", method: "5000님 부대 탑승" });
+  assert.equal(plans.get(26).order, 1); assert.equal(plans.get(26).top, null);
+  assert.equal(plans.get(30).group, "point"); assert.equal(plans.get(30).top, false);
+  assert.equal(plans.get(4).group, null);
+  // 없는 탭이면 gviz가 첫 탭(스타팅 명단)을 돌려준다. 그 머리글은 스테프 표로 읽지 않는다.
+  assert.throws(() => readStaffSheet('"스타팅 포인트 번호","닉네임","소속팀","메인임무"\n"1","무잔","기마팀",""'));
+});
+
+test("STAFF 포인트 두 곳은 성 자리와 겹치지 않고 진영과 함께 돌며, 스테프 화살표는 군에 맞는 곳에서 목적지로 간다", async () => {
+  const { staffPoint, staffRoute, slotPoint, objectivePoint } = await rosterHelpers();
+  const near = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+  for (const side of ["ian", "lucia"]) for (const [top, pair] of [[true, [6, 19]], [false, [24, 25]]]) {
+    const point = staffPoint(top, side, "tactical");
+    const gap = (slot) => near(point, slotPoint(slot, side, "tactical"));
+    const nearest = Math.min(...Array.from({ length: 30 }, (_, index) => gap(index + 1)));
+    assert.ok(nearest > .032, "성 한 칸 간격 이상 떨어져 겹치지 않는다");
+    assert.ok(Math.abs(gap(pair[0]) - gap(pair[1])) < .004, `${pair.join("·")}번과 간격이 고르다`);
+  }
+  const center = (side) => { const a = staffPoint(true, side, "tactical"), b = staffPoint(false, side, "tactical"); return [a, b]; };
+  const [ianTop, ianBottom] = center("ian"), [luciaTop, luciaBottom] = center("lucia");
+  assert.ok(ianTop.y < ianBottom.y && ianTop.x > ianBottom.x, "이안 TOP은 오른쪽 위, BOTTOM은 왼쪽 아래");
+  assert.ok(luciaTop.y > luciaBottom.y && luciaTop.x < luciaBottom.x, "루시아는 180도 돈다");
+  const missions = new Map();
+  const start = staffRoute({ slot: 1, group: "start", order: null, top: null, target: "1시 천무", method: "" }, 1, "ian", "tactical", missions);
+  assert.equal(JSON.stringify(start.from), JSON.stringify(slotPoint(1, "ian", "tactical")));
+  assert.equal(JSON.stringify(start.targets[0].point), JSON.stringify(objectivePoint("hall-northeast", "tactical")));
+  const point = staffRoute({ slot: 30, group: "point", order: 1, top: null, target: "3시 치료", method: "" }, 30, "lucia", "tactical", missions);
+  assert.equal(point.top, false, "빈 사용 위치는 내 라인(30번 = Bottom)");
+  assert.equal(JSON.stringify(point.from), JSON.stringify(staffPoint(false, "lucia", "tactical")));
+  assert.equal(JSON.stringify(point.targets[0].point), JSON.stringify(objectivePoint("spirit-west", "tactical")), "루시아는 3시를 9시로 환산");
+  assert.equal(staffRoute({ slot: 4, group: null, order: null, top: null, target: "1시 천무", method: "" }, 4, "ian", "tactical", missions), null);
+  assert.equal(staffRoute(undefined, 4, "ian", "tactical", missions), null);
 });
 
 test("루시아 카드는 시트의 이안 기준 위치 문구를 좌우 환산한다", async () => {
