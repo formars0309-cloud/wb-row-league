@@ -1,5 +1,13 @@
 # 진행 상황
 
+갱신: 2026-10-04 — 야간 저장소 정리(브랜치 formars0309-cloud/cleanup-20261004, FEATURES 항목 아님, 배포 없음)
+
+- 삭제: 미참조 create-next-app 아이콘 public/file.svg·globe.svg·window.svg. db/schema.ts의 삭제된 examples/d1 예제 주석 한 줄(스키마 내용 그대로).
+- 보류: public/favicon.svg(링크 태그 없음), public/maps/heinapel-tactical-original.png(지도 원본), output/imagegen(기록 자료), db/·drizzle(호스팅 템플릿), war-table.tsx 분리.
+- 검증: 정리 전후 npm run lint 통과, npm test(빌드 포함) 23개 통과, git diff --check. npx tsc --noEmit은 기존 Cloudflare 타입 오류 5건 그대로.
+
+---
+
 갱신: 2026-10-04 — 라인 도구로 부대 말·거점 위에서 긋기 시작(Codex 버전 25 뒤에 main 병합, 공개 배포 전)
 
 - 사용자 제보: 방어 라인은 여러 개 되는데 공격 라인은 안 됨. 공개 v24 재현: 빈 곳·번호 배지·기존 화살표 위 시작은 공격도 계속 쌓임. 실패는 부대 말·거점 표식 위에서 시작할 때(공격·방어 공통) — 말 포인터 이벤트가 stopPropagation, 지도 핸들러가 말·거점을 제외. 공격 라인은 보통 부대·거점에서 출발해 공격만 안 되는 것처럼 보임.
