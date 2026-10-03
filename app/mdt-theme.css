@@ -1371,7 +1371,10 @@ mark.hl-time { background: none; color: #c2410c; font-weight: 800; }
 .mobile-map marker path.staff-head { fill: #8b3dff; }
 .mobile-staff { position: absolute; transform: translate(-50%, -50%); width: 10px; height: 10px; border: 2px solid #fff; border-radius: 50%; background: #8b3dff; box-shadow: 0 0 0 1px #5b21b6; }
 .mobile-staff b { position: absolute; padding: 1px 4px; border-radius: 6px; background: #8b3dff; color: #fff; font: 900 8px ui-monospace, monospace; white-space: nowrap; }
-.board-units .staff-slot { color: #6b7280; font-size: 13px; font-weight: 700; }
+.staff-targets { display: grid; gap: 10px; margin: 0; padding: 12px; list-style: none; }
+.staff-targets li { display: grid; gap: 3px; padding-bottom: 10px; border-bottom: 1px dashed var(--side-line); font-size: 16px; line-height: 1.45; word-break: keep-all; }
+.staff-targets li:last-child { padding-bottom: 0; border-bottom: 0; }
+.staff-targets b { font-weight: 900; }
 .mobile-staff.is-right b { left: 12px; top: 50%; transform: translateY(-50%); }
 .mobile-staff.is-left b { right: 12px; top: 50%; transform: translateY(-50%); }
 .mobile-block { position: absolute; transform: translate(-50%, -50%); color: #000; font-size: 24px; font-weight: 900; }

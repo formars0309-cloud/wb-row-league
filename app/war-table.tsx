@@ -590,11 +590,10 @@ function StaffBoard({ staff, side, nameOf }: { staff: SheetState<StaffSheet>; si
   const list = [...(plans?.values() ?? [])];
   const pointGroup = (top: boolean) => list.filter((plan) => plan.group === "point" && (plan.top ?? TOP_LINE_SLOTS.has(plan.slot)) === top)
     .sort((a, b) => (a.order ?? 99) - (b.order ?? 99) || a.slot - b.slot);
-  const groups: Array<{ title: string; items: StaffPlan[]; badge: (plan: StaffPlan) => string | number }> = [
-    { title: "시작 스테프 · 게임 시작 직후 자기 5부대", items: list.filter((plan) => plan.group === "start"), badge: (plan) => plan.slot },
-    { title: "지정 스테프 · TOP 포인트 순번", items: pointGroup(true), badge: (plan) => plan.order ?? "–" },
-    { title: "지정 스테프 · BOTTOM 포인트 순번", items: pointGroup(false), badge: (plan) => plan.order ?? "–" },
-  ];
+  // 시작 스테프는 거점마다 탈 사람을 모아 "거점 - 닉네임들"로 보인다.
+  const starts = new Map<string, StaffPlan[]>();
+  list.filter((plan) => plan.group === "start").forEach((plan) => starts.set(plan.target, [...(starts.get(plan.target) ?? []), plan]));
+  const groups = [{ title: "지정 스테프 · TOP 포인트 순번", items: pointGroup(true) }, { title: "지정 스테프 · BOTTOM 포인트 순번", items: pointGroup(false) }];
   const unassigned = MOBILE_SLOTS.filter((slot) => !plans?.get(slot)?.group);
   return (
     <article className="board">
@@ -602,12 +601,16 @@ function StaffBoard({ staff, side, nameOf }: { staff: SheetState<StaffSheet>; si
       <p className="board-team">지팡이 아티 순간이동</p>
       {!staff.data ? <p className="board-empty">{staff.failed ? "스테프 표를 불러오지 못했습니다" : "스테프 표를 불러오는 중…"}</p> : <>
         {staff.data.common && <section className="board-box"><h3>공통 규칙</h3><MissionLines text={mirrorMission(staff.data.common, side)} /></section>}
+        <section className="board-box"><h3>시작 스테프 · 게임 시작 직후 자기 5부대</h3>
+          {starts.size ? <ul className="staff-targets">{[...starts].map(([target, items]) => <li key={target}><b>{target ? <MissionText text={mirrorMission(target, side)} /> : "목적지 미정"}</b><span>{items.map((plan) => nameOf(plan.slot)).join(" · ")}</span></li>)}</ul>
+            : <p className="board-empty">배정 없음</p>}
+        </section>
         {groups.map((group) => {
           // 그룹 전원의 목적지가 같으면 줄마다 반복하지 않고 제목 아래 한 번만 쓴다.
           const shared = group.items.length > 1 && group.items.every((plan) => plan.target === group.items[0].target) ? group.items[0].target : "";
           return <section key={group.title} className="board-box"><h3>{group.title}</h3>
             {shared && <p className="board-line"><MissionText text={mirrorMission(shared, side)} /></p>}
-            {group.items.length ? <ol className="board-units">{group.items.map((plan) => <li key={plan.slot}><i>{group.badge(plan)}</i><span>{nameOf(plan.slot)}{plan.group === "point" && <small className="staff-slot"> · {plan.slot}번</small>}{!shared && plan.target && <> → <MissionText text={mirrorMission(plan.target, side)} /></>}</span></li>)}</ol>
+            {group.items.length ? <ol className="board-units">{group.items.map((plan) => <li key={plan.slot}><i>{plan.order ?? "–"}</i><span>{nameOf(plan.slot)}{!shared && plan.target && <> → <MissionText text={mirrorMission(plan.target, side)} /></>}</span></li>)}</ol>
               : <p className="board-empty">배정 없음</p>}
           </section>;
         })}
