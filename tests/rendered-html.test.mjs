@@ -410,6 +410,9 @@ test("keeps the interactive operation features and map assets wired", async () =
   assert.match(warTable, /const OBJECTIVE_META = \[/);
   assert.doesNotMatch(roster, /MISSION_BRIEFS|STAFF_ORDER/);
   assert.match(warTable, /spreadsheets\/d\/1NUorQ8zecl1mDRstKk-F1T7hRF2YYBgS_ZG21gIvcgc\/gviz\/tq\?tqx=out:csv/);
+  // 라인 도구에서 Shift+드래그는 반대 라인을 그리고, 저장 타입도 그 판정을 따른다.
+  assert.match(warTable, /setDrawType\(event\.shiftKey === \(tool === "defense"\) \? "attackArrow" : "defense"\)/);
+  assert.match(warTable, /type: drawType, \.\.\.start/);
   // PC 지도 도구줄의 스테프 카드 버튼은 폰과 같은 S 카드 부품을 창으로 띄운다.
   assert.match(warTable, /className="staff-open" onClick=\{\(\) => setStaffOpen\(true\)\}/);
   assert.match(warTable, /\{staffOpen && <StaffDialog /);

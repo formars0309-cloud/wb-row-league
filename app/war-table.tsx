@@ -25,8 +25,8 @@ type Operation = { version: 1; rosterRevision?: 1 | 2 | 3; name: string; players
 const STORAGE_KEY = "heinapel-war-table-v0.3";
 const SECONDARY_LABEL: Record<SecondaryRole, string> = { garrison: "주둔장", rally: "집결장", blocker: "블로커" };
 const TOOL_META: Array<{ id: Tool; label: string; glyph: string; hint: string }> = [
-  { id: "attackArrow", label: "공격 라인", glyph: "➤", hint: "드래그로 공격 라인 표시" },
-  { id: "defense", label: "방어 라인", glyph: "╱", hint: "드래그로 방어 라인 표시" },
+  { id: "attackArrow", label: "공격 라인", glyph: "➤", hint: "드래그로 공격 라인 · Shift+드래그로 방어 라인" },
+  { id: "defense", label: "방어 라인", glyph: "╱", hint: "드래그로 방어 라인 · Shift+드래그로 공격 라인" },
   { id: "rally", label: "집결", glyph: "⚔", hint: "클릭해 집결 지점 표시" },
   { id: "memo", label: "메모", glyph: "▤", hint: "드래그로 영역을 잡고 메모를 입력" },
   { id: "delete", label: "지우개", glyph: "", hint: "지울 오브젝트를 클릭" },
@@ -826,6 +826,8 @@ export default function WarTable() {
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [tool, setTool] = useState<Tool>("select");
   const [drawPoints, setDrawPoints] = useState<Point[]>([]);
+  // 라인 도구에서 Shift+드래그는 반대 라인을 그린다. 도구를 바꾸지 않고 공격·방어를 번갈아 긋기 위함.
+  const [drawType, setDrawType] = useState<"attackArrow" | "defense">("attackArrow");
   const [memoDraft, setMemoDraft] = useState<{ id: string; text: string } | null>(null);
   const [roleFilter, setRoleFilter] = useState<"all" | PrimaryRole>("all");
   const [mapVariant, setMapVariant] = useState<MapVariant>("tactical");
@@ -992,6 +994,7 @@ export default function WarTable() {
       return;
     }
     if (["attackArrow", "defense", "memo"].includes(tool)) {
+      if (tool !== "memo") setDrawType(event.shiftKey === (tool === "defense") ? "attackArrow" : "defense");
       drawPointsRef.current = [point];
       setDrawPoints([point]);
       try { event.currentTarget.setPointerCapture(event.pointerId); } catch { /* Synthetic pointer events do not own capture. */ }
@@ -1063,7 +1066,7 @@ export default function WarTable() {
       const start = points[0];
       const pathLength = points.slice(1).reduce((total, point, index) => total + Math.hypot(point.x - points[index].x, point.y - points[index].y), 0);
       if (points.length > 1 && pathLength > .01) {
-        const object: TacticalObject = { id: uid(tool), type: tool as "attackArrow" | "defense", ...start, x2: end.x, y2: end.y, points };
+        const object: TacticalObject = { id: uid(drawType), type: drawType, ...start, x2: end.x, y2: end.y, points };
         updateScene(scene.id, (target) => { target.objects.push(object); });
       }
     }
@@ -1237,7 +1240,7 @@ export default function WarTable() {
             <defs><marker id="move-head" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#55cfff" /></marker><marker id="attack-head" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#ff5353" /></marker><marker id="route-head-ian" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#f0c463" /></marker><marker id="route-head-lucia" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#5cb8ff" /></marker></defs>
             {missionRoutes.map((route) => <line key={route.key} className={`mission-route side-${missionSide}${route.roaming ? " is-roaming" : ""}`} x1={route.from.x * 1000} y1={route.from.y * 1000} x2={route.to.x * 1000} y2={route.to.y * 1000} markerEnd={`url(#route-head-${missionSide})`} />)}
             {objects.filter((object) => ["moveArrow", "attackArrow", "defense"].includes(object.type)).map((object) => object.points?.length ? <path key={object.id} className={`tactical-object freehand-path ${object.type === "defense" ? "defense-line" : `arrow-${object.type}`}`} onClick={() => deleteObject(object.id)} d={smoothPath(object.points)} markerEnd={object.type === "defense" ? undefined : `url(#${object.type === "moveArrow" ? "move-head" : "attack-head"})`} /> : <line key={object.id} className={`tactical-object ${object.type === "defense" ? "defense-line" : `arrow-${object.type}`}`} onClick={() => deleteObject(object.id)} x1={object.x * 1000} y1={object.y * 1000} x2={(object.x2 ?? object.x) * 1000} y2={(object.y2 ?? object.y) * 1000} markerEnd={object.type === "defense" ? undefined : `url(#${object.type === "moveArrow" ? "move-head" : "attack-head"})`} />)}
-            {drawPoints.length > 1 && <path className={`draw-preview freehand-path ${tool === "defense" ? "defense-line" : "arrow-attackArrow"}`} d={smoothPath(drawPoints)} markerEnd={tool === "attackArrow" ? "url(#attack-head)" : undefined} />}
+            {drawPoints.length > 1 && tool !== "memo" && <path className={`draw-preview freehand-path ${drawType === "defense" ? "defense-line" : "arrow-attackArrow"}`} d={smoothPath(drawPoints)} markerEnd={drawType === "attackArrow" ? "url(#attack-head)" : undefined} />}
           </svg>
           {missionRoutes.map((route) => { const at = .82; const x = route.from.x + (route.to.x - route.from.x) * at; const y = route.from.y + (route.to.y - route.from.y) * at; return <span key={`${route.key}-tag`} className={`mission-route-tag side-${missionSide}${route.roaming ? " is-roaming" : ""}`} style={{ left: `${x * 100}%`, top: `${y * 100}%` }} title={`${route.nickname} · ${route.units.join(", ")}부대${route.roaming ? " · 아군 목적지 주변 유동" : ""}`}>{route.units.join("·")}</span>; })}
           {tool === "memo" && drawPoints.length > 1 && (() => { const area = memoRect(drawPoints[0], drawPoints[1]); return <div className="memo-preview" style={{ left: `${area.left * 100}%`, top: `${area.top * 100}%`, width: `${area.width * 100}%`, height: `${area.height * 100}%` }} />; })()}
