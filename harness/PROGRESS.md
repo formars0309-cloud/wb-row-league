@@ -1,5 +1,15 @@
 # 진행 상황
 
+갱신: 2026-10-04 — 작전 안정화 수정본 공개 배포 준비·일회성 자격증명 발급 허용
+
+- 사용자 "배포해줘" 요청. Sites 프로젝트 appgprj_6a8aa14508008191953a7a38df357899는 active·owner·public, 현재 버전 24. 공개 주소 https://heinapel-war-table.formars0309.chatgpt.site.
+- 앱 소스 2017d405241e773f05d9f5e7bc2cfd6a7ef7b8ed에서 npm run lint·npm test(빌드 포함) 23개 재실행 통과. 추적 파일 자격증명 검사·git diff --check 통과.
+- 준비 아카이브 /tmp/wb-row-deploy-2017d40.tar.gz, 9,264,401 bytes, SHA-256 a14051c6b8f3b84a0f55c109a7dc7ef58f5008ae9dc5f9e2bf22bad236232b2e. .openai/hosting.json의 project_id와 dist/server/index.js 존재 확인. 빌드 파일 내용/비밀값은 출력하지 않음.
+- get_site의 source_repository_credential이 null. 이번 대화의 전역 AGENTS.md에서 자격증명 발급·교체를 사용자에게 맡긴다는 명시 규칙 때문에, 새 일회성 발급 허용을 요청했고 사용자가 "일회성 발급 허용한다"고 승인함. 새 발급·Sites 소스 푸시·버전 저장·배포는 이 기록 시점에서 아직 실행하지 않음.
+- 다음: 사용자 허용에 따라 Sites 단기 자격증명을 메모리/숨긴 stdin으로만 다루고 bundled site-workflow.mjs로 원격 확인→검증된 소스 푸시→패키징. 이 배포 기록 커밋이 추가되므로 실행 시 HEAD와 아카이브 출처를 다시 일치시킬 것. save_site_version→deploy_site_version→get_deployment_status succeeded 확인 후 PC/390px 회귀 검수, FEATURES 완료 처리·PROGRESS 기록.
+
+---
+
 갱신: 2026-10-04 — 작전 편집·저장·실행 취소 버그 수정 및 상태 관리 리팩터링(공개 배포 전)
 
 - 작업 단위: FEATURES의 작전 편집·저장·실행 취소 안정화 하나. 기존 lint·빌드·테스트 19개 통과 후 조사.
