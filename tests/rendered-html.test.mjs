@@ -201,7 +201,7 @@ test("2026-10-04 시트 자리 변경: 저장본의 이전 기본 번호만 한 
   operation.players = operation.players.map((player) => old[player.nickname] ? { ...player, slot: old[player.nickname] } : player.nickname === "곡곡이" ? { ...player, slot: 13 } : player);
   operation.players.find((player) => player.nickname === "Elega").slot = 3; // 직접 바꾼 번호
   const migrated = normalizeOperation(JSON.parse(JSON.stringify(operation)));
-  assert.equal(migrated.rosterRevision, 3);
+  assert.equal(migrated.rosterRevision, 4);
   const slotOf = (name) => playerSlot(migrated.players.find((player) => player.nickname === name));
   assert.deepEqual(["마리오", "TOMAS SHELBY", "TESLA", "Mim Mi", "압수", "마스터"].map(slotOf), [5, 6, 7, 12, 20, 27]);
   assert.equal(slotOf("Elega"), 3, "직접 바꾼 번호는 그대로");
@@ -210,6 +210,33 @@ test("2026-10-04 시트 자리 변경: 저장본의 이전 기본 번호만 한 
   const again = JSON.parse(JSON.stringify(migrated));
   again.players.find((player) => player.nickname === "마스터").slot = 5;
   assert.equal(playerSlot(normalizeOperation(again).players.find((player) => player.nickname === "마스터")), 5);
+});
+
+test("2026-10-04 자리 변경 전 배치: 옛 기본 자리에 남은 말만 새 번호 자리로 한 번 옮긴다", async () => {
+  const { freshOperation, normalizeOperation, playerSlot, slotPoint } = await rosterHelpers();
+  const old = { "마스터": 5, "TESLA": 6, "Mim Mi": 7, "압수": 12, "마리오": 19, "TOMAS SHELBY": 20, "Elega": 27 };
+  for (const [revision, side, variant] of [[2, "ian", "tactical"], [3, "lucia", "field"]]) {
+    const operation = freshOperation();
+    operation.rosterRevision = revision;
+    const seat = (player) => old[player.nickname] ?? playerSlot(player);
+    operation.players = operation.players.map((player) => revision === 2 && old[player.nickname] ? { ...player, slot: old[player.nickname] } : player);
+    operation.players.find((player) => player.nickname === "Elega").slot = 3; // 직접 바꾼 번호
+    const byName = (ops, name) => ops.players.find((player) => player.nickname === name);
+    const moved = { x: .5, y: .5 };
+    const same = (actual, expected, message) => assert.equal(JSON.stringify(actual), JSON.stringify(expected), message);
+    operation.scenes[0].positions = Object.fromEntries(operation.players.map((player) => [String(player.id), slotPoint(seat(player), side, variant)]));
+    operation.scenes[0].positions[String(byName(operation, "압수").id)] = moved; // 직접 옮긴 말
+    const migrated = normalizeOperation(JSON.parse(JSON.stringify(operation)));
+    const at = (name) => migrated.scenes[0].positions[String(byName(migrated, name).id)];
+    for (const name of ["마리오", "TOMAS SHELBY", "TESLA", "Mim Mi", "마스터"]) same(at(name), slotPoint(playerSlot(byName(migrated, name)), side, variant), `${revision} ${name}`);
+    same(at("압수"), moved, "직접 옮긴 말은 그대로");
+    same(at("Elega"), slotPoint(27, side, variant), "직접 바꾼 번호의 말은 그대로");
+    same(at("무잔 Muzan"), slotPoint(1, side, variant));
+    // 이관한 저장본은 다시 옮기지 않는다.
+    const again = JSON.parse(JSON.stringify(migrated));
+    again.scenes[0].positions[String(byName(again, "마리오").id)] = slotPoint(19, side, variant);
+    same(normalizeOperation(again).scenes[0].positions[String(byName(again, "마리오").id)], slotPoint(19, side, variant));
+  }
 });
 
 test("구버전 명단은 ID와 편집을 보존하며 30명으로 이관하고 삭제 선수의 모든 장면 배치와 카드를 정리한다", async () => {
@@ -230,7 +257,7 @@ test("구버전 명단은 ID와 편집을 보존하며 30명으로 이관하고 
     const before = JSON.stringify(saved);
     const restored = normalizeOperation(saved);
     assert.equal(JSON.stringify(saved), before);
-    assert.equal(restored.rosterRevision, 3);
+    assert.equal(restored.rosterRevision, 4);
     assert.equal(restored.players.length, 30);
     assert.equal(new Set(restored.players.map((player) => player.id)).size, 30);
     const tesla = restored.players.find((player) => player.nickname === "TESLA");
