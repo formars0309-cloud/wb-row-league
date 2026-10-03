@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useOperationHistory } from "./operation-history";
 import { PLAYER_SOURCE, ROLE_LABEL, SLOT_SOURCE, ROSTER_ALIASES, type Brief, type MissionOrders, type PrimaryRole } from "./roster";
 
 type SecondaryRole = "garrison" | "rally" | "blocker";
@@ -20,7 +21,7 @@ type TacticalObject = { id: string; type: ObjectType; x: number; y: number; x2?:
 type SceneEvents = { fairyDragon: string; lifeStone: string; fairyDragonPosition: FairyDragonPosition };
 type Scene = { id: string; name: string; time: string; positions: Record<string, Point>; objects: TacticalObject[]; events: SceneEvents; objectiveOwners?: Record<string, ObjectiveOwner> };
 type SceneDraft = { id: string; name: string; time: string; fairyDragon: string; lifeStone: string; fairyDragonPosition: FairyDragonPosition };
-type Operation = { version: 1; rosterRevision?: 1 | 2 | 3; name: string; players: Player[]; scenes: Scene[]; activeSceneId: string; updatedAt: string; side?: MissionSide; cards?: MissionCard[] };
+export type Operation = { version: 1; rosterRevision?: 1 | 2 | 3; name: string; players: Player[]; scenes: Scene[]; activeSceneId: string; updatedAt: string; side?: MissionSide; cards?: MissionCard[] };
 
 const STORAGE_KEY = "heinapel-war-table-v0.3";
 const SECONDARY_LABEL: Record<SecondaryRole, string> = { garrison: "주둔장", rally: "집결장", blocker: "블로커" };
@@ -349,10 +350,55 @@ function groupUnits(units: string[]) {
   });
   return groups;
 }
-// localStorage와 JSON 가져오기가 같은 검사를 거친다.
-function readOperation(saved: Operation): Operation {
-  if (saved?.version !== 1 || !Array.isArray(saved.players) || !saved.scenes?.length) throw new Error("지원하지 않는 저장 데이터");
-  return normalizeOperation(saved);
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+function validCoordinate(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 1;
+}
+function validPoint(value: unknown): boolean {
+  return isRecord(value) && validCoordinate(value.x) && validCoordinate(value.y);
+}
+// localStorage와 JSON 가져오기는 화면에 적용하기 전에 같은 구조 검사를 거친다.
+function readOperation(saved: unknown): Operation {
+  const invalid = () => { throw new Error("지원하지 않는 저장 데이터"); };
+  if (!isRecord(saved) || saved.version !== 1 || !Array.isArray(saved.players) || !saved.players.every(isRecord) ||
+    !Array.isArray(saved.scenes) || !saved.scenes.length || typeof saved.name !== "string" ||
+    typeof saved.updatedAt !== "string" || !Number.isFinite(Date.parse(saved.updatedAt)) ||
+    (saved.rosterRevision !== undefined && ![1, 2, 3].includes(saved.rosterRevision as number)) ||
+    (saved.side !== undefined && !MISSION_SIDES.includes(saved.side as MissionSide))) return invalid();
+  const sceneIds = new Set<string>();
+  for (const scene of saved.scenes) {
+    if (!isRecord(scene) || typeof scene.id !== "string" || !scene.id || sceneIds.has(scene.id) ||
+      typeof scene.name !== "string" || typeof scene.time !== "string" || !Array.isArray(scene.objects) ||
+      (scene.positions !== undefined && (!isRecord(scene.positions) || !Object.values(scene.positions).every(validPoint)))) return invalid();
+    sceneIds.add(scene.id);
+    if (scene.events !== undefined && (!isRecord(scene.events) ||
+      [scene.events.fairyDragon, scene.events.lifeStone].some((value) => value !== undefined && typeof value !== "string") ||
+      (scene.events.fairyDragonPosition !== undefined && !["northwest", "southeast"].includes(scene.events.fairyDragonPosition as string)))) return invalid();
+    if (scene.objectiveOwners !== undefined && (!isRecord(scene.objectiveOwners) ||
+      Object.entries(scene.objectiveOwners).some(([id, owner]) => !OBJECTIVE_META.some((objective) => objective.id === id) || !["neutral", "ian", "lucia"].includes(owner as string)))) return invalid();
+    const objectIds = new Set<string>();
+    for (const object of scene.objects) {
+      if (!isRecord(object) || typeof object.id !== "string" || !object.id || objectIds.has(object.id) ||
+        !["moveArrow", "attackArrow", "defense", "rally", "step", "text", "memo"].includes(object.type as string) || !validPoint(object) ||
+        [object.x2, object.y2].some((value) => value !== undefined && !validCoordinate(value)) ||
+        (object.text !== undefined && typeof object.text !== "string") ||
+        (object.points !== undefined && (!Array.isArray(object.points) || !object.points.every(validPoint)))) return invalid();
+      objectIds.add(object.id);
+    }
+  }
+  if (typeof saved.activeSceneId !== "string" || !sceneIds.has(saved.activeSceneId)) return invalid();
+  if (saved.cards !== undefined) {
+    if (!Array.isArray(saved.cards)) return invalid();
+    const cardIds = new Set<number>();
+    for (const card of saved.cards) {
+      if (!isRecord(card) || !Number.isSafeInteger(card.playerId) || (card.playerId as number) < 1 || cardIds.has(card.playerId as number) || !validPoint(card) ||
+        (card.route !== undefined && typeof card.route !== "boolean")) return invalid();
+      cardIds.add(card.playerId as number);
+    }
+  }
+  return normalizeOperation(saved as Operation);
 }
 function smoothPath(points: Point[]) {
   if (points.length < 2) return "";
@@ -816,7 +862,7 @@ function PlayerEditor({ initial, players, onSave, onDelete, onClose }: { initial
 }
 
 export default function WarTable() {
-  const [operation, setOperation] = useState<Operation>(freshOperation);
+  const { operation, setOperation, commit, checkpoint, restore, canUndo, canRedo, undo: undoOperation, redo: redoOperation } = useOperationHistory(freshOperation);
   const [playerDraft, setPlayerDraft] = useState<Player | null>(null);
   const [staffOpen, setStaffOpen] = useState(false);
   const { sheet, staff } = useMissionSheets();
@@ -833,13 +879,9 @@ export default function WarTable() {
   const [mapVariant, setMapVariant] = useState<MapVariant>("tactical");
   const [mapFocus, setMapFocus] = useState(false);
   const [sceneDraft, setSceneDraft] = useState<SceneDraft | null>(null);
-  const [canUndo, setCanUndo] = useState(false);
-  const [canRedo, setCanRedo] = useState(false);
   const mapRef = useRef<HTMLElement>(null);
   const importRef = useRef<HTMLInputElement>(null);
-  const pastRef = useRef<Operation[]>([]);
-  const futureRef = useRef<Operation[]>([]);
-  const dragRef = useRef<null | { startClient: Point; sceneId: string; initial: Record<string, Point> }>(null);
+  const dragRef = useRef<null | { startClient: Point; sceneId: string; initial: Record<string, Point>; moved: boolean }>(null);
   const drawPointsRef = useRef<Point[]>([]);
   const memoInputRef = useRef<HTMLTextAreaElement>(null);
   const memoDragRef = useRef<null | { id: string; sceneId: string; text: string; startClient: Point; origin: Point; size: { width: number; height: number }; moved: boolean }>(null);
@@ -878,12 +920,12 @@ export default function WarTable() {
             if (localStorage.getItem(backupKey) === null) localStorage.setItem(backupKey, raw);
             localStorage.removeItem(MOBILE_PICK_KEY);
           }
-          setOperation(restored);
+          restore(restored);
         }
       } catch { setStorageError("저장 데이터를 읽지 못했습니다. 원본은 보존했습니다. JSON 백업을 확인해 주세요."); }
       setReady(true);
     });
-  }, []);
+  }, [restore]);
 
   useEffect(() => {
     if (!ready || storageError) return;
@@ -891,27 +933,13 @@ export default function WarTable() {
     catch { queueMicrotask(() => setStorageError("자동 저장에 실패했습니다. JSON ↓로 변경 내용을 백업해 주세요.")); }
   }, [operation, ready, storageError]);
 
-  // 실행 취소는 최근 60단계까지 둔다.
-  const remember = (current: Operation) => { pastRef.current = [...pastRef.current.slice(-59), clone(current)]; futureRef.current = []; };
-  const commit = (updater: (current: Operation) => Operation) => {
-    setCanUndo(true);
-    setCanRedo(false);
-    setOperation((current) => {
-      remember(current);
-      const next = updater(clone(current));
-      next.updatedAt = new Date().toISOString();
-      return next;
-    });
+  const clearEditing = () => {
+    dragRef.current = null; cardDragRef.current = null; memoDragRef.current = null;
+    drawPointsRef.current = []; setDrawPoints([]);
+    setSelectedIds([]); setMemoDraft(null); setSceneDraft(null); setPlayerDraft(null);
   };
-  const checkpoint = () => { remember(operation); setCanUndo(true); setCanRedo(false); };
-  const undo = () => {
-    const previous = pastRef.current.pop(); if (!previous) return;
-    futureRef.current.push(clone(operation)); setOperation(previous); setSelectedIds([]); setCanUndo(pastRef.current.length > 0); setCanRedo(true);
-  };
-  const redo = () => {
-    const next = futureRef.current.pop(); if (!next) return;
-    pastRef.current.push(clone(operation)); setOperation(next); setSelectedIds([]); setCanUndo(true); setCanRedo(futureRef.current.length > 0);
-  };
+  const undo = () => { clearEditing(); undoOperation(); };
+  const redo = () => { clearEditing(); redoOperation(); };
   const updateScene = (sceneId: string, updater: (target: Scene) => void) => commit((draft) => {
     const target = draft.scenes.find((item) => item.id === sceneId); if (target) updater(target); return draft;
   });
@@ -928,6 +956,7 @@ export default function WarTable() {
       const dragTo = (drag: { startClient: Point; origin: Point; moved: boolean }, size: { width: number; height: number }) => {
         const moveX = (event.clientX - drag.startClient.x) / rect.width; const moveY = (event.clientY - drag.startClient.y) / rect.height;
         if (!drag.moved && Math.hypot(moveX, moveY) < .004) return null;
+        if (!drag.moved) checkpoint();
         drag.moved = true;
         return { x: fitAxis(drag.origin.x + moveX, size.width), y: fitAxis(drag.origin.y + moveY, size.height) };
       };
@@ -948,19 +977,22 @@ export default function WarTable() {
       }
       const active = dragRef.current; if (!active) return;
       const dx = (event.clientX - active.startClient.x) / rect.width; const dy = (event.clientY - active.startClient.y) / rect.height;
+      if (!active.moved && Math.hypot(dx, dy) < .004) return;
+      if (!active.moved) checkpoint();
+      active.moved = true;
       setOperation((current) => ({ ...current, scenes: current.scenes.map((item) => item.id !== active.sceneId ? item : {
         ...item, positions: { ...item.positions, ...Object.fromEntries(Object.entries(active.initial).map(([id, pos]) => [id, { x: clamp(pos.x + dx), y: clamp(pos.y + dy) }])) },
       }) }));
     };
-    const up = () => {
+    const up = (event: PointerEvent) => {
       dragRef.current = null;
       cardDragRef.current = null;
       const memo = memoDragRef.current; memoDragRef.current = null;
-      if (memo && !memo.moved) setMemoDraft({ id: memo.id, text: memo.text });
+      if (event.type === "pointerup" && memo && !memo.moved) setMemoDraft({ id: memo.id, text: memo.text });
     };
-    window.addEventListener("pointermove", move); window.addEventListener("pointerup", up);
-    return () => { window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up); };
-  }, []);
+    window.addEventListener("pointermove", move); window.addEventListener("pointerup", up); window.addEventListener("pointercancel", up);
+    return () => { window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up); window.removeEventListener("pointercancel", up); };
+  }, [checkpoint, setOperation]);
 
   useEffect(() => {
     const node = memoInputRef.current; if (!editingMemoId || !node) return;
@@ -973,8 +1005,8 @@ export default function WarTable() {
     if (tool !== "select") return;
     if (event.ctrlKey || event.metaKey) { setSelectedIds((ids) => ids.includes(playerId) ? ids.filter((id) => id !== playerId) : [...ids, playerId]); return; }
     const moving = selectedIds.includes(playerId) ? selectedIds : [playerId];
-    setSelectedIds(moving); setEditingId(playerId); checkpoint();
-    dragRef.current = { startClient: { x: event.clientX, y: event.clientY }, sceneId: scene.id, initial: Object.fromEntries(moving.filter((id) => scene.positions[String(id)]).map((id) => [String(id), { ...scene.positions[String(id)] }])) };
+    setSelectedIds(moving); setEditingId(playerId);
+    dragRef.current = { startClient: { x: event.clientX, y: event.clientY }, sceneId: scene.id, moved: false, initial: Object.fromEntries(moving.filter((id) => scene.positions[String(id)]).map((id) => [String(id), { ...scene.positions[String(id)] }])) };
   };
   const handleRosterDrag = (event: React.DragEvent, playerId: number) => { event.dataTransfer.setData("text/player-id", String(playerId)); event.dataTransfer.effectAllowed = "move"; };
   const handleMapDrop = (event: React.DragEvent) => {
@@ -1035,7 +1067,6 @@ export default function WarTable() {
     if (tool === "delete") { event.stopPropagation(); closeMissionCard(card.playerId); return; }
     if (tool !== "select") return;
     event.stopPropagation();
-    checkpoint();
     cardDragRef.current = { playerId: card.playerId, startClient: { x: event.clientX, y: event.clientY }, origin: { x: card.x, y: card.y }, moved: false };
   };
   const patchPlayer = (id: number, patch: Partial<Player>) => commit((draft) => {
@@ -1082,7 +1113,7 @@ export default function WarTable() {
     updateScene(scene.id, (target) => {
       const note = target.objects.find((object) => object.id === draft.id); if (!note) return;
       if (save) note.text = draft.text.trim();
-      // A note with nothing on it is just clutter, so it never survives the edit.
+      // 편집을 마친 빈 메모는 제거한다.
       if (!note.text?.trim()) target.objects = target.objects.filter((object) => object.id !== draft.id);
     });
   };
@@ -1090,7 +1121,6 @@ export default function WarTable() {
     event.stopPropagation();
     if (tool === "delete") { deleteObject(note.id); return; }
     if (tool !== "select" || memoDraft?.id === note.id) return;
-    checkpoint();
     memoDragRef.current = { id: note.id, sceneId: scene.id, text: note.text ?? "", startClient: { x: event.clientX, y: event.clientY }, origin: { x: note.x, y: note.y }, size: memoSpan(note), moved: false };
   };
   const cycleObjective = (objectiveId: string) => updateScene(scene.id, (target) => {
@@ -1099,12 +1129,15 @@ export default function WarTable() {
     target.objectiveOwners = { ...target.objectiveOwners, [objectiveId]: next };
   });
 
-  const cloneScene = () => commit((draft) => {
-    const source = draft.scenes.find((item) => item.id === draft.activeSceneId) ?? draft.scenes[0];
-    const id = uid("scene"); const index = draft.scenes.length; const time = SCENE_TIMES[index] ?? `T+${String(index).padStart(2, "0")}`;
-    const next: Scene = { ...clone(source), id, name: index < SCENE_TIMES.length ? ["START", "루브라이트", "포탈", "페어리 드래곤", "생명석"][index] : `SCENE ${String(index + 1).padStart(2, "0")}`, time, events: { ...clone(source.events), fairyDragonPosition: source.events.fairyDragonPosition === "northwest" ? "southeast" : "northwest" } };
-    draft.scenes.push(next); draft.activeSceneId = id; return draft;
-  });
+  const cloneScene = () => {
+    const id = uid("scene");
+    commit((draft) => {
+      const source = draft.scenes.find((item) => item.id === draft.activeSceneId) ?? draft.scenes[0];
+      const index = draft.scenes.length; const time = SCENE_TIMES[index] ?? `T+${String(index).padStart(2, "0")}`;
+      const next: Scene = { ...clone(source), id, name: index < SCENE_TIMES.length ? ["START", "루브라이트", "포탈", "페어리 드래곤", "생명석"][index] : `SCENE ${String(index + 1).padStart(2, "0")}`, time, events: { ...clone(source.events), fairyDragonPosition: source.events.fairyDragonPosition === "northwest" ? "southeast" : "northwest" } };
+      draft.scenes.push(next); draft.activeSceneId = id; return draft;
+    });
+  };
   const switchScene = (sceneId: string) => { setOperation((current) => ({ ...current, activeSceneId: sceneId })); setSelectedIds([]); setMemoDraft(null); };
   const removeScene = (sceneId: string) => {
     if (operation.scenes.length === 1 || !window.confirm("이 장면을 타임라인에서 삭제할까요?")) return;
@@ -1138,11 +1171,11 @@ export default function WarTable() {
   };
   const importJson = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]; if (!file) return;
-    try { const parsed = readOperation(JSON.parse(await file.text())); checkpoint(); setStorageError(""); setOperation(parsed); setSelectedIds([]); setMemoDraft(null); }
+    try { const parsed = readOperation(JSON.parse(await file.text())); clearEditing(); setStorageError(""); commit(() => parsed); }
     catch { window.alert("Heinapel War Table v0.1 JSON 파일이 아닙니다."); }
     event.target.value = "";
   };
-  const resetOperation = () => { if (!window.confirm("현재 작전 데이터를 초기화할까요?")) return; checkpoint(); setStorageError(""); setOperation(freshOperation()); setSelectedIds([]); setSceneDraft(null); setMemoDraft(null); };
+  const resetOperation = () => { if (!window.confirm("현재 작전 데이터를 초기화할까요?")) return; const fresh = freshOperation(); clearEditing(); setStorageError(""); commit(() => fresh); };
   const toggleCommandRole = (role: "rally" | "garrison") => {
     if (!editing) return;
     const secondaryRoles = editing.secondaryRoles.includes(role)
@@ -1190,14 +1223,14 @@ export default function WarTable() {
 
   return (
     <>
-    <main className={`war-shell${mapFocus ? " map-focus" : ""}`}>
+    <main className={`war-shell${mapFocus ? " map-focus" : ""}`} inert={!ready}>
       <header className="topbar">
-        <div className="brand-block"><span className="brand-mark">H</span><div><h1>HEINAPEL <span>WAR TABLE</span></h1><input aria-label="작전명" value={operation.name} onChange={(event) => commit((draft) => { draft.name = event.target.value; return draft; })} /></div></div>
+        <div className="brand-block"><span className="brand-mark">H</span><div><h1>HEINAPEL <span>WAR TABLE</span></h1><input aria-label="작전명" value={operation.name} onChange={(event) => { const name = event.target.value; commit((draft) => { draft.name = name; return draft; }); }} /></div></div>
         <div className="battle-clock"><span>{scene.name}</span><strong>{scene.time} · {placedCount}/{operation.players.length} DEPLOYED</strong></div>
         <div className="header-actions">
           <button type="button" onClick={undo} disabled={!canUndo} title="실행 취소">↶</button><button type="button" onClick={redo} disabled={!canRedo} title="다시 실행">↷</button>
           <button type="button" onClick={exportJson}>JSON ↓</button><button type="button" onClick={() => importRef.current?.click()}>JSON ↑</button><input ref={importRef} className="visually-hidden" type="file" accept="application/json" onChange={importJson} />
-          <span className="status-chip"><i /> {storageError ? "저장 실패" : "SAVED"} {ready ? new Date(operation.updatedAt).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "—"}</span>
+          <span className="status-chip"><i /> {storageError ? "저장 실패" : ready ? "SAVED" : "불러오는 중"} {ready ? new Date(operation.updatedAt).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "—"}</span>
         </div>
       </header>
 

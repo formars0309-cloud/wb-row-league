@@ -9,10 +9,122 @@ async function rosterHelpers() {
   const rosterJs = ts.transpileModule(rosterSource, { compilerOptions: { module: ts.ModuleKind.ESNext } }).outputText;
   const roster = await import(`data:text/javascript;base64,${Buffer.from(rosterJs).toString("base64")}`);
   const source = await readFile(new URL("../app/war-table.tsx", import.meta.url), "utf8");
-  const helpers = source.slice(0, source.indexOf("function UnitRoleIcon")).replace(/^import .*;$/gm, "");
+  const helpers = source.slice(0, source.indexOf("function UnitRoleIcon")).replace(/^import .*;$/gm, "").replace(/^export type /gm, "type ");
   const js = ts.transpileModule(helpers, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
-  return runInNewContext(`${js}\n({ freshOperation, normalizeRoster, normalizeOperation, playerBrief, playerSlot, readMissionSheet, mirrorMission, lineExit, entranceBlock, missionTargets, buildMissionPlan, objectivePoint, OBJECTIVE_META, missionLines, missionParts, teamCommon, groupUnits, readStaffSheet, staffPoint, staffRoute, slotPoint })`, { ...roster });
+  return runInNewContext(`${js}\n({ freshOperation, normalizeRoster, normalizeOperation, playerBrief, playerSlot, readMissionSheet, mirrorMission, lineExit, entranceBlock, missionTargets, buildMissionPlan, objectivePoint, OBJECTIVE_META, missionLines, missionParts, teamCommon, groupUnits, readStaffSheet, staffPoint, staffRoute, slotPoint, readOperation })`, { ...roster });
 }
+
+async function historyHelpers() {
+  const source = await readFile(new URL("../app/operation-history.ts", import.meta.url), "utf8");
+  const js = ts.transpileModule(source.replace(/^import .*;$/gm, "").replace(/\bexport /g, ""), { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
+  return runInNewContext(`${js}\n({ initialHistory, operationHistory })`, { structuredClone });
+}
+
+test("실행 취소 전이는 재실행해도 기록을 중복하지 않고 변경 없는 작업은 다시 실행을 보존한다", async () => {
+  const { freshOperation } = await rosterHelpers();
+  const { initialHistory, operationHistory } = await historyHelpers();
+  const initial = initialHistory(freshOperation());
+  const before = JSON.stringify(initial);
+  const edit = { type: "commit", at: "2026-10-04T01:00:00Z", updater: (op) => { op.name = "수정"; return op; } };
+  const edited = operationHistory(initial, edit);
+  assert.equal(JSON.stringify(initial), before);
+  assert.equal(JSON.stringify(operationHistory(initial, edit)), JSON.stringify(edited));
+  assert.equal(edited.past.length, 1);
+  const undone = operationHistory(edited, { type: "undo", at: "2026-10-04T01:01:00Z" });
+  assert.equal(undone.present.name, initial.present.name);
+  assert.equal(undone.past.length, 0);
+  const same = operationHistory(undone, { type: "commit", at: edit.at, updater: (op) => op });
+  assert.equal(same, undone);
+  assert.equal(same.future.length, 1);
+  const redone = operationHistory(same, { type: "redo", at: edit.at });
+  assert.equal(redone.present.name, "수정");
+  assert.equal(redone.past.length, 1);
+  assert.equal(redone.future.length, 0);
+  const branched = operationHistory(undone, { ...edit, updater: (op) => { op.name = "다른 변경"; return op; } });
+  assert.equal(branched.future.length, 0);
+  assert.equal(operationHistory(branched, { type: "redo", at: edit.at }), branched);
+});
+
+test("연속 드래그는 한 단계로 취소·복원하고 기록은 최근 60단계로 제한한다", async () => {
+  const { freshOperation } = await rosterHelpers();
+  const { initialHistory, operationHistory } = await historyHelpers();
+  const initial = initialHistory(freshOperation());
+  const at = "2026-10-04T01:00:00Z";
+  let state = operationHistory(initial, { type: "checkpoint" });
+  for (const x of [.3, .4, .5]) state = operationHistory(state, { type: "update", at, updater: (op) => {
+    op.scenes[0].positions[1] = { x, y: .5 }; return op;
+  } });
+  assert.equal(state.past.length, 1);
+  const undone = operationHistory(state, { type: "undo", at });
+  assert.equal(Object.keys(undone.present.scenes[0].positions).length, 0);
+  assert.equal(operationHistory(undone, { type: "redo", at }).present.scenes[0].positions[1].x, .5);
+  for (let index = 0; index < 70; index++) state = operationHistory(state, { type: "commit", at, updater: (op) => { op.name = String(index); return op; } });
+  assert.equal(state.past.length, 60);
+  for (let index = 0; index < 60; index++) state = operationHistory(state, { type: "undo", at });
+  assert.equal(state.present.name, "9");
+  assert.equal(state.past.length, 0);
+  assert.equal(state.future.length, 60);
+  const restored = operationHistory(state, { type: "restore", operation: initial.present });
+  assert.equal(restored.past.length, 0);
+  assert.equal(restored.future.length, 0);
+});
+
+test("저장본의 잘못된 장면·좌표·이벤트·오브젝트·카드는 화면에 적용하기 전에 거부한다", async () => {
+  const { freshOperation, readOperation } = await rosterHelpers();
+  const mutations = [
+    (op) => { op.scenes[0].objects = null; },
+    (op) => { op.scenes = {}; },
+    (op) => { op.players = [null]; },
+    (op) => { op.updatedAt = "bad"; },
+    (op) => { op.rosterRevision = 99; },
+    (op) => { op.name = {}; },
+    (op) => { op.scenes[0].positions = []; },
+    (op) => { op.scenes[0].positions = { 1: { x: 1.1, y: .5 } }; },
+    (op) => { op.scenes[0].positions = { 1: { x: NaN, y: .5 } }; },
+    (op) => { op.scenes[0].events.fairyDragonPosition = "bad"; },
+    (op) => { op.scenes[0].objectiveOwners = { "spirit-east": "bad" }; },
+    (op) => { op.scenes[0].objectiveOwners = { unknown: "ian" }; },
+    (op) => { op.scenes[0].objects = [{ id: "a", type: "unknown", x: .2, y: .3 }]; },
+    (op) => { op.scenes[0].objects = [{ id: "a", type: "memo", x: .2, y: .3, text: {} }]; },
+    (op) => { op.scenes[0].objects = [{ id: "a", type: "rally", x: .2, y: .3 }, { id: "a", type: "rally", x: .4, y: .5 }]; },
+    (op) => { op.cards = [{ playerId: 1, x: .1, y: .2, route: "bad" }]; },
+    (op) => { op.cards = [{ playerId: 1, x: .1, y: .2 }, { playerId: 1, x: .3, y: .4 }]; },
+    (op) => { op.scenes[0].positions = { 1: { x: "bad", y: .5 } }; },
+    (op) => { op.scenes[0].events.lifeStone = {}; },
+    (op) => { op.side = "unknown"; },
+    (op) => { op.scenes.push({ ...op.scenes[0] }); },
+    (op) => { op.activeSceneId = "missing"; },
+    (op) => { op.scenes[0].objects = [{ id: "a", type: "attackArrow", x: .2, y: .3, points: "bad" }]; },
+    (op) => { op.cards = [{ playerId: 1, x: null, y: .2 }]; },
+  ];
+  for (const mutate of mutations) {
+    const saved = JSON.parse(JSON.stringify(freshOperation()));
+    mutate(saved);
+    assert.throws(() => readOperation(saved));
+  }
+});
+
+test("저장본 검사는 기존 장면 기본값과 전술 오브젝트·카드의 JSON 왕복을 보존한다", async () => {
+  const { freshOperation, readOperation } = await rosterHelpers();
+  const saved = JSON.parse(JSON.stringify(freshOperation()));
+  saved.scenes[0].positions = { 1: { x: 0, y: 1 } };
+  saved.scenes[0].objects = ["moveArrow", "attackArrow", "defense", "rally", "step", "text", "memo"].map((type) => ({
+    id: type, type, x: .2, y: .3, x2: .4, y2: .5, text: "메모", points: [{ x: .2, y: .3 }, { x: .4, y: .5 }],
+  }));
+  saved.scenes[0].objectiveOwners = { "spirit-east": "ian" };
+  saved.cards = [{ playerId: 1, x: .2, y: .3, route: true }];
+  const before = JSON.stringify(saved);
+  const restored = readOperation(saved);
+  assert.equal(JSON.stringify(saved), before);
+  assert.equal(JSON.stringify(restored.scenes), JSON.stringify(saved.scenes));
+  assert.equal(JSON.stringify(restored.cards), JSON.stringify(saved.cards));
+  assert.equal(JSON.stringify(readOperation(JSON.parse(JSON.stringify(restored)))), JSON.stringify(restored));
+  delete saved.scenes[0].events;
+  delete saved.scenes[0].positions;
+  const legacy = readOperation(saved);
+  assert.equal(legacy.scenes[0].events.fairyDragonPosition, "northwest");
+  assert.equal(Object.keys(legacy.scenes[0].positions).length, 0);
+});
 
 test("새 정본의 편집 명단은 이름·보직·임무 삭제와 빈 명단을 JSON 왕복 후에도 보존한다", async () => {
   const { freshOperation, normalizeRoster, playerBrief, playerSlot } = await rosterHelpers();
@@ -355,7 +467,9 @@ test("server-renders the Heinapel War Table", async () => {
   const html = await response.text();
   assert.match(html, /<html lang="ko">/i);
   assert.match(html, /<title>Heinapel War Table v0\.1<\/title>/i);
-  assert.match(html, /<main class="war-shell">/i);
+  // 저장본 복원이 끝나기 전에 편집해 변경 내용이 복원본에 덮이는 것을 막는다.
+  assert.match(html, /<main class="war-shell" inert="">/i);
+  assert.match(html, /불러오는 중/);
   const roster = html.slice(html.indexOf('class="mobile-roster"'));
   assert.equal((roster.match(/<li><button type="button"><b>/g) ?? []).length, 30);
   assert.match(roster, /<b>1<\/b><span>무잔 Muzan<\/span>/);
