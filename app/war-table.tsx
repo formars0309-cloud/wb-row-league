@@ -20,7 +20,7 @@ type TacticalObject = { id: string; type: ObjectType; x: number; y: number; x2?:
 type SceneEvents = { fairyDragon: string; lifeStone: string; fairyDragonPosition: FairyDragonPosition };
 type Scene = { id: string; name: string; time: string; positions: Record<string, Point>; objects: TacticalObject[]; events: SceneEvents; objectiveOwners?: Record<string, ObjectiveOwner> };
 type SceneDraft = { id: string; name: string; time: string; fairyDragon: string; lifeStone: string; fairyDragonPosition: FairyDragonPosition };
-type Operation = { version: 1; rosterRevision?: 1 | 2; name: string; players: Player[]; scenes: Scene[]; activeSceneId: string; updatedAt: string; side?: MissionSide; cards?: MissionCard[] };
+type Operation = { version: 1; rosterRevision?: 1 | 2 | 3; name: string; players: Player[]; scenes: Scene[]; activeSceneId: string; updatedAt: string; side?: MissionSide; cards?: MissionCard[] };
 
 const STORAGE_KEY = "heinapel-war-table-v0.3";
 const SECONDARY_LABEL: Record<SecondaryRole, string> = { garrison: "주둔장", rally: "집결장", blocker: "블로커" };
@@ -106,7 +106,7 @@ const OBJECTIVE_META = [
 
 function freshOperation(): Operation {
   const sceneId = "scene-1";
-  return { version: 1, rosterRevision: 2, name: "WB 헤이나펄 리그 2기", side: "ian", players: INITIAL_PLAYERS, scenes: [{ id: sceneId, name: "START", time: "60:00", positions: {}, objects: [], events: { ...DEFAULT_SCENE_EVENTS } }], activeSceneId: sceneId, updatedAt: new Date().toISOString() };
+  return { version: 1, rosterRevision: 3, name: "WB 헤이나펄 리그 2기", side: "ian", players: INITIAL_PLAYERS, scenes: [{ id: sceneId, name: "START", time: "60:00", positions: {}, objects: [], events: { ...DEFAULT_SCENE_EVENTS } }], activeSceneId: sceneId, updatedAt: new Date().toISOString() };
 }
 function clone<T>(value: T): T { return JSON.parse(JSON.stringify(value)) as T; }
 function clamp(value: number) { return Math.max(0.025, Math.min(0.975, value)); }
@@ -156,15 +156,18 @@ function playerBrief(player: Player): Brief | undefined {
 function playerSlot(player: Player): number | undefined {
   return player.slot === undefined ? SLOT_BY_NICKNAME.get(player.nickname) : player.slot ?? undefined;
 }
+// 2026-10-04 시트 자리 변경 전 번호. 저장본에 이 기본 번호가 그대로 남은 선수만 한 번 새 기본 번호를 따르게 한다.
+const SEATS_BEFORE_2026_10_04 = new Map([["마스터", 5], ["TESLA", 6], ["Mim Mi", 7], ["압수", 12], ["마리오", 19], ["TOMAS SHELBY", 20], ["Elega", 27]]);
 function normalizeRoster(saved: Operation): Player[] {
   const players = saved.players;
-  if (saved.rosterRevision === 2 && players.length > 30) throw new Error("주전은 최대 30명입니다.");
+  const photoRoster = (saved.rosterRevision ?? 0) >= 2;
+  if (photoRoster && players.length > 30) throw new Error("주전은 최대 30명입니다.");
   const ids = new Set<number>();
   const names = new Set<string>();
   for (const player of players) {
     if (!Number.isSafeInteger(player.id) || player.id < 1 || ids.has(player.id) ||
       typeof player.nickname !== "string" || !player.nickname.trim() || names.has(player.nickname.trim().toLowerCase()) ||
-      !Object.hasOwn(ROLE_LABEL, player.primaryRole) || !(saved.rosterRevision === 2 ? ["starter"] : ["starter", "reserve"]).includes(player.lineup) ||
+      !Object.hasOwn(ROLE_LABEL, player.primaryRole) || !(photoRoster ? ["starter"] : ["starter", "reserve"]).includes(player.lineup) ||
       !Array.isArray(player.secondaryRoles) || player.secondaryRoles.some((role) => !Object.hasOwn(SECONDARY_LABEL, role)) ||
       (player.slot != null && (!Number.isInteger(player.slot) || player.slot < 1 || player.slot > 30))) throw new Error("잘못된 명단");
     const brief = player.brief;
@@ -175,11 +178,11 @@ function normalizeRoster(saved: Operation): Player[] {
       (brief.image && (typeof brief.image.src !== "string" || typeof brief.image.caption !== "string")))) throw new Error("잘못된 임무");
     ids.add(player.id); names.add(player.nickname.trim().toLowerCase());
   }
-  if (saved.rosterRevision === 2) {
+  if (photoRoster) {
     const renamed = players.map((player) => {
       const nickname = ROSTER_ALIASES.get(player.nickname);
       return nickname && SLOT_BY_NICKNAME.get(nickname) === 2 ? { ...player, nickname, brief: player.brief ? { ...player.brief, nickname } : player.brief } : player;
-    });
+    }).map((player) => saved.rosterRevision === 2 && player.slot != null && SEATS_BEFORE_2026_10_04.get(player.nickname) === player.slot ? { ...player, slot: undefined } : player);
     if (new Set(renamed.map((player) => player.nickname.trim().toLowerCase())).size !== renamed.length) throw new Error("잘못된 명단");
     return renamed;
   }
@@ -190,8 +193,8 @@ function normalizeRoster(saved: Operation): Player[] {
 function normalizeOperation(saved: Operation): Operation {
   const players = normalizeRoster(saved);
   const previousIds = new Set(saved.players.map((player) => player.id));
-  const ids = new Set(players.filter((player) => saved.rosterRevision === 2 || previousIds.has(player.id)).map((player) => String(player.id)));
-  return { ...saved, players, rosterRevision: 2, cards: saved.cards?.filter((card) => ids.has(String(card.playerId))),
+  const ids = new Set(players.filter((player) => (saved.rosterRevision ?? 0) >= 2 || previousIds.has(player.id)).map((player) => String(player.id)));
+  return { ...saved, players, rosterRevision: 3, cards: saved.cards?.filter((card) => ids.has(String(card.playerId))),
     scenes: saved.scenes.map((item, index) => ({ ...normalizeScene(item, index), positions: Object.fromEntries(Object.entries(item.positions ?? {}).filter(([id]) => ids.has(id))) })),
   };
 }
@@ -859,7 +862,7 @@ export default function WarTable() {
         if (raw) {
           const saved = JSON.parse(raw) as Operation;
           const restored = readOperation(saved);
-          if (saved.rosterRevision !== 2) {
+          if ((saved.rosterRevision ?? 0) < 2) {
             const backupKey = `${STORAGE_KEY}-before-photo-roster-2026-10-01`;
             if (localStorage.getItem(backupKey) === null) localStorage.setItem(backupKey, raw);
             localStorage.removeItem(MOBILE_PICK_KEY);
@@ -1162,7 +1165,9 @@ export default function WarTable() {
     setTool("select");
   };
 
-  const visiblePlayers = operation.players.filter((player) => roleFilter === "all" || player.primaryRole === roleFilter);
+  // 명단은 전투 위치 번호순, 번호 없는 선수는 뒤에 둔다.
+  const visiblePlayers = operation.players.filter((player) => roleFilter === "all" || player.primaryRole === roleFilter)
+    .sort((a, b) => (playerSlot(a) ?? 99) - (playerSlot(b) ?? 99));
   const placedCount = Object.keys(scene.positions).length;
   const objects = scene.objects;
   const stepObjects = objects.filter((object) => object.type === "step");

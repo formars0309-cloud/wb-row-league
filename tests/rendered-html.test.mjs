@@ -73,12 +73,31 @@ test("가져온 명단의 중복 ID·닉네임과 잘못된 임무·번호를 �
 
 test("사진 정본 30명의 번호와 이름이 정확히 일치하고 앱에는 기본 임무가 없다", async () => {
   const { freshOperation, playerSlot, playerBrief } = await rosterHelpers();
-  const expected = ["무잔 Muzan", "벌꿀오소리형", "바르니 barunii", "마지태", "마스터", "TESLA", "Mim Mi", "파리스", "마구니", "Glen fiddich", "예리", "압수", "곡곡이", "GINSENG MAN", "Kingsway", "욘두 Yondu", "진수", "조롱말", "마리오", "TOMAS SHELBY", "Bünker", "불개", "떡틸로", "JunkHun", "Maha", "5000", "Elega", "보수", "햄수", "늑대장군"];
+  const expected = ["무잔 Muzan", "벌꿀오소리형", "바르니 barunii", "마지태", "마리오", "TOMAS SHELBY", "TESLA", "파리스", "마구니", "Glen fiddich", "예리", "Mim Mi", "곡곡이", "GINSENG MAN", "Kingsway", "욘두 Yondu", "진수", "조롱말", "Elega", "압수", "Bünker", "불개", "떡틸로", "JunkHun", "Maha", "5000", "마스터", "보수", "햄수", "늑대장군"];
   const players = freshOperation().players;
   assert.deepEqual(Array.from(players, (player) => player.nickname), expected);
   assert.deepEqual(Array.from(players, playerSlot), Array.from({ length: 30 }, (_, i) => i + 1));
   assert.ok(players.every((player) => player.lineup === "starter"));
   assert.ok(players.every((player) => playerBrief(player) === undefined));
+});
+
+test("2026-10-04 시트 자리 변경: 저장본의 이전 기본 번호만 한 번 새 번호로 옮기고 직접 바꾼 번호는 보존한다", async () => {
+  const { freshOperation, normalizeOperation, playerSlot } = await rosterHelpers();
+  const operation = freshOperation();
+  const old = { "마스터": 5, "TESLA": 6, "Mim Mi": 7, "압수": 12, "마리오": 19, "TOMAS SHELBY": 20, "Elega": 27 };
+  operation.rosterRevision = 2;
+  operation.players = operation.players.map((player) => old[player.nickname] ? { ...player, slot: old[player.nickname] } : player.nickname === "곡곡이" ? { ...player, slot: 13 } : player);
+  operation.players.find((player) => player.nickname === "Elega").slot = 3; // 직접 바꾼 번호
+  const migrated = normalizeOperation(JSON.parse(JSON.stringify(operation)));
+  assert.equal(migrated.rosterRevision, 3);
+  const slotOf = (name) => playerSlot(migrated.players.find((player) => player.nickname === name));
+  assert.deepEqual(["마리오", "TOMAS SHELBY", "TESLA", "Mim Mi", "압수", "마스터"].map(slotOf), [5, 6, 7, 12, 20, 27]);
+  assert.equal(slotOf("Elega"), 3, "직접 바꾼 번호는 그대로");
+  assert.equal(slotOf("곡곡이"), 13);
+  // 이관한 뒤에는 같은 번호를 다시 넣어도 바꾸지 않는다.
+  const again = JSON.parse(JSON.stringify(migrated));
+  again.players.find((player) => player.nickname === "마스터").slot = 5;
+  assert.equal(playerSlot(normalizeOperation(again).players.find((player) => player.nickname === "마스터")), 5);
 });
 
 test("구버전 명단은 ID와 편집을 보존하며 30명으로 이관하고 삭제 선수의 모든 장면 배치와 카드를 정리한다", async () => {
@@ -87,9 +106,10 @@ test("구버전 명단은 ID와 편집을 보존하며 30명으로 이관하고 
     const saved = freshOperation();
     saved.rosterRevision = revision;
     const customBrief = { nickname: "[WB] ᴵᴿᴼᴺ TESLA", file: "수정", team: "수정 임무", steps: [], foot: "마법공주간달프님 호위", units: ["수정 지시", "오일자님 집결", "", "", ""] };
+    const byName = (name) => saved.players.find((player) => player.nickname === name);
     saved.players = [
-      { ...saved.players[5], id: 41, nickname: "[WB] ᴵᴿᴼᴺ TESLA", lineup: "reserve", slot: 22, brief: customBrief },
-      { ...saved.players[19], id: 39, slot: 13 },
+      { ...byName("TESLA"), id: 41, nickname: "[WB] ᴵᴿᴼᴺ TESLA", lineup: "reserve", slot: 22, brief: customBrief },
+      { ...byName("TOMAS SHELBY"), id: 39, slot: 13 },
       { ...saved.players[0], id: 90, nickname: "마법공주간달프", slot: 2 },
       { ...saved.players[0], id: 91, nickname: "예비 선수", lineup: "reserve", slot: null },
     ];
@@ -98,15 +118,15 @@ test("구버전 명단은 ID와 편집을 보존하며 30명으로 이관하고 
     const before = JSON.stringify(saved);
     const restored = normalizeOperation(saved);
     assert.equal(JSON.stringify(saved), before);
-    assert.equal(restored.rosterRevision, 2);
+    assert.equal(restored.rosterRevision, 3);
     assert.equal(restored.players.length, 30);
     assert.equal(new Set(restored.players.map((player) => player.id)).size, 30);
     const tesla = restored.players.find((player) => player.nickname === "TESLA");
-    assert.equal(tesla.id, 41); assert.equal(playerSlot(tesla), 6);
+    assert.equal(tesla.id, 41); assert.equal(playerSlot(tesla), 7);
     assert.equal(tesla.brief.nickname, "TESLA"); assert.equal(tesla.brief.units[0], "수정 지시");
     assert.equal(tesla.brief.foot, "담당 미정 호위"); assert.equal(tesla.brief.units[1], "담당 미정 집결");
     assert.equal(restored.players.find((player) => player.nickname === "TOMAS SHELBY").id, 39);
-    assert.equal(playerSlot(restored.players.find((player) => player.nickname === "TOMAS SHELBY")), 20);
+    assert.equal(playerSlot(restored.players.find((player) => player.nickname === "TOMAS SHELBY")), 6);
     assert.ok(restored.players.filter((player) => ![41, 39].includes(player.id)).every((player) => player.id > 91));
     assert.deepEqual(Array.from(restored.cards, (card) => card.playerId), [41]);
     for (const scene of restored.scenes) assert.deepEqual(Object.keys(scene.positions), ["41"]);
