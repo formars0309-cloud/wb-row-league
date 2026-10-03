@@ -524,6 +524,9 @@ test("keeps the interactive operation features and map assets wired", async () =
   assert.match(warTable, /const OBJECTIVE_META = \[/);
   assert.doesNotMatch(roster, /MISSION_BRIEFS|STAFF_ORDER/);
   assert.match(warTable, /spreadsheets\/d\/1NUorQ8zecl1mDRstKk-F1T7hRF2YYBgS_ZG21gIvcgc\/gviz\/tq\?tqx=out:csv/);
+  // 라인 도구는 부대 말·거점 위에서도 긋기를 시작한다(말 이벤트를 지도로 넘김).
+  assert.match(warTable, /if \(tool === "attackArrow" \|\| tool === "defense"\) return;\n {4}event\.stopPropagation\(\);/);
+  assert.match(warTable, /if \(tool !== "attackArrow" && tool !== "defense" && origin\.closest\("\.player-token,\.capture-objective"\)\) return;/);
   // 라인 도구에서 Shift+드래그는 반대 라인을 그리고, 저장 타입도 그 판정을 따른다.
   assert.match(warTable, /setDrawType\(event\.shiftKey === \(tool === "defense"\) \? "attackArrow" : "defense"\)/);
   assert.match(warTable, /type: drawType, \.\.\.start/);

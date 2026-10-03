@@ -1000,6 +1000,8 @@ export default function WarTable() {
   }, [editingMemoId]);
 
   const handleTokenPointerDown = (event: React.PointerEvent, playerId: number) => {
+    // 라인 도구는 부대 말 위에서도 선을 시작한다. 이벤트를 지도로 넘긴다.
+    if (tool === "attackArrow" || tool === "defense") return;
     event.stopPropagation();
     if (tool === "delete") { updateScene(scene.id, (target) => { delete target.positions[String(playerId)]; }); setSelectedIds((ids) => ids.filter((id) => id !== playerId)); return; }
     if (tool !== "select") return;
@@ -1016,7 +1018,9 @@ export default function WarTable() {
   };
   const handleMapPointerDown = (event: React.PointerEvent<HTMLElement>) => {
     const origin = event.target as Element;
-    if (origin.closest(".player-token,.capture-objective,.map-toolbar")) return;
+    if (origin.closest(".map-toolbar")) return;
+    // 공격 라인은 부대·거점에서 출발하는 경우가 많아, 라인 도구일 때는 말·거점 위에서도 긋기를 시작한다.
+    if (tool !== "attackArrow" && tool !== "defense" && origin.closest(".player-token,.capture-objective")) return;
     if ((tool === "delete" || tool === "select") && origin.closest(".tactical-object")) return;
     const point = pointFromClient(event.clientX, event.clientY);
     if (tool === "select") {
