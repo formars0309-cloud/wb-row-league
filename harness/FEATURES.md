@@ -38,7 +38,7 @@ vinext(Next 호환) + React 19 + Cloudflare Workers 배포 형태. 소스는 `ap
 
 ## 남은 단위
 
-- [ ] 작전 안정화 수정본 공개 배포
+- [x] 작전 안정화 수정본 공개 배포
   - 사용자 명시 요청. 작전 저장본 검증·실행 취소 수정과 상태 관리 리팩터링을 기존 공개 사이트에 배포하고 공개 접근을 유지한다.
   - 검증: `npm run lint`, `npm test`(빌드 포함), 추적 파일 자격증명 검사, `git diff --check`. 아카이브에 .openai/hosting.json·Worker 진입점 포함, Sites 원격/저장 버전의 소스 SHA와 빌드 소스 일치, 배포 succeeded와 공개 URL 확인. PC 실행 취소·드래그 중단·잘못된 JSON 원본 보존, 390px 명단·임무 카드 회귀 확인. 검증하지 않은 단계는 완료로 표시하지 않는다.
 

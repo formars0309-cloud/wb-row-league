@@ -1,5 +1,19 @@
 # 진행 상황
 
+갱신: 2026-10-04 — 작전 안정화 수정본 공개 버전 25 배포 완료
+
+- 사용자 배포 요청 및 이번 배포용 일회성 자격증명 발급 허용에 따라 진행. Sites 공개 접근 public 유지.
+- 배포 소스 d431ee359f7ad2b32d493694643ac05f4d6fd5c2(앱 변경은 2017d40, 배포 기준/준비 기록 포함). bundled site-workflow.mjs가 Sites 원격 조상 확인·소스 푸시·HEAD 일치·패키징을 완료. GitHub origin/main에도 소스 푸시 완료.
+- 검증: npm run lint·npm test(빌드 포함) 23개 재실행 통과. 워크플로에서도 lint→공식 build-site.mjs→테스트 23개 통과. 추적 파일 자격증명 검사·git diff --check 통과.
+- 아카이브 /tmp/wb-row-deploy-d431ee3.tar.gz, 9,264,628 bytes, SHA-256 750be80e0e6e2a7867943205b6ba9a63db3ed000e1b333a8e52045d3d0e724d2. .openai/hosting.json과 dist/server/index.js 확인. 빌드 내부 내용·비밀값 출력 없음.
+- 저장 버전 25: appgprj_6a8aa14508008191953a7a38df357899~appgver_f8cfcfff38a08191bdc80af85f162a03, source.commit_sha가 위 배포 소스와 일치하고 archive_storage 존재. 배포 appgdep_6ac13d3f24c081919368f0e197275fff, succeeded.
+- 공개 URL https://heinapel-war-table.formars0309.chatgpt.site. get_site에서 active·public·latest_version_number 25 재확인.
+- 공개 PC 1440px: 독립 wb-release25 브라우저 세션에서 기존 회귀 스크립트 14개 통과(30인 배치 취소/재실행, 카드 클릭 취소 기록 보존, 드래그 한 단계 취소/재실행, pointercancel 이동 중단, 잘못된 JSON 거부/원본 보존, 정상 JSON 가져오기 취소/재실행, 메모 클릭/편집 취소). 새로고침 후 작전명·30인 배치·메모 보존과 복원 완료 후 편집 활성화 확인.
+- 공개 모바일 390px: 30명 명단·26번 5000 카드의 메인/서브·부대 배치·스테프 사용 확인, 가로 넘침·페이지 오류 없음. 캡처 work/operation-audit/release25-desktop.png·release25-mobile.png(git 제외).
+- 자격증명은 메모리 및 숨긴 stdin으로만 사용했고 워크플로 종료 후 메모리에서 폐기. 자동화 예약은 요청하지 않은 수동 배포라 추가하지 않음. FEATURES 검증 기준 완료 처리.
+
+---
+
 갱신: 2026-10-04 — 작전 안정화 수정본 공개 배포 준비·일회성 자격증명 발급 허용
 
 - 사용자 "배포해줘" 요청. Sites 프로젝트 appgprj_6a8aa14508008191953a7a38df357899는 active·owner·public, 현재 버전 24. 공개 주소 https://heinapel-war-table.formars0309.chatgpt.site.
@@ -10,7 +24,7 @@
 
 ---
 
-갱신: 2026-10-04 — 작전 편집·저장·실행 취소 버그 수정 및 상태 관리 리팩터링(공개 배포 전)
+갱신: 2026-10-04 — 작전 편집·저장·실행 취소 버그 수정 및 상태 관리 리팩터링(공개 버전 25 배포)
 
 - 작업 단위: FEATURES의 작전 편집·저장·실행 취소 안정화 하나. 기존 lint·빌드·테스트 19개 통과 후 조사.
 - 재현: 카드 머리를 클릭만 해도 실행 취소 기록을 소비해, 취소 한 번으로 카드가 닫히지 않았음. 잘못된 장면 objects=null을 readOperation이 허용함(수정 전 회귀 테스트 실패 확인). 드래그에는 pointercancel 종료 처리가 없었고, 기존 commit은 React updater 안에서 외부 실행 취소 배열을 변경했음.
