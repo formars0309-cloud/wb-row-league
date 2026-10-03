@@ -602,10 +602,15 @@ function StaffBoard({ staff, side, nameOf }: { staff: SheetState<StaffSheet>; si
       <p className="board-team">지팡이 아티 순간이동</p>
       {!staff.data ? <p className="board-empty">{staff.failed ? "스테프 표를 불러오지 못했습니다" : "스테프 표를 불러오는 중…"}</p> : <>
         {staff.data.common && <section className="board-box"><h3>공통 규칙</h3><MissionLines text={mirrorMission(staff.data.common, side)} /></section>}
-        {groups.map((group) => <section key={group.title} className="board-box"><h3>{group.title}</h3>
-          {group.items.length ? <ol className="board-units">{group.items.map((plan) => <li key={plan.slot}><i>{group.badge(plan)}</i><span>{plan.group === "point" && `${plan.slot} `}{nameOf(plan.slot)}{plan.target && <> → <MissionText text={mirrorMission(plan.target, side)} /></>}</span></li>)}</ol>
-            : <p className="board-empty">배정 없음</p>}
-        </section>)}
+        {groups.map((group) => {
+          // 그룹 전원의 목적지가 같으면 줄마다 반복하지 않고 제목 아래 한 번만 쓴다.
+          const shared = group.items.length > 1 && group.items.every((plan) => plan.target === group.items[0].target) ? group.items[0].target : "";
+          return <section key={group.title} className="board-box"><h3>{group.title}</h3>
+            {shared && <p className="board-line"><MissionText text={mirrorMission(shared, side)} /></p>}
+            {group.items.length ? <ol className="board-units">{group.items.map((plan) => <li key={plan.slot}><i>{group.badge(plan)}</i><span>{nameOf(plan.slot)}{plan.group === "point" && <small className="staff-slot"> · {plan.slot}번</small>}{!shared && plan.target && <> → <MissionText text={mirrorMission(plan.target, side)} /></>}</span></li>)}</ol>
+              : <p className="board-empty">배정 없음</p>}
+          </section>;
+        })}
         {unassigned.length > 0 && <section className="board-box"><h3>미배정 {unassigned.length}명</h3><p>{unassigned.map((slot) => `${slot} ${nameOf(slot)}`).join(" · ")}</p></section>}
       </>}
       <p className="board-foot">{MISSION_SIDE_LABEL[side]} 진영 기준 · 지팡이 콜은 디스코드 보이스 오더</p>
@@ -717,7 +722,8 @@ function MobileBriefing({ players, sheet, staff }: { players: Player[]; sheet: S
           {units && <section className="board-box"><h3>부대 배치</h3><ol className="board-units">{groupUnits(units).map((group) => <li key={group.from} className={missionEmphasis(group.text)}><i>{group.from === group.to ? group.from : `${group.from}~${group.to}`}</i><span><MissionText text={group.text} /></span></li>)}</ol></section>}
         </>}
         {plan?.group && <section className="board-box board-staff"><h3>스테프 사용 · {staffLabel(plan, picked)}</h3>
-          <MissionLines text={mirrorMission([plan.target && `목적지 ${plan.target}`, plan.method].filter(Boolean).join(" / ") || "목적지 미정", side)} />
+          {/* 지도 위치로 읽히는 목적지에만 "목적지" 머리말을 붙인다. */}
+          <MissionLines text={mirrorMission([plan.target && (staffPath?.targets.length ? `목적지 ${plan.target}` : plan.target), plan.method].filter(Boolean).join(" / ") || "목적지 미정", side)} />
         </section>}
         {/* 개인 임무가 먼저 보이게 공통 임무는 접어 둔다. */}
         {common.length > 0 && <details className="board-box board-fold"><summary>공통 임무 · {common.find((item) => item.head)?.head ?? "전원"}<span className="fold-open">펼쳐 보기 ▾</span><span className="fold-close">접기 ▴</span></summary><CommonItems items={common} /></details>}
