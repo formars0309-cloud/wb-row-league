@@ -25,7 +25,9 @@ export type Operation = { version: 1; rosterRevision?: 1 | 2 | 3 | 4; name: stri
 
 const STORAGE_KEY = "heinapel-war-table-v0.3";
 const SECONDARY_LABEL: Record<SecondaryRole, string> = { garrison: "주둔장", rally: "집결장", blocker: "블로커" };
+// 도구 버튼은 누르면 그 도구를 켠다(다시 눌러도 꺼지지 않음). 라인을 이어 그으려고 다시 눌러도 유지되고, 끄려면 '선택'을 누른다.
 const TOOL_META: Array<{ id: Tool; label: string; glyph: string; hint: string }> = [
+  { id: "select", label: "선택", glyph: "↖", hint: "말·메모·카드 드래그로 이동 · 거점 클릭으로 점령 변경" },
   { id: "attackArrow", label: "공격 라인", glyph: "➤", hint: "드래그로 공격 라인 · Shift+드래그로 방어 라인" },
   { id: "defense", label: "방어 라인", glyph: "╱", hint: "드래그로 방어 라인 · Shift+드래그로 공격 라인" },
   { id: "rally", label: "집결", glyph: "⚔", hint: "클릭해 집결 지점 표시" },
@@ -1331,7 +1333,7 @@ export default function WarTable() {
 
         <aside className="inspector-panel panel">
           <div className="panel-heading"><div><span className="eyebrow">TACTICAL CONTROL</span><h2>핵심 작전 도구</h2></div></div>
-          <div className="tool-grid">{TOOL_META.map((item) => <button type="button" key={item.id} className={`${tool === item.id ? "active" : ""} tool-${item.id}`} onClick={() => setTool((current) => current === item.id ? "select" : item.id)} title={item.hint}>{item.id === "delete" ? <EraserIcon /> : <span>{item.glyph}</span>}{item.label}</button>)}</div>
+          <div className="tool-grid">{TOOL_META.map((item) => <button type="button" key={item.id} className={`${tool === item.id ? "active" : ""} tool-${item.id}`} onClick={() => setTool(item.id)} title={item.hint}>{item.id === "delete" ? <EraserIcon /> : <span>{item.glyph}</span>}{item.label}</button>)}</div>
           <div className="assignment-panel">
             {editing && <><div className="assignment-player"><span>SELECTED PLAYER</span><strong className={playerNameClass(editing)}>{editing.nickname}</strong><small>명단에서 아이디를 선택한 뒤 역할을 지정하세요.</small></div>
             <div className="assignment-heading">병종</div>

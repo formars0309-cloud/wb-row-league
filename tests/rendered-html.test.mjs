@@ -503,6 +503,7 @@ test("server-renders the Heinapel War Table", async () => {
   assert.match(roster, /<b>30<\/b><span>늑대장군<\/span>/);
   assert.doesNotMatch(html, /mobile-management/);
   assert.doesNotMatch(html, /mobile-exit|is-pc/, "첫 화면(폰)에는 PC 카드 화면 표시가 없다");
+  assert.match(html, /class="active tool-select"[^>]*><span>↖<\/span>선택<\/button>/);
   assert.match(html, /class="mobile-common"><b>0<\/b><span>공통 임무<\/span>/);
   assert.match(html, /PLAYER ROSTER/);
   assert.match(html, /핵심 작전 도구/);
@@ -558,6 +559,9 @@ test("keeps the interactive operation features and map assets wired", async () =
   // 라인 도구에서 Shift+드래그는 반대 라인을 그리고, 저장 타입도 그 판정을 따른다.
   assert.match(warTable, /setDrawType\(event\.shiftKey === \(tool === "defense"\) \? "attackArrow" : "defense"\)/);
   assert.match(warTable, /type: drawType, \.\.\.start/);
+  // 도구 버튼은 다시 눌러도 꺼지지 않아 라인을 이어 그을 수 있고, 끄는 곳은 '선택' 버튼이다.
+  assert.match(warTable, /onClick=\{\(\) => setTool\(item\.id\)\}/);
+  assert.match(warTable, /\{ id: "select", label: "선택"/);
   // PC 지도 도구줄의 스테프 카드 버튼은 폰과 같은 S 카드 부품을 창으로 띄운다.
   assert.match(warTable, /className="staff-open" onClick=\{\(\) => setStaffOpen\(true\)\}/);
   assert.match(warTable, /\{staffOpen && <StaffDialog /);
