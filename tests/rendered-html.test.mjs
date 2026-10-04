@@ -502,6 +502,7 @@ test("server-renders the Heinapel War Table", async () => {
   assert.match(roster, /<b>1<\/b><span>무잔 Muzan<\/span>/);
   assert.match(roster, /<b>30<\/b><span>늑대장군<\/span>/);
   assert.doesNotMatch(html, /mobile-management/);
+  assert.doesNotMatch(html, /mobile-exit|is-pc/, "첫 화면(폰)에는 PC 카드 화면 표시가 없다");
   assert.match(html, /class="mobile-common"><b>0<\/b><span>공통 임무<\/span>/);
   assert.match(html, /PLAYER ROSTER/);
   assert.match(html, /핵심 작전 도구/);
@@ -561,6 +562,10 @@ test("keeps the interactive operation features and map assets wired", async () =
   assert.match(warTable, /className="staff-open" onClick=\{\(\) => setStaffOpen\(true\)\}/);
   assert.match(warTable, /\{staffOpen && <StaffDialog /);
   assert.equal(warTable.match(/<StaffBoard /g)?.length, 2, "폰 S 카드와 PC 창이 같은 부품");
+  // PC 지도 도구줄의 임무 카드 버튼은 폰 카드 화면을 그대로 띄우고, 작전판 버튼으로 돌아온다.
+  assert.match(warTable, /className="cards-open-button" onClick=\{\(\) => setCardsOpen\(true\)\}/);
+  assert.match(warTable, /<MobileBriefing [^>]*onExit=\{cardsOpen \? \(\) => setCardsOpen\(false\) : undefined\}/);
+  assert.equal(warTable.match(/<MobileBriefing /g)?.length, 1, "폰 화면과 PC 카드 화면이 같은 부품");
   assert.equal(warTable.match(/useMissionSheets\(\)/g)?.length, 2, "시트 읽기는 한 곳(정의 1·호출 1)");
   assert.match(warTable, /const RALLY_PLAYERS = new Set\(\["진수", "TESLA", "Maha"\]\)/);
   assert.match(warTable, /type LineupStatus = "starter"/);

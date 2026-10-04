@@ -121,6 +121,7 @@ body {
 .map-toolbar-stats .stat-ian b { color: #e4c15e; }
 .map-toolbar .panel-toggle { justify-self: end; border-color: #5f5747; color: #d9c18a; }
 .map-toolbar .staff-open { margin-left: 5px; border-color: #6d4bb3; color: #d8c6ff; }
+.map-toolbar .cards-open-button { margin-left: 5px; border-color: #3f7a63; color: #b8f0d6; }
 .map-coordinates { left: 26px; right: 26px; top: 58px; color: rgba(233, 227, 212, 0.5); font-size: 7px; letter-spacing: 0.08em; }
 .map-note { left: 18px; bottom: 16px; max-width: 180px; padding: 7px 9px; border-color: rgba(193, 177, 141, 0.38); border-radius: 2px; background: rgba(17, 19, 20, 0.93); box-shadow: 0 3px 10px rgba(0, 0, 0, 0.4); backdrop-filter: none; }
 .map-note span { color: #aa976d; font-size: 7px; letter-spacing: 0.12em; }
@@ -1301,6 +1302,12 @@ body {
   font-family: "Noto Sans KR", Arial, sans-serif;
 }
 .mobile-shell.side-lucia { --side: #2a86d8; --side-head: #cfe7fb; --side-line: #9fd0f5; --side-wash: #eef7ff; }
+/* PC에서 연 카드 화면: 작전판을 숨기고 폰 화면을 520px 폭으로 가운데 띄운다. */
+.war-shell.cards-open { display: none; }
+.mobile-shell.is-pc { display: block; padding-inline: max(12px, calc(50% - 260px)); }
+body:has(.mobile-shell.is-pc) { overflow: auto; }
+.mobile-exit { margin-left: auto; padding: 7px 12px; border: 1px solid #d5d0c4; border-radius: 8px; background: #fff; color: #14213a; font-size: 12px; font-weight: 800; cursor: pointer; }
+@media (max-width: 1179px) { .mobile-exit { display: none; } }
 /* PC 스테프 창: 폰과 같은 S 카드를 가운데 띄운다. */
 .staff-dialog { --side: #d99a0b; --side-head: #fbe2a0; --side-line: #f0cf7a; --side-wash: #fff8e6; width: min(480px, calc(100vw - 32px)); max-height: 90dvh; margin: auto; padding: 12px; border: 0; border-radius: 16px; background: #f6f3eb; color: #14213a; font-family: "Noto Sans KR", Arial, sans-serif; }
 .staff-dialog.side-lucia { --side: #2a86d8; --side-head: #cfe7fb; --side-line: #9fd0f5; --side-wash: #eef7ff; }

@@ -689,7 +689,8 @@ function StaffDialog({ staff, side, nameOf, onClose }: { staff: SheetState<Staff
     <StaffBoard staff={staff} side={side} nameOf={nameOf} />
   </dialog>;
 }
-function MobileBriefing({ players, sheet, staff }: { players: Player[]; sheet: SheetState<MissionSheet>; staff: SheetState<StaffSheet> }) {
+// onExit가 있으면 PC에서 연 카드 화면이다. 폰과 같은 화면을 가운데 띄우고 작전판으로 돌아가는 버튼을 단다.
+function MobileBriefing({ players, sheet, staff, onExit }: { players: Player[]; sheet: SheetState<MissionSheet>; staff: SheetState<StaffSheet>; onExit?: () => void }) {
   const [side, setSide] = useState<MissionSide>("ian");
   const [picked, setPicked] = useState<number | null>(null);
 
@@ -716,9 +717,10 @@ function MobileBriefing({ players, sheet, staff }: { players: Player[]; sheet: S
   const nameOf = (slot: number) => slotName(missions, players, slot);
   const warning = sheet.failed && <p className="mobile-sync" role="alert">{sheet.data ? "최신 임무를 불러오지 못했습니다. 마지막으로 받은 내용입니다." : "임무를 불러오지 못했습니다. 연결을 확인하고 새로고침해 주세요."}</p>;
 
+  const shell = (extra = "") => `mobile-shell${extra}${onExit ? " is-pc" : ""}`;
   if (picked === null) return (
-    <div className="mobile-shell">
-      <header className="mobile-top"><span>HEINAPEL WAR TABLE</span><strong>스타팅 멤버</strong></header>
+    <div className={shell()}>
+      <header className="mobile-top"><span>HEINAPEL WAR TABLE</span><strong>스타팅 멤버</strong>{onExit && <button type="button" className="mobile-exit" onClick={onExit}>작전판</button>}</header>
       {warning}
       <button type="button" className="mobile-common" onClick={() => pick(COMMON_SLOT)}><b>0</b><span>공통 임무</span><small>30명 전원</small></button>
       <button type="button" className="mobile-common" onClick={() => pick(STAFF_SLOT)}><b>S</b><span>스테프 카드</span><small>지팡이 순간이동</small></button>
@@ -734,7 +736,7 @@ function MobileBriefing({ players, sheet, staff }: { players: Player[]; sheet: S
   const loading = <p className="board-empty">{sheet.failed ? "임무를 불러오지 못했습니다" : "임무를 불러오는 중…"}</p>;
 
   if (picked === COMMON_SLOT) return (
-    <div className={`mobile-shell side-${side}`}>
+    <div className={shell(` side-${side}`)}>
       {top}
       {warning}
       <article className="board">
@@ -753,7 +755,7 @@ function MobileBriefing({ players, sheet, staff }: { players: Player[]; sheet: S
   const staffLabel = (plan: StaffPlan, slot: number) => plan.group === "start" ? "시작 스테프 · 자기 5부대" : `지정 스테프 · ${plan.top ?? TOP_LINE_SLOTS.has(slot) ? "TOP" : "BOTTOM"} 포인트${plan.order ? ` ${plan.order}번째` : ""}`;
 
   if (picked === STAFF_SLOT) return (
-    <div className={`mobile-shell side-${side}`}>
+    <div className={shell(` side-${side}`)}>
       {top}
       {warning}
       <StaffBoard staff={staff} side={side} nameOf={nameOf} />
@@ -774,7 +776,7 @@ function MobileBriefing({ players, sheet, staff }: { players: Player[]; sheet: S
   const staffPath = staffRoute(plan, picked, side, "tactical", leaders);
 
   return (
-    <div className={`mobile-shell side-${side}`}>
+    <div className={shell(` side-${side}`)}>
       {top}
       {warning}
       <article className="board">
@@ -880,6 +882,7 @@ export default function WarTable() {
   const { operation, setOperation, commit, checkpoint, restore, canUndo, canRedo, undo: undoOperation, redo: redoOperation } = useOperationHistory(freshOperation);
   const [playerDraft, setPlayerDraft] = useState<Player | null>(null);
   const [staffOpen, setStaffOpen] = useState(false);
+  const [cardsOpen, setCardsOpen] = useState(false);
   const { sheet, staff } = useMissionSheets();
   const [storageError, setStorageError] = useState("");
   const [ready, setReady] = useState(false);
@@ -1242,7 +1245,7 @@ export default function WarTable() {
 
   return (
     <>
-    <main className={`war-shell${mapFocus ? " map-focus" : ""}`} inert={!ready}>
+    <main className={`war-shell${mapFocus ? " map-focus" : ""}${cardsOpen ? " cards-open" : ""}`} inert={!ready}>
       <header className="topbar">
         <div className="brand-block"><span className="brand-mark">H</span><div><h1>HEINAPEL <span>WAR TABLE</span></h1><input aria-label="작전명" value={operation.name} onChange={(event) => { const name = event.target.value; commit((draft) => { draft.name = name; return draft; }); }} /></div></div>
         <div className="battle-clock"><span>{scene.name}</span><strong>{scene.time} · {placedCount}/{operation.players.length} DEPLOYED</strong></div>
@@ -1278,6 +1281,7 @@ export default function WarTable() {
               <div className="map-switcher" aria-label="지도 선택"><button type="button" className={mapVariant === "tactical" ? "active" : ""} onClick={() => setMapVariant("tactical")}>전술 맵</button><button type="button" className={mapVariant === "field" ? "active" : ""} onClick={() => setMapVariant("field")}>실전 맵</button></div>
               <div className={`mission-side-switch side-${missionSide}`} role="group" aria-label="임무 기준 진영">{MISSION_SIDES.map((side) => <button type="button" key={side} className={missionSide === side ? "active" : ""} aria-pressed={missionSide === side} onClick={() => setMissionSide(side)}>{MISSION_SIDE_LABEL[side]}</button>)}</div>
               <button type="button" className="staff-open" onClick={() => setStaffOpen(true)}>스테프 카드</button>
+              <button type="button" className="cards-open-button" onClick={() => setCardsOpen(true)}>임무 카드</button>
               {missionCards.length > 0 && <button type="button" className="mission-clear" onClick={closeAllMissionCards}>카드 {missionCards.length}장 닫기</button>}
             </div>
             <div className="map-toolbar-stats"><span>배치 <b>{placedCount}/{operation.players.length}</b></span><span>중립 <b>{objectiveCounts.neutral}</b></span><span className="stat-lucia">루시아 <b>{objectiveCounts.lucia}</b></span><span className="stat-ian">이안 <b>{objectiveCounts.ian}</b></span></div>
@@ -1379,7 +1383,7 @@ export default function WarTable() {
         </form>}
       </footer>
     </main>
-    <MobileBriefing players={operation.players} sheet={sheet} staff={staff} />
+    <MobileBriefing players={operation.players} sheet={sheet} staff={staff} onExit={cardsOpen ? () => setCardsOpen(false) : undefined} />
     {staffOpen && <StaffDialog staff={staff} side={missionSide} nameOf={(slot) => slotName(sheet.data?.missions, operation.players, slot)} onClose={() => setStaffOpen(false)} />}
     {playerDraft && <PlayerEditor initial={playerDraft} players={operation.players} onClose={() => setPlayerDraft(null)} onSave={(player) => {
       commit((draft) => { const index = draft.players.findIndex((item) => item.id === player.id); if (index < 0) draft.players.push(player); else draft.players[index] = player; return draft; });
