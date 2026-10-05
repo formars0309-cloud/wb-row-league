@@ -19,6 +19,7 @@ export type Brief = {
 
 // 2026-10-01 전달 사진의 번호순 주전 30명. 길드·장식 문자는 생략한다. 26·27번은 같은 날 사용자 요청으로 맞바꿈.
 // 2026-10-04 시트 「스타팅 명단」 자리 변경을 따른다(5 마리오·6 TOMAS SHELBY·7 TESLA·12 Mim Mi·19 Elega·20 압수·27 마스터).
+// 2026-10-06 시트 대조: 6번 알나인티 님, 14번 GINSENG MAN (천상님이). 나머지 번호·이름은 동일하다.
 // 미확인 신규 선수는 임무를 승계하지 않으며, 병종은 편집 가능한 기본 보병이다.
 export const PLAYER_SOURCE: Array<[string, PrimaryRole]> = [
   ["무잔 Muzan", "cavalry"],
@@ -26,7 +27,7 @@ export const PLAYER_SOURCE: Array<[string, PrimaryRole]> = [
   ["바르니 barunii", "ranged"],
   ["마지태", "infantry"],
   ["마리오", "infantry"],
-  ["TOMAS SHELBY", "cavalry"],
+  ["알나인티 님", "infantry"],
   ["TESLA", "infantry"],
   ["파리스", "infantry"],
   ["마구니", "ranged"],
@@ -34,7 +35,7 @@ export const PLAYER_SOURCE: Array<[string, PrimaryRole]> = [
   ["예리", "infantry"],
   ["Mim Mi", "infantry"],
   ["곡곡이", "infantry"],
-  ["GINSENG MAN", "infantry"],
+  ["GINSENG MAN (천상님이)", "infantry"],
   ["Kingsway", "infantry"],
   ["욘두 Yondu", "infantry"],
   ["진수", "infantry"],
@@ -77,4 +78,5 @@ export const ROSTER_ALIASES = new Map<string, string>([
   ["오소리", "벌꿀오소리형"],
   ["보 수", "보수"],
   ["햄찌", "햄수"],
+  ["GINSENG MAN", "GINSENG MAN (천상님이)"],
 ]);

@@ -21,7 +21,7 @@ type TacticalObject = { id: string; type: ObjectType; x: number; y: number; x2?:
 type SceneEvents = { fairyDragon: string; lifeStone: string; fairyDragonPosition: FairyDragonPosition };
 type Scene = { id: string; name: string; time: string; positions: Record<string, Point>; objects: TacticalObject[]; events: SceneEvents; objectiveOwners?: Record<string, ObjectiveOwner> };
 type SceneDraft = { id: string; name: string; time: string; fairyDragon: string; lifeStone: string; fairyDragonPosition: FairyDragonPosition };
-export type Operation = { version: 1; rosterRevision?: 1 | 2 | 3 | 4; name: string; players: Player[]; scenes: Scene[]; activeSceneId: string; updatedAt: string; side?: MissionSide; cards?: MissionCard[] };
+export type Operation = { version: 1; rosterRevision?: 1 | 2 | 3 | 4 | 5; name: string; players: Player[]; scenes: Scene[]; activeSceneId: string; updatedAt: string; side?: MissionSide; cards?: MissionCard[] };
 
 const STORAGE_KEY = "heinapel-war-table-v0.3";
 const SECONDARY_LABEL: Record<SecondaryRole, string> = { garrison: "주둔장", rally: "집결장", blocker: "블로커" };
@@ -109,7 +109,7 @@ const OBJECTIVE_META = [
 
 function freshOperation(): Operation {
   const sceneId = "scene-1";
-  return { version: 1, rosterRevision: 4, name: "WB 헤이나펄 리그 2기", side: "ian", players: INITIAL_PLAYERS, scenes: [{ id: sceneId, name: "START", time: "60:00", positions: {}, objects: [], events: { ...DEFAULT_SCENE_EVENTS } }], activeSceneId: sceneId, updatedAt: new Date().toISOString() };
+  return { version: 1, rosterRevision: 5, name: "WB 헤이나펄 리그 2기", side: "ian", players: INITIAL_PLAYERS, scenes: [{ id: sceneId, name: "START", time: "60:00", positions: {}, objects: [], events: { ...DEFAULT_SCENE_EVENTS } }], activeSceneId: sceneId, updatedAt: new Date().toISOString() };
 }
 function clone<T>(value: T): T { return JSON.parse(JSON.stringify(value)) as T; }
 function clamp(value: number) { return Math.max(0.025, Math.min(0.975, value)); }
@@ -184,9 +184,16 @@ function normalizeRoster(saved: Operation): Player[] {
   if (photoRoster) {
     const renamed = players.map((player) => {
       const nickname = ROSTER_ALIASES.get(player.nickname);
-      return nickname && SLOT_BY_NICKNAME.get(nickname) === 2 ? { ...player, nickname, brief: player.brief ? { ...player.brief, nickname } : player.brief } : player;
+      return nickname && (SLOT_BY_NICKNAME.get(nickname) === 2 || ((saved.rosterRevision ?? 0) < 5 && player.nickname === "GINSENG MAN")) ? { ...player, nickname, brief: player.brief ? { ...player.brief, nickname } : player.brief } : player;
     }).map((player) => saved.rosterRevision === 2 && player.slot != null && SEATS_BEFORE_2026_10_04.get(player.nickname) === player.slot ? { ...player, slot: undefined } : player);
     if (new Set(renamed.map((player) => player.nickname.trim().toLowerCase())).size !== renamed.length) throw new Error("잘못된 명단");
+    // 실제 멤버 교체다. 옛 선수의 ID·임무·보직은 넘기지 않고, 이미 지운 선수는 되살리지 않는다.
+    if ((saved.rosterRevision ?? 0) < 5 && renamed.some((player) => player.nickname === "TOMAS SHELBY")) {
+      if (renamed.some((player) => player.nickname === "알나인티 님")) return renamed.filter((player) => player.nickname !== "TOMAS SHELBY");
+      const newcomer = { ...INITIAL_PLAYERS.find((player) => player.nickname === "알나인티 님")!, id: Math.max(...players.map((player) => player.id)) + 1 };
+      if (!Number.isSafeInteger(newcomer.id)) throw new Error("선수 ID를 이관할 수 없습니다.");
+      return renamed.map((player) => player.nickname === "TOMAS SHELBY" ? newcomer : player);
+    }
     return renamed;
   }
   const merged = mergePlayers(players);
@@ -199,9 +206,22 @@ function normalizeOperation(saved: Operation): Operation {
   const ids = new Set(players.filter((player) => (saved.rosterRevision ?? 0) >= 2 || previousIds.has(player.id)).map((player) => String(player.id)));
   const reseat = (saved.rosterRevision ?? 0) >= 2 && (saved.rosterRevision ?? 0) < 4;
   const byId = new Map(players.map((player) => [String(player.id), player]));
-  return { ...saved, players, rosterRevision: 4, cards: saved.cards?.filter((card) => ids.has(String(card.playerId))),
-    scenes: saved.scenes.map((item, index) => ({ ...normalizeScene(item, index), positions: Object.fromEntries(Object.entries(item.positions ?? {}).filter(([id]) => ids.has(id))
-      .map(([id, point]) => [id, reseat && byId.has(id) ? moveFromOldSeat(byId.get(id)!, point) : point])) })),
+  const replaced = (saved.rosterRevision ?? 0) >= 2 && (saved.rosterRevision ?? 0) < 5 ? saved.players.find((player) => player.nickname === "TOMAS SHELBY") : undefined;
+  const newcomer = replaced && players.find((player) => player.nickname === "알나인티 님" && !previousIds.has(player.id));
+  return { ...saved, players, rosterRevision: 5, cards: saved.cards?.filter((card) => ids.has(String(card.playerId))),
+    scenes: saved.scenes.map((item, index) => {
+      const positions = Object.fromEntries(Object.entries(item.positions ?? {}).filter(([id]) => ids.has(id))
+        .map(([id, point]) => [id, reseat && byId.has(id) ? moveFromOldSeat(byId.get(id)!, point) : point]));
+      // 교체된 선수의 말이 기본 스타팅 자리에 있을 때만 새 선수도 6번에 배치한다. 직접 옮긴 말은 승계하지 않는다.
+      const point = replaced && item.positions?.[String(replaced.id)];
+      if (newcomer && point && replaced && (replaced.slot === undefined || replaced.slot === (saved.rosterRevision === 2 ? 20 : 6))) {
+        for (const side of MISSION_SIDES) for (const variant of ["tactical", "field"] as const) for (const slot of reseat ? [6, 20] : [6]) {
+          const old = slotPoint(slot, side, variant)!;
+          if (Math.abs(old.x - point.x) < 1e-9 && Math.abs(old.y - point.y) < 1e-9) positions[String(newcomer.id)] = slotPoint(6, side, variant)!;
+        }
+      }
+      return { ...normalizeScene(item, index), positions };
+    }),
   };
 }
 // 2026-10-04 자리 변경 전에 배치한 말은 번호만 바뀌고 옛 자리 좌표에 남는다.
@@ -382,7 +402,7 @@ function readOperation(saved: unknown): Operation {
   if (!isRecord(saved) || saved.version !== 1 || !Array.isArray(saved.players) || !saved.players.every(isRecord) ||
     !Array.isArray(saved.scenes) || !saved.scenes.length || typeof saved.name !== "string" ||
     typeof saved.updatedAt !== "string" || !Number.isFinite(Date.parse(saved.updatedAt)) ||
-    (saved.rosterRevision !== undefined && ![1, 2, 3, 4].includes(saved.rosterRevision as number)) ||
+    (saved.rosterRevision !== undefined && ![1, 2, 3, 4, 5].includes(saved.rosterRevision as number)) ||
     (saved.side !== undefined && !MISSION_SIDES.includes(saved.side as MissionSide))) return invalid();
   const sceneIds = new Set<string>();
   for (const scene of saved.scenes) {
@@ -935,6 +955,10 @@ export default function WarTable() {
         if (raw) {
           const saved = JSON.parse(raw) as Operation;
           const restored = readOperation(saved);
+          if ((saved.rosterRevision ?? 0) < 5) {
+            const backupKey = `${STORAGE_KEY}-before-sheet-roster-2026-10-06`;
+            if (localStorage.getItem(backupKey) === null) localStorage.setItem(backupKey, raw);
+          }
           if ((saved.rosterRevision ?? 0) < 2) {
             const backupKey = `${STORAGE_KEY}-before-photo-roster-2026-10-01`;
             if (localStorage.getItem(backupKey) === null) localStorage.setItem(backupKey, raw);
