@@ -1,5 +1,15 @@
 # 진행 상황
 
+갱신: 2026-10-06 — 최신 시트 명단·임무·스테프 카드 공개 배포 준비
+
+- 사용자 "배포해줘" 요청. 시작 main/origin/main f25a2b0 일치·작업 트리 clean. Sites 프로젝트 appgprj_6a8aa14508008191953a7a38df357899는 active·owner·public, 현재 공개 버전 27이며 연결 자격증명은 null.
+- 배포 전 npm run lint·npm test(빌드 포함) 29개 재실행 통과. git diff --check 및 추적 파일 자격증명·개인정보 검사 완료(기존 PROGRESS의 SHA 안 숫자는 전화번호 정규식 오탐임을 확인).
+- 앱 소스 f25a2b02f75f15619c3a880335eac9a0fd9ce4ca의 준비 아카이브 /tmp/wb-row-deploy-f25a2b0.tar.gz, 9,266,261 bytes, SHA-256 4738ef1bbf22956e20dd6e5471e43f5cf75ebb631233cd9996439a87dc1b2d7f. 공식 package-site.mjs 사용, 프로젝트 manifest·Worker 진입점 확인. 자격증명 값 발급·저장·출력 없음.
+- 사용자 제공 전역 AGENTS.md의 "자격증명 발급·교체는 사용자에게 맡긴다"에 따라 이번 배포용 단기 자격증명 발급 허용이 필요. 배포 자체는 요청받았으며 새 발급·Sites 원격 푸시·버전 저장·공개 배포는 아직 실행하지 않음. 과거 10-04 일회성 허용은 당시 완료 배포에서 사용·폐기한 기록임.
+- 다음: 발급 허용 후 메모리·숨긴 stdin으로만 bundled site-workflow.mjs 실행. 이 기록 커밋까지 포함한 당시 HEAD에서 재빌드·패키징하여 원격 SHA와 아카이브 출처를 맞추고 save_site_version→deploy_site_version→성공 확인. 공개 PC/390px 카드 검증 후 FEATURES 완료 처리·결과 기록.
+
+---
+
 갱신: 2026-10-06 — 최신 시트 임무·스테프 카드 연동 복구(공개 배포 전)
 
 - 사용자 제보: 구글시트대로 임무·스테프 카드가 안 나옴. 화면 확인 답변 '둘 다'(PC 지도 위 카드 및 임무 카드/휴대폰). 시작 시 작업 트리 clean, 이력·PROGRESS·FEATURES 확인, lint·npm test(빌드 포함) 26개 통과.
