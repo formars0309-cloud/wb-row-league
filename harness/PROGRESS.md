@@ -1,5 +1,16 @@
 # 진행 상황
 
+갱신: 2026-10-06 — 최신 시트 명단·임무·스테프 카드 공개 버전 28 배포 완료
+
+- 사용자 배포 요청 및 "응 허용한다" 답변에 따라 이번 배포용 단기 자격증명만 발급. 기존 Sites 프로젝트·공개 범위 유지, 신규 권한 범위·장기 자격증명·예약 없음. 자격증명은 메모리·숨긴 stdin으로만 사용하고 워크플로 완료 후 메모리에서 폐기.
+- 배포 소스 d3ccaf3d155fdca85073311010a1a868066db19c(명단·카드 수정 35c2b89/f25a2b0 포함). bundled site-workflow.mjs에서 Sites 원격 조상 확인→lint→공식 build-site.mjs→테스트 29개 통과→소스 푸시·원격 HEAD 확인→패키징 완료.
+- 아카이브 /tmp/wb-row-deploy-d3ccaf3.tar.gz, 9,266,500 bytes, SHA-256 47a8753f6024e28d99b33ec94dc5ae9db3867e5354a3b1de9982fad213cda701. 프로젝트 manifest·dist/server/index.js 확인. 저장 버전 28: appgprj_6a8aa14508008191953a7a38df357899~appgver_5afe3c3911748191b692a684e827527e, source SHA 일치·archive_storage 존재 확인.
+- 배포 appgdep_6ac3d5305b70819191cf1cdeae8e63e8 succeeded. get_site active·public·최신 버전 28 재확인. 공개 주소 https://heinapel-war-table.formars0309.chatgpt.site.
+- 공개 회귀 검수: 독립 wb-release28-20261006 브라우저, 최신 시트 gviz를 다시 내려받아 PC 1440px·폰 390px 명단 30명과 개인 임무·스테프 군/순번·목적지·부대구성 전수 대조 통과. 검수 중 6번 소속팀 칸의 추가 시트 변경도 최신값으로 반영됨. S 시작 16명·지정 TOP/BOTTOM 7명씩, 19번 5000(TOP 2번째)·26번 Elega, 루시아 7시 축복/6시 용기 환산, 긴 PC 카드 드래그 후 끝까지 스크롤, 가로 넘침 없음 확인. 공개 구버전 저장본을 넣어 revision 6·30인 배치 전체 좌표·원본 백업·새로고침 보존 확인. 페이지 오류 없음. 캡처 직접 확인, 브라우저 종료. 자료 work/release28-20261006/(git 제외), browser-check.py 재실행 가능.
+- FEATURES 완료 처리. 코드 추가 변경 없음, 배포 기록의 자격증명·개인정보 검사·git diff --check 후 한국어 커밋·origin/main 푸시.
+
+---
+
 갱신: 2026-10-06 — 최신 시트 명단·임무·스테프 카드 공개 배포 준비
 
 - 사용자 "배포해줘" 요청. 시작 main/origin/main f25a2b0 일치·작업 트리 clean. Sites 프로젝트 appgprj_6a8aa14508008191953a7a38df357899는 active·owner·public, 현재 공개 버전 27이며 연결 자격증명은 null.
