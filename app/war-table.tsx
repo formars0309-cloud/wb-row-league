@@ -21,7 +21,7 @@ type TacticalObject = { id: string; type: ObjectType; x: number; y: number; x2?:
 type SceneEvents = { fairyDragon: string; lifeStone: string; fairyDragonPosition: FairyDragonPosition };
 type Scene = { id: string; name: string; time: string; positions: Record<string, Point>; objects: TacticalObject[]; events: SceneEvents; objectiveOwners?: Record<string, ObjectiveOwner> };
 type SceneDraft = { id: string; name: string; time: string; fairyDragon: string; lifeStone: string; fairyDragonPosition: FairyDragonPosition };
-export type Operation = { version: 1; rosterRevision?: 1 | 2 | 3 | 4 | 5; name: string; players: Player[]; scenes: Scene[]; activeSceneId: string; updatedAt: string; side?: MissionSide; cards?: MissionCard[] };
+export type Operation = { version: 1; rosterRevision?: 1 | 2 | 3 | 4 | 5 | 6; name: string; players: Player[]; scenes: Scene[]; activeSceneId: string; updatedAt: string; side?: MissionSide; cards?: MissionCard[] };
 
 const STORAGE_KEY = "heinapel-war-table-v0.3";
 const SECONDARY_LABEL: Record<SecondaryRole, string> = { garrison: "주둔장", rally: "집결장", blocker: "블로커" };
@@ -109,7 +109,7 @@ const OBJECTIVE_META = [
 
 function freshOperation(): Operation {
   const sceneId = "scene-1";
-  return { version: 1, rosterRevision: 5, name: "WB 헤이나펄 리그 2기", side: "ian", players: INITIAL_PLAYERS, scenes: [{ id: sceneId, name: "START", time: "60:00", positions: {}, objects: [], events: { ...DEFAULT_SCENE_EVENTS } }], activeSceneId: sceneId, updatedAt: new Date().toISOString() };
+  return { version: 1, rosterRevision: 6, name: "WB 헤이나펄 리그 2기", side: "ian", players: INITIAL_PLAYERS, scenes: [{ id: sceneId, name: "START", time: "60:00", positions: {}, objects: [], events: { ...DEFAULT_SCENE_EVENTS } }], activeSceneId: sceneId, updatedAt: new Date().toISOString() };
 }
 function clone<T>(value: T): T { return JSON.parse(JSON.stringify(value)) as T; }
 function clamp(value: number) { return Math.max(0.025, Math.min(0.975, value)); }
@@ -152,15 +152,22 @@ function mergePlayers(saved: Player[]): Player[] {
     };
   });
 }
-// 앱에는 기본 임무가 없다. 작전판 카드는 편집기로 입력한 임무만 보여 준다.
-function playerBrief(player: Player): Brief | undefined {
-  return player.brief ?? undefined;
+// 시트에 있는 선수는 폰과 같은 최신 임무를 보여 준다. 저장된 수동 임무는 덮어쓰지 않는다.
+function playerBrief(player: Player, sheet?: MissionSheet | null): Brief | undefined {
+  const mission = sheetMissionForPlayer(player, sheet);
+  return mission ? { nickname: mission.nickname, file: "", team: mission.team, foot: "", units: mission.units,
+    steps: [["메인 임무", mission.main], ["서브 임무", mission.sub]].filter(([, text]) => text) as Array<[string, string]> } : player.brief ?? undefined;
+}
+function sheetMissionForPlayer(player: Player, sheet?: MissionSheet | null) {
+  const nickname = ROSTER_ALIASES.get(player.nickname) ?? player.nickname;
+  return [...(sheet?.missions.values() ?? [])].find((item) => (ROSTER_ALIASES.get(item.nickname) ?? item.nickname) === nickname);
 }
 function playerSlot(player: Player): number | undefined {
   return player.slot === undefined ? SLOT_BY_NICKNAME.get(player.nickname) : player.slot ?? undefined;
 }
 // 2026-10-04 시트 자리 변경 전 번호. 저장본에 이 기본 번호가 그대로 남은 선수만 한 번 새 기본 번호를 따르게 한다.
 const SEATS_BEFORE_2026_10_04 = new Map([["마스터", 5], ["TESLA", 6], ["Mim Mi", 7], ["압수", 12], ["마리오", 19], ["TOMAS SHELBY", 20], ["Elega", 27]]);
+const SEATS_BEFORE_CARD_SYNC = new Map([["Elega", 19], ["5000", 26]]);
 function normalizeRoster(saved: Operation): Player[] {
   const players = saved.players;
   const photoRoster = (saved.rosterRevision ?? 0) >= 2;
@@ -185,7 +192,8 @@ function normalizeRoster(saved: Operation): Player[] {
     const renamed = players.map((player) => {
       const nickname = ROSTER_ALIASES.get(player.nickname);
       return nickname && (SLOT_BY_NICKNAME.get(nickname) === 2 || ((saved.rosterRevision ?? 0) < 5 && player.nickname === "GINSENG MAN")) ? { ...player, nickname, brief: player.brief ? { ...player.brief, nickname } : player.brief } : player;
-    }).map((player) => saved.rosterRevision === 2 && player.slot != null && SEATS_BEFORE_2026_10_04.get(player.nickname) === player.slot ? { ...player, slot: undefined } : player);
+    }).map((player) => player.slot != null && ((saved.rosterRevision === 2 && SEATS_BEFORE_2026_10_04.get(player.nickname) === player.slot) ||
+      ((saved.rosterRevision ?? 0) < 6 && SEATS_BEFORE_CARD_SYNC.get(player.nickname) === player.slot)) ? { ...player, slot: undefined } : player);
     if (new Set(renamed.map((player) => player.nickname.trim().toLowerCase())).size !== renamed.length) throw new Error("잘못된 명단");
     // 실제 멤버 교체다. 옛 선수의 ID·임무·보직은 넘기지 않고, 이미 지운 선수는 되살리지 않는다.
     if ((saved.rosterRevision ?? 0) < 5 && renamed.some((player) => player.nickname === "TOMAS SHELBY")) {
@@ -208,10 +216,10 @@ function normalizeOperation(saved: Operation): Operation {
   const byId = new Map(players.map((player) => [String(player.id), player]));
   const replaced = (saved.rosterRevision ?? 0) >= 2 && (saved.rosterRevision ?? 0) < 5 ? saved.players.find((player) => player.nickname === "TOMAS SHELBY") : undefined;
   const newcomer = replaced && players.find((player) => player.nickname === "알나인티 님" && !previousIds.has(player.id));
-  return { ...saved, players, rosterRevision: 5, cards: saved.cards?.filter((card) => ids.has(String(card.playerId))),
+  return { ...saved, players, rosterRevision: 6, cards: saved.cards?.filter((card) => ids.has(String(card.playerId))),
     scenes: saved.scenes.map((item, index) => {
       const positions = Object.fromEntries(Object.entries(item.positions ?? {}).filter(([id]) => ids.has(id))
-        .map(([id, point]) => [id, reseat && byId.has(id) ? moveFromOldSeat(byId.get(id)!, point) : point]));
+        .map(([id, point]) => [id, (saved.rosterRevision ?? 0) >= 2 && (saved.rosterRevision ?? 0) < 6 && byId.has(id) ? moveFromOldSeat(byId.get(id)!, point, saved.rosterRevision!) : point]));
       // 교체된 선수의 말이 기본 스타팅 자리에 있을 때만 새 선수도 6번에 배치한다. 직접 옮긴 말은 승계하지 않는다.
       const point = replaced && item.positions?.[String(replaced.id)];
       if (newcomer && point && replaced && (replaced.slot === undefined || replaced.slot === (saved.rosterRevision === 2 ? 20 : 6))) {
@@ -226,11 +234,11 @@ function normalizeOperation(saved: Operation): Operation {
 }
 // 2026-10-04 자리 변경 전에 배치한 말은 번호만 바뀌고 옛 자리 좌표에 남는다.
 // 새 기본 번호를 따르는 선수의 말이 옛 기본 자리에 그대로 있을 때만 새 자리로 한 번 옮긴다. 직접 옮긴 말은 둔다.
-function moveFromOldSeat(player: Player, point: Point): Point {
-  const before = SEATS_BEFORE_2026_10_04.get(player.nickname);
+function moveFromOldSeat(player: Player, point: Point, revision: number): Point {
+  const previous = [revision < 4 ? SEATS_BEFORE_2026_10_04.get(player.nickname) : undefined, SEATS_BEFORE_CARD_SYNC.get(player.nickname)].filter((slot) => slot !== undefined);
   const slot = playerSlot(player);
-  if (!before || !slot || slot === before || slot !== SLOT_BY_NICKNAME.get(player.nickname)) return point;
-  for (const side of MISSION_SIDES) for (const variant of ["tactical", "field"] as const) {
+  if (!slot || slot !== SLOT_BY_NICKNAME.get(player.nickname)) return point;
+  for (const before of previous) for (const side of MISSION_SIDES) for (const variant of ["tactical", "field"] as const) {
     const old = slotPoint(before, side, variant);
     if (old && Math.abs(old.x - point.x) < 1e-9 && Math.abs(old.y - point.y) < 1e-9) return slotPoint(slot, side, variant) ?? point;
   }
@@ -304,16 +312,16 @@ function readMissionSheet(text: string): MissionSheet {
   return { missions, common: common ?? [] };
 }
 // 스테프(지팡이 아티 순간이동)는 같은 시트의 「스테프」 탭에서 읽는다. 0번 행의 사용 방법은 전원 공통 규칙이다.
-// 군: 시작 = 게임 시작 직후 자기 5부대 탑승, 지정 = STAFF 포인트에서 다른 사람 부대를 태워 순차 사용.
+// 군: 시작/스타팅 = 게임 시작 직후(부대 수는 부대구성을 따른다), 지정 = STAFF 포인트에서 순차 사용.
 const STAFF_SHEET_CSV = `https://docs.google.com/spreadsheets/d/1NUorQ8zecl1mDRstKk-F1T7hRF2YYBgS_ZG21gIvcgc/gviz/tq?tqx=out:csv&headers=1&sheet=${encodeURIComponent("스테프")}`;
-type StaffPlan = { slot: number; group: "start" | "point" | null; order: number | null; top: boolean | null; target: string; method: string };
+type StaffPlan = { slot: number; group: "start" | "point" | null; order: number | null; top: boolean | null; target: string; method: string; composition?: string };
 type StaffSheet = { plans: Map<number, StaffPlan>; common: string };
 function readStaffSheet(text: string): StaffSheet {
   const [head = [], ...rows] = parseCsv(text);
   const column = (name: string) => head.findIndex((cell) => cell.replace(/\s/g, "") === name);
-  const at = { slot: column("번호"), group: column("군"), order: column("순번"), place: column("사용위치"), target: column("목적지"), method: column("사용방법") };
+  const at = { slot: column("번호"), group: column("군"), order: column("순번"), place: column("사용위치"), target: column("목적지"), method: column("사용방법"), composition: column("부대구성") };
   // 없는 탭을 요청하면 gviz가 첫 탭을 돌려주므로 머리글로 걸러낸다.
-  if (Object.values(at).some((index) => index < 0)) throw new Error("스테프 시트 머리글을 찾지 못했습니다");
+  if ([at.slot, at.group, at.order, at.place, at.target].some((index) => index < 0) || (at.method < 0 && at.composition < 0)) throw new Error("스테프 시트 머리글을 찾지 못했습니다");
   const plans = new Map<number, StaffPlan>();
   let common = "";
   for (const row of rows) {
@@ -325,14 +333,18 @@ function readStaffSheet(text: string): StaffSheet {
     const group = cell(at.group), place = cell(at.place);
     plans.set(slot, {
       slot,
-      group: group.includes("시작") ? "start" : /지정|중간/.test(group) ? "point" : null,
+      group: /시작|스타팅/.test(group) ? "start" : /지정|중간/.test(group) ? "point" : null,
       order: Number.parseInt(cell(at.order), 10) || null,
       top: /탑|top/i.test(place) ? true : /바텀|bottom/i.test(place) ? false : null,
       target: cell(at.target),
       method: cell(at.method),
+      ...(at.composition >= 0 ? { composition: cell(at.composition) } : {}),
     });
   }
   return { plans, common };
+}
+function staffLabel(plan: StaffPlan, slot: number) {
+  return plan.group === "start" ? "시작 스테프 · 게임 시작 직후" : `지정 스테프 · ${plan.top ?? TOP_LINE_SLOTS.has(slot) ? "TOP" : "BOTTOM"} 포인트${plan.order ? ` ${plan.order}번째` : ""}`;
 }
 // 시트 문장을 지시 하나씩 끊는다. "/"·"+"·문장 끝 마침표에서 끊되, 괄호 안과 "1."처럼 숫자 뒤 마침표는 그대로 둔다.
 function missionLines(text: string): string[] {
@@ -402,7 +414,7 @@ function readOperation(saved: unknown): Operation {
   if (!isRecord(saved) || saved.version !== 1 || !Array.isArray(saved.players) || !saved.players.every(isRecord) ||
     !Array.isArray(saved.scenes) || !saved.scenes.length || typeof saved.name !== "string" ||
     typeof saved.updatedAt !== "string" || !Number.isFinite(Date.parse(saved.updatedAt)) ||
-    (saved.rosterRevision !== undefined && ![1, 2, 3, 4, 5].includes(saved.rosterRevision as number)) ||
+    (saved.rosterRevision !== undefined && ![1, 2, 3, 4, 5, 6].includes(saved.rosterRevision as number)) ||
     (saved.side !== undefined && !MISSION_SIDES.includes(saved.side as MissionSide))) return invalid();
   const sceneIds = new Set<string>();
   for (const scene of saved.scenes) {
@@ -545,12 +557,14 @@ function buildMissionPlan(orders: string[] | null, side: MissionSide, variant: M
   const routes: MissionRoute[] = [...byTarget].map(([target, { point, units }]) => ({ target, to: point, units, roaming: false }));
   return { routes, gaps: gaps.sort((a, b) => a - b) };
 }
-// 집결 탑승 경로는 편집된 명단의 집결장 임무를 따라간다.
-function missionsByNickname(players: Player[]) {
-  return new Map(players.flatMap((player): Array<[string, MissionOrders]> => { const brief = playerBrief(player); return brief ? [[player.nickname, brief.units]] : []; }));
+// 집결 탑승 경로도 카드와 같은 시트·편집 임무의 집결장 목적지를 따라간다.
+function missionsByNickname(players: Player[], sheet?: MissionSheet | null) {
+  return new Map(players.flatMap((player): Array<[string, MissionOrders]> => { const brief = playerBrief(player, sheet); return brief ? [[player.nickname, brief.units]] : []; }));
 }
-function missionView(player: Player, missions: Map<string, MissionOrders>, side: MissionSide, variant: MapVariant) {
-  const brief = playerBrief(player);
+function missionView(player: Player, missions: Map<string, MissionOrders>, side: MissionSide, variant: MapVariant, sheet?: MissionSheet | null) {
+  const original = playerBrief(player, sheet);
+  const brief = original ? { ...original, steps: original.steps.map(([head, body]): [string, string] => [head, mirrorMission(body, side)]),
+    common: original.common?.map(([head, body]): [string, string] => [head, mirrorMission(body, side)]) } : undefined;
   const orders = brief?.units.map((text) => mirrorMission(text, side)) ?? null;
   return { brief, orders, roles: orders ? missionCommandRoles(orders) : [], plan: buildMissionPlan(orders, side, variant, missions) };
 }
@@ -684,7 +698,7 @@ function StaffBoard({ staff, side, nameOf }: { staff: SheetState<StaffSheet>; si
       <p className="board-team">지팡이 아티 순간이동</p>
       {!staff.data ? <p className="board-empty">{staff.failed ? "스테프 표를 불러오지 못했습니다" : "스테프 표를 불러오는 중…"}</p> : <>
         {staff.data.common && <section className="board-box"><h3>공통 규칙</h3><MissionLines text={mirrorMission(staff.data.common, side)} /></section>}
-        <section className="board-box"><h3>시작 스테프 · 게임 시작 직후 자기 5부대</h3>
+        <section className="board-box"><h3>시작 스테프 · 게임 시작 직후</h3>
           {starts.size ? <ul className="staff-targets">{[...starts].map(([target, items]) => <li key={target}><b>{target ? <MissionText text={mirrorMission(target, side)} /> : "목적지 미정"}</b><span>{items.map((plan) => nameOf(plan.slot)).join(" · ")}</span></li>)}</ul>
             : <p className="board-empty">배정 없음</p>}
         </section>
@@ -697,6 +711,9 @@ function StaffBoard({ staff, side, nameOf }: { staff: SheetState<StaffSheet>; si
               : <p className="board-empty">배정 없음</p>}
           </section>;
         })}
+        {list.some((plan) => plan.composition) && <section className="board-box"><h3>스테프 부대구성</h3>
+          <ol className="board-units">{list.filter((plan) => plan.composition).map((plan) => <li key={plan.slot}><i>{plan.slot}</i><div><b>{nameOf(plan.slot)}</b><MissionLines text={mirrorMission(plan.composition!, side)} /></div></li>)}</ol>
+        </section>}
         {unassigned.length > 0 && <section className="board-box"><h3>미배정 {unassigned.length}명</h3><p>{unassigned.map((slot) => `${slot} ${nameOf(slot)}`).join(" · ")}</p></section>}
       </>}
       <p className="board-foot">{MISSION_SIDE_LABEL[side]} 진영 기준 · 지팡이 콜은 디스코드 보이스 오더</p>
@@ -774,7 +791,6 @@ function MobileBriefing({ players, sheet, staff, onExit }: { players: Player[]; 
   );
 
   const plans = staff.data?.plans;
-  const staffLabel = (plan: StaffPlan, slot: number) => plan.group === "start" ? "시작 스테프 · 자기 5부대" : `지정 스테프 · ${plan.top ?? TOP_LINE_SLOTS.has(slot) ? "TOP" : "BOTTOM"} 포인트${plan.order ? ` ${plan.order}번째` : ""}`;
 
   if (picked === STAFF_SLOT) return (
     <div className={shell(` side-${side}`)}>
@@ -812,6 +828,7 @@ function MobileBriefing({ players, sheet, staff, onExit }: { players: Player[]; 
         {plan?.group && <section className="board-box board-staff"><h3>스테프 사용 · {staffLabel(plan, picked)}</h3>
           {/* 지도 위치로 읽히는 목적지에만 "목적지" 머리말을 붙인다. */}
           <MissionLines text={mirrorMission([plan.target && (staffPath?.targets.length ? `목적지 ${plan.target}` : plan.target), plan.method].filter(Boolean).join(" / ") || "목적지 미정", side)} />
+          {plan.composition && <><h4>부대구성</h4><MissionLines text={mirrorMission(plan.composition, side)} /></>}
         </section>}
         {/* 개인 임무가 먼저 보이게 공통 임무는 접어 둔다. */}
         {common.length > 0 && <details className="board-box board-fold"><summary>공통 임무 · {common.find((item) => item.head)?.head ?? "전원"}<span className="fold-open">펼쳐 보기 ▾</span><span className="fold-close">접기 ▴</span></summary><CommonItems items={common} /></details>}
@@ -932,14 +949,16 @@ export default function WarTable() {
   const missionSide: MissionSide = operation.side ?? "ian";
   const editing = operation.players.find((player) => player.id === editingId) ?? operation.players[0];
   const missionCards = operation.cards ?? [];
-  const missions = missionsByNickname(operation.players);
+  const missions = missionsByNickname(operation.players, sheet.data);
   const openMissionBriefs = missionCards.map((card) => {
     const player = operation.players.find((item) => item.id === card.playerId);
     if (!player) return null;
-    const { brief, orders, roles, plan } = missionView(player, missions, missionSide, mapVariant);
+    const { brief, orders, roles, plan } = missionView(player, missions, missionSide, mapVariant, sheet.data);
     const origin = scene.positions[String(player.id)] ?? STARTING_POINT_CENTER[mapVariant][missionSide];
     const routes = plan.routes.map((route) => ({ ...route, key: `${card.playerId}-${route.target}`, nickname: player.nickname, from: origin }));
-    return { card, player, orders, roles, routes, gaps: plan.gaps, brief };
+    const mission = sheetMissionForPlayer(player, sheet.data);
+    const staffPlan = mission && staff.data?.plans.get(mission.slot);
+    return { card, player, orders, roles, routes, gaps: plan.gaps, brief, staffPlan };
   }).filter((brief) => brief !== null);
   const missionRoutes = openMissionBriefs.filter((brief) => brief.card.route).flatMap((brief) => brief.routes);
   const counts = useMemo(() => {
@@ -955,6 +974,10 @@ export default function WarTable() {
         if (raw) {
           const saved = JSON.parse(raw) as Operation;
           const restored = readOperation(saved);
+          if ((saved.rosterRevision ?? 0) < 6) {
+            const backupKey = `${STORAGE_KEY}-before-card-sync-2026-10-06`;
+            if (localStorage.getItem(backupKey) === null) localStorage.setItem(backupKey, raw);
+          }
           if ((saved.rosterRevision ?? 0) < 5) {
             const backupKey = `${STORAGE_KEY}-before-sheet-roster-2026-10-06`;
             if (localStorage.getItem(backupKey) === null) localStorage.setItem(backupKey, raw);
@@ -1326,7 +1349,7 @@ export default function WarTable() {
           </svg>
           {missionRoutes.map((route) => { const at = .82; const x = route.from.x + (route.to.x - route.from.x) * at; const y = route.from.y + (route.to.y - route.from.y) * at; return <span key={`${route.key}-tag`} className={`mission-route-tag side-${missionSide}${route.roaming ? " is-roaming" : ""}`} style={{ left: `${x * 100}%`, top: `${y * 100}%` }} title={`${route.nickname} · ${route.units.join(", ")}부대${route.roaming ? " · 아군 목적지 주변 유동" : ""}`}>{route.units.join("·")}</span>; })}
           {tool === "memo" && drawPoints.length > 1 && (() => { const area = memoRect(drawPoints[0], drawPoints[1]); return <div className="memo-preview" style={{ left: `${area.left * 100}%`, top: `${area.top * 100}%`, width: `${area.width * 100}%`, height: `${area.height * 100}%` }} />; })()}
-          {openMissionBriefs.map(({ card, player, orders, roles, gaps, brief }) => <div key={card.playerId} className={`tactical-object mission-card side-${missionSide} role-${player.primaryRole}`} style={{ left: `${card.x * 100}%`, top: `${card.y * 100}%` }} onPointerDown={(event) => { if (tool === "delete") { event.stopPropagation(); closeMissionCard(card.playerId); } }}>
+          {openMissionBriefs.map(({ card, player, orders, roles, gaps, brief, staffPlan }) => <div key={card.playerId} className={`tactical-object mission-card side-${missionSide} role-${player.primaryRole}`} style={{ left: `${card.x * 100}%`, top: `${card.y * 100}%`, maxHeight: `${(1 - card.y) * 100}%` }} onPointerDown={(event) => { if (tool === "delete") { event.stopPropagation(); closeMissionCard(card.playerId); } }}>
             <div className="mission-card-head" onPointerDown={(event) => handleCardPointerDown(event, card)}>
               <UnitRoleIcon unitRole={player.primaryRole} isRally={player.secondaryRoles.includes("rally")} />
               <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={() => setPlayerDraft(editablePlayer(player))}>편집</button><strong className="mission-card-name">{!!playerSlot(player) && <b className="mission-card-slot">{playerSlot(player)}</b>}{player.nickname}</strong>
@@ -1342,7 +1365,11 @@ export default function WarTable() {
               {brief && brief.steps.length > 0 && <ol className="mission-steps">{brief.steps.map(([when, what]) => <li key={when + what}><i>{when}</i><span>{what}</span></li>)}</ol>}
               {/* eslint-disable-next-line @next/next/no-img-element -- 정적 PNG 한 장, 최적화 불필요 */}
               {brief?.image && <figure className="mission-figure"><img src={brief.image.src} alt={brief.image.caption} /><figcaption>{brief.image.caption}</figcaption></figure>}
-              <ol className="mission-units">{orders.map((text, index) => <li key={index} className={`mission-unit ${missionEmphasis(text)}`}><i>{index + 1}</i><span>{text}</span></li>)}</ol>
+              {orders.some(Boolean) && <ol className="mission-units">{orders.map((text, index) => <li key={index} className={`mission-unit ${missionEmphasis(text)}`}><i>{index + 1}</i><span>{text}</span></li>)}</ol>}
+              {staffPlan?.group && <section className="mission-staff"><h4>스테프 사용 · {staffLabel(staffPlan, staffPlan.slot)}</h4>
+                <MissionLines text={mirrorMission([staffPlan.target, staffPlan.method].filter(Boolean).join(" / ") || "목적지 미정", missionSide)} />
+                {staffPlan.composition && <><h4>부대구성</h4><MissionLines text={mirrorMission(staffPlan.composition, missionSide)} /></>}
+              </section>}
               {card.route && gaps.length > 0 && <p className="mission-route-gap">{gaps.join("·")}부대는 임무표에 목적지가 없어 지도에 표시할 수 없습니다</p>}
               {brief?.foot && <p>{brief.foot}</p>}
               {!!playerSlot(player) && <div className="mission-deploy"><span>{playerSlot(player)}번 자리로</span>{MISSION_SIDES.map((side) => <button type="button" key={side} className={`deploy-${side}`} onClick={() => deployOne(card.playerId, side)}>{MISSION_SIDE_LABEL[side]} 배치</button>)}</div>}

@@ -1,5 +1,5 @@
 // 로스터·전투 위치 번호의 단일 출처. 작전판(war-table.tsx)이 읽는다.
-// 임무 문안은 앱에 두지 않는다. 폰 화면은 구글 시트에서 읽고, 작전판 카드는 편집기로 입력한다.
+// 임무 문안은 앱에 두지 않는다. 폰·작전판 카드 모두 구글 시트를 읽으며, 시트 밖 선수는 편집 임무를 쓴다.
 
 export type PrimaryRole = "infantry" | "cavalry" | "ranged";
 export const ROLE_LABEL: Record<PrimaryRole, string> = { infantry: "보병", cavalry: "기병", ranged: "원거리" };
@@ -19,7 +19,7 @@ export type Brief = {
 
 // 2026-10-01 전달 사진의 번호순 주전 30명. 길드·장식 문자는 생략한다. 26·27번은 같은 날 사용자 요청으로 맞바꿈.
 // 2026-10-04 시트 「스타팅 명단」 자리 변경을 따른다(5 마리오·6 TOMAS SHELBY·7 TESLA·12 Mim Mi·19 Elega·20 압수·27 마스터).
-// 2026-10-06 시트 대조: 6번 알나인티 님, 14번 GINSENG MAN (천상님이). 나머지 번호·이름은 동일하다.
+// 2026-10-06 시트 대조: 6번 알나인티 님, 14번 GINSENG MAN (천상님이), 19번 5000·26번 Elega.
 // 미확인 신규 선수는 임무를 승계하지 않으며, 병종은 편집 가능한 기본 보병이다.
 export const PLAYER_SOURCE: Array<[string, PrimaryRole]> = [
   ["무잔 Muzan", "cavalry"],
@@ -40,14 +40,14 @@ export const PLAYER_SOURCE: Array<[string, PrimaryRole]> = [
   ["욘두 Yondu", "infantry"],
   ["진수", "infantry"],
   ["조롱말", "cavalry"],
-  ["Elega", "infantry"],
+  ["5000", "ranged"],
   ["압수", "infantry"],
   ["Bünker", "ranged"],
   ["불개", "infantry"],
   ["떡틸로", "infantry"],
   ["JunkHun", "infantry"],
   ["Maha", "cavalry"],
-  ["5000", "ranged"],
+  ["Elega", "infantry"],
   ["마스터", "cavalry"],
   ["보수", "infantry"],
   ["햄수", "ranged"],

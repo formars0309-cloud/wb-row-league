@@ -591,6 +591,8 @@ body {
   border-left: 1px solid #3c3d3c;
 }
 .mission-card {
+  display: flex;
+  flex-direction: column;
   --side: #f0c463;
   --side-ink: #f8ead0;
   --side-wash: rgba(240, 196, 99, 0.12);
@@ -614,7 +616,9 @@ body {
 .map-panel.tool-select .mission-card, .map-panel.tool-delete .mission-card { pointer-events: auto; }
 .mission-card-head {
   display: grid;
-  grid-template-columns: 26px 1fr auto;
+  grid-template-columns: 24px auto minmax(0, 1fr) auto;
+  flex-shrink: 0;
+  user-select: none;
   align-items: center;
   gap: 9px;
   padding: 9px 10px;
@@ -623,6 +627,7 @@ body {
   cursor: grab;
 }
 .mission-card-head:active { cursor: grabbing; }
+.mission-card-actions { display: flex; align-items: center; gap: 5px; }
 .map-panel.tool-delete .mission-card-head, .map-panel.tool-delete .mission-card-actions { display: flex; align-items: center; gap: 5px; }
 .mission-card-route {
   height: 22px;
@@ -750,7 +755,9 @@ body {
   cursor: pointer;
 }
 .mission-card-close:hover { border-color: #ff6b6b; color: #ff8f8f; }
-.mission-card-body { padding: 9px; display: grid; gap: 7px; }
+.mission-card-body { padding: 9px; display: grid; gap: 7px; min-height: 0; overflow-y: auto; }
+.mission-staff { display: grid; gap: 7px; border-top: 1px solid var(--side-line); padding-top: 7px; }
+.mission-staff h4, .mission-staff .board-line { margin: 0; padding: 0; font-size: 12px; }
 .mission-roles { display: grid; gap: 5px; }
 .mission-role {
   display: flex;

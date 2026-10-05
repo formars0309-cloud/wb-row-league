@@ -11,7 +11,7 @@ async function rosterHelpers() {
   const source = await readFile(new URL("../app/war-table.tsx", import.meta.url), "utf8");
   const helpers = source.slice(0, source.indexOf("function UnitRoleIcon")).replace(/^import .*;$/gm, "").replace(/^export type /gm, "type ");
   const js = ts.transpileModule(helpers, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
-  return runInNewContext(`${js}\n({ freshOperation, normalizeRoster, normalizeOperation, playerBrief, playerSlot, readMissionSheet, mirrorMission, lineExit, entranceBlock, missionTargets, buildMissionPlan, objectivePoint, OBJECTIVE_META, missionLines, missionParts, teamCommon, groupUnits, readStaffSheet, staffPoint, staffRoute, slotPoint, readOperation })`, { ...roster });
+  return runInNewContext(`${js}\n({ freshOperation, normalizeRoster, normalizeOperation, playerBrief, playerSlot, readMissionSheet, mirrorMission, lineExit, entranceBlock, missionTargets, buildMissionPlan, objectivePoint, OBJECTIVE_META, missionLines, missionParts, teamCommon, groupUnits, readStaffSheet, staffPoint, staffRoute, slotPoint, readOperation, missionView, missionsByNickname })`, { ...roster });
 }
 
 async function historyHelpers() {
@@ -185,7 +185,7 @@ test("가져온 명단의 중복 ID·닉네임과 잘못된 임무·번호를 �
 
 test("2026-10-06 시트 30명의 번호와 이름이 정확히 일치하고 앱에는 기본 임무가 없다", async () => {
   const { freshOperation, playerSlot, playerBrief } = await rosterHelpers();
-  const expected = ["무잔 Muzan", "벌꿀오소리형", "바르니 barunii", "마지태", "마리오", "알나인티 님", "TESLA", "파리스", "마구니", "Glen fiddich", "예리", "Mim Mi", "곡곡이", "GINSENG MAN (천상님이)", "Kingsway", "욘두 Yondu", "진수", "조롱말", "Elega", "압수", "Bünker", "불개", "떡틸로", "JunkHun", "Maha", "5000", "마스터", "보수", "햄수", "늑대장군"];
+  const expected = ["무잔 Muzan", "벌꿀오소리형", "바르니 barunii", "마지태", "마리오", "알나인티 님", "TESLA", "파리스", "마구니", "Glen fiddich", "예리", "Mim Mi", "곡곡이", "GINSENG MAN (천상님이)", "Kingsway", "욘두 Yondu", "진수", "조롱말", "5000", "압수", "Bünker", "불개", "떡틸로", "JunkHun", "Maha", "Elega", "마스터", "보수", "햄수", "늑대장군"];
   const players = freshOperation().players;
   assert.deepEqual(Array.from(players, (player) => player.nickname), expected);
   assert.deepEqual(Array.from(players, playerSlot), Array.from({ length: 30 }, (_, i) => i + 1));
@@ -210,7 +210,7 @@ test("2026-10-06 멤버 교체는 한 번만 이관하고 기존 선수의 편�
     const before = JSON.stringify(saved);
     const restored = readOperation(saved);
     assert.equal(JSON.stringify(saved), before);
-    assert.equal(restored.rosterRevision, 5);
+    assert.equal(restored.rosterRevision, 6);
     assert.equal(restored.players.length, 30);
     const newcomer = restored.players.find((player) => player.nickname === "알나인티 님");
     assert.equal(newcomer.id, 44);
@@ -263,7 +263,7 @@ test("2026-10-04 시트 자리 변경: 저장본의 이전 기본 번호만 한 
   operation.players = operation.players.map((player) => old[player.nickname] ? { ...player, slot: old[player.nickname] } : player.nickname === "곡곡이" ? { ...player, slot: 13 } : player);
   operation.players.find((player) => player.nickname === "Elega").slot = 3; // 직접 바꾼 번호
   const migrated = normalizeOperation(JSON.parse(JSON.stringify(operation)));
-  assert.equal(migrated.rosterRevision, 5);
+  assert.equal(migrated.rosterRevision, 6);
   const slotOf = (name) => playerSlot(migrated.players.find((player) => player.nickname === name));
   assert.deepEqual(["마리오", "알나인티 님", "TESLA", "Mim Mi", "압수", "마스터"].map(slotOf), [5, 6, 7, 12, 20, 27]);
   assert.equal(slotOf("Elega"), 3, "직접 바꾼 번호는 그대로");
@@ -320,7 +320,7 @@ test("구버전 명단은 ID와 편집을 보존하며 30명으로 이관하고 
     const before = JSON.stringify(saved);
     const restored = normalizeOperation(saved);
     assert.equal(JSON.stringify(saved), before);
-    assert.equal(restored.rosterRevision, 5);
+    assert.equal(restored.rosterRevision, 6);
     assert.equal(restored.players.length, 30);
     assert.equal(new Set(restored.players.map((player) => player.id)).size, 30);
     const tesla = restored.players.find((player) => player.nickname === "TESLA");
@@ -386,6 +386,89 @@ test("스테프 탭은 머리글로 열을 찾고 공통 규칙·군·순번·�
   assert.equal(plans.get(4).group, null);
   // 없는 탭이면 gviz가 첫 탭(스타팅 명단)을 돌려준다. 그 머리글은 스테프 표로 읽지 않는다.
   assert.throws(() => readStaffSheet('"스타팅 포인트 번호","닉네임","소속팀","메인임무"\n"1","무잔","기마팀",""'));
+});
+
+test("현재 스테프 부대구성 머리글과 스타팅/지정 STAFF 표기를 읽고 기존 사용 방법도 함께 보존한다", async () => {
+  const { readStaffSheet } = await rosterHelpers();
+  const csv = [
+    '"번호","닉네임","군","순번","사용 위치","목적지","부대구성","사용 방법"',
+    '"0","공통 규칙","","","","","","보이스 콜"',
+    '"2","벌꿀오소리형","스타팅 STAFF 사용","","","1시 천무의 전당","주둔장 1 / 아처 3 / 기병집결 1","첫 콜에 출발"',
+    '"6","알나인티 님","지정 순번 STAFF 사용","4","탑","","",""',
+    '"29","햄수","지정 순번 STAFF 사용","1","바텀","","보병 2부대 (불개님과 같이)",""',
+  ].join("\n");
+  const current = readStaffSheet(csv);
+  assert.equal(current.common, "보이스 콜");
+  assert.equal(current.plans.get(2).group, "start");
+  assert.equal(current.plans.get(2).composition, "주둔장 1 / 아처 3 / 기병집결 1");
+  assert.equal(current.plans.get(2).method, "첫 콜에 출발");
+  assert.equal(current.plans.get(6).group, "point");
+  assert.equal(current.plans.get(6).order, 4);
+  assert.equal(current.plans.get(6).top, true);
+  assert.equal(current.plans.get(29).top, false);
+  const withoutMethod = csv.split("\n").map((line) => line.slice(0, line.lastIndexOf(','))).join("\n");
+  assert.equal(readStaffSheet(withoutMethod).plans.get(2).composition, current.plans.get(2).composition);
+  assert.equal(readStaffSheet(withoutMethod).plans.get(2).method, "");
+  assert.throws(() => readStaffSheet('"번호","군","순번","사용 위치","목적지"\n"1","시작","","",""'));
+});
+
+test("PC 지도 카드도 최신 시트의 메인·서브·부대와 루시아 환산을 읽고 저장된 수동 편집·삭제는 덮어쓰지 않는다", async () => {
+  const { freshOperation, readMissionSheet, playerBrief, missionView, missionsByNickname } = await rosterHelpers();
+  const sheet = readMissionSheet([
+    '"스타팅 포인트 번호","닉네임","소속팀","메인임무","서브임무","1번부대","2번부대","3번부대","4번부대","5번부대"',
+    '"19","5000","주유팀 (탑)","1시 천무 지원","3시 치료 지원","1시 천무 주유","3시 치료 주유","","",""',
+    '"26","Elega","전망대","전망대 주둔장","집결 탑승","","","","",""',
+  ].join("\n"));
+  const player = { ...freshOperation().players.find((item) => item.nickname === "5000"), slot: 26 };
+  const before = JSON.stringify(player);
+  const brief = playerBrief(player, sheet);
+  assert.equal(brief.nickname, "5000", "시트 임무는 수동 번호가 아닌 선수 이름으로 찾는다");
+  assert.equal(brief.team, "주유팀 (탑)");
+  assert.equal(brief.steps[0][1], "1시 천무 지원");
+  assert.equal(brief.steps[1][1], "3시 치료 지원");
+  const leaders = missionsByNickname([player], sheet);
+  assert.equal(leaders.get("5000")[0], "1시 천무 주유");
+  const view = missionView(player, leaders, "lucia", "tactical", sheet);
+  assert.equal(view.orders[0], "7시 축복 주유");
+  assert.equal(view.orders[1], "9시 치료 주유");
+  assert.equal(view.brief.steps[0][1], "7시 축복 지원");
+  assert.equal(view.plan.routes.length, 2);
+  assert.equal(JSON.stringify(player), before, "시트 읽기는 저장된 임무를 덮어쓰지 않는다");
+  const edited = { ...player, brief: { ...brief, team: "직접 수정", units: ["직접 지시", "", "", "", ""] } };
+  assert.equal(playerBrief(edited, sheet).team, "주유팀 (탑)", "시트 선수는 기존 수동 임무보다 최신 시트를 우선한다");
+  assert.equal(edited.brief.team, "직접 수정", "저장된 수동 임무 원본은 유지한다");
+  assert.equal(playerBrief({ ...player, brief: null }, sheet).team, "주유팀 (탑)");
+  assert.equal(playerBrief({ ...edited, nickname: "새로 만든 선수" }, sheet).team, "직접 수정", "시트 밖 선수는 편집 임무를 쓴다");
+  assert.equal(playerBrief({ ...player, brief: null }), undefined);
+  assert.equal(playerBrief({ ...player, nickname: "새로 만든 선수" }, sheet), undefined);
+  sheet.missions.get(19).main = "새 시트 임무";
+  assert.equal(playerBrief(player, sheet).steps[0][1], "새 시트 임무");
+});
+
+test("19번 5000·26번 Elega 변경은 기존 ID·카드·수동 배치를 보존하며 기본 자리만 한 번 옮긴다", async () => {
+  const { freshOperation, readOperation, playerSlot, slotPoint } = await rosterHelpers();
+  for (const revision of [2, 3, 4, 5]) for (const side of ["ian", "lucia"]) for (const variant of ["tactical", "field"]) {
+    const saved = JSON.parse(JSON.stringify(freshOperation())); saved.rosterRevision = revision;
+    const old = { "5000": 26, "Elega": revision === 2 ? 27 : 19 };
+    saved.players = saved.players.map((player) => old[player.nickname] ? { ...player, slot: old[player.nickname] } : player);
+    const byName = (name) => saved.players.find((player) => player.nickname === name);
+    const five = byName("5000"), elega = byName("Elega");
+    saved.cards = [{ playerId: five.id, x: .1, y: .2 }, { playerId: elega.id, x: .2, y: .3 }];
+    saved.scenes[0].positions = { [five.id]: slotPoint(26, side, variant), [elega.id]: slotPoint(old.Elega, side, variant) };
+    const moved = { x: .4, y: .5 };
+    saved.scenes.push({ ...saved.scenes[0], id: "moved", positions: { [five.id]: moved, [elega.id]: moved } });
+    const restored = readOperation(saved);
+    assert.equal(playerSlot(restored.players.find((player) => player.id === five.id)), 19);
+    assert.equal(playerSlot(restored.players.find((player) => player.id === elega.id)), 26);
+    assert.equal(JSON.stringify(restored.cards), JSON.stringify(saved.cards));
+    assert.equal(JSON.stringify(restored.scenes[0].positions[five.id]), JSON.stringify(slotPoint(19, side, variant)));
+    assert.equal(JSON.stringify(restored.scenes[0].positions[elega.id]), JSON.stringify(slotPoint(26, side, variant)));
+    assert.equal(JSON.stringify(restored.scenes[1].positions), JSON.stringify(saved.scenes[1].positions));
+    assert.equal(JSON.stringify(readOperation(JSON.parse(JSON.stringify(restored)))), JSON.stringify(restored));
+    five.slot = 8;
+    assert.equal(playerSlot(readOperation(saved).players.find((player) => player.id === five.id)), 8);
+    assert.equal(JSON.stringify(readOperation(saved).scenes[0].positions[five.id]), JSON.stringify(saved.scenes[0].positions[five.id]));
+  }
 });
 
 test("STAFF 포인트 두 곳은 성 자리와 겹치지 않고 진영과 함께 돌며, 스테프 화살표는 군에 맞는 곳에서 목적지로 간다", async () => {
