@@ -65,7 +65,7 @@ function mirrorMission(text: string, side: MissionSide) {
 const MISSION_SIDE_LABEL: Record<MissionSide, string> = { ian: "이안", lucia: "루시아" };
 const MISSION_SIDES = Object.keys(MISSION_SIDE_LABEL) as MissionSide[];
 // 카드는 내용 길이에 따라 높이가 달라져, 맵 밖으로 나가지 않게 넉넉한 공칭 크기로만 잡아 둔다.
-const MISSION_CARD_SIZE = { width: .27, height: .36 };
+const MISSION_CARD_SIZE = { width: .45, height: .36 };
 // 진형은 마름모 격자다. 행마다 5·6·7·7·5칸이고, 한 행 안에서 한 칸씩 SLOT_STEP_ALONG,
 // 다음 행으로 넘어갈 때 SLOT_STEP_ROW 만큼 이동한다. 값은 게임 화면 비율을 옮긴 것.
 const SLOT_ROWS = [5, 6, 7, 7, 5];
@@ -699,7 +699,7 @@ function StaffBoard({ staff, side, nameOf }: { staff: SheetState<StaffSheet>; si
       {!staff.data ? <p className="board-empty">{staff.failed ? "스테프 표를 불러오지 못했습니다" : "스테프 표를 불러오는 중…"}</p> : <>
         {staff.data.common && <section className="board-box"><h3>공통 규칙</h3><MissionLines text={mirrorMission(staff.data.common, side)} /></section>}
         <section className="board-box"><h3>시작 스테프 · 게임 시작 직후</h3>
-          {starts.size ? <ul className="staff-targets">{[...starts].map(([target, items]) => <li key={target}><b>{target ? <MissionText text={mirrorMission(target, side)} /> : "목적지 미정"}</b><span>{items.map((plan) => nameOf(plan.slot)).join(" · ")}</span></li>)}</ul>
+          {starts.size ? <ul className="staff-targets">{[...starts].map(([target, items]) => <li key={target}><b>{target ? <MissionText text={mirrorMission(target, side)} /> : "목적지 미정"}</b><span className="staff-members">{items.map((plan) => <span key={plan.slot}><i>{plan.slot}</i>{nameOf(plan.slot)}</span>)}</span></li>)}</ul>
             : <p className="board-empty">배정 없음</p>}
         </section>
         {groups.map((group) => {
@@ -707,11 +707,11 @@ function StaffBoard({ staff, side, nameOf }: { staff: SheetState<StaffSheet>; si
           const shared = group.items.length > 1 && group.items.every((plan) => plan.target === group.items[0].target) ? group.items[0].target : "";
           return <section key={group.title} className="board-box"><h3>{group.title}</h3>
             {shared && <p className="board-line"><MissionText text={mirrorMission(shared, side)} /></p>}
-            {group.items.length ? <ol className="board-units">{group.items.map((plan) => <li key={plan.slot}><i>{plan.order ?? "–"}</i><span>{nameOf(plan.slot)}{!shared && plan.target && <> → <MissionText text={mirrorMission(plan.target, side)} /></>}</span></li>)}</ol>
+            {group.items.length ? <ol className="board-units staff-orders">{group.items.map((plan) => <li key={plan.slot}><i>{plan.order ?? "–"}</i><span>{nameOf(plan.slot)}{!shared && plan.target && <> → <MissionText text={mirrorMission(plan.target, side)} /></>}</span><small>번호 {plan.slot}</small></li>)}</ol>
               : <p className="board-empty">배정 없음</p>}
           </section>;
         })}
-        {list.some((plan) => plan.composition) && <section className="board-box"><h3>스테프 부대구성</h3>
+        {list.some((plan) => plan.composition) && <section className="board-box staff-composition"><h3>스테프 부대구성</h3>
           <ol className="board-units">{list.filter((plan) => plan.composition).map((plan) => <li key={plan.slot}><i>{plan.slot}</i><div><b>{nameOf(plan.slot)}</b><MissionLines text={mirrorMission(plan.composition!, side)} /></div></li>)}</ol>
         </section>}
         {unassigned.length > 0 && <section className="board-box"><h3>미배정 {unassigned.length}명</h3><p>{unassigned.map((slot) => `${slot} ${nameOf(slot)}`).join(" · ")}</p></section>}
@@ -724,7 +724,7 @@ function StaffDialog({ staff, side, nameOf, onClose }: { staff: SheetState<Staff
   const dialogRef = useRef<HTMLDialogElement>(null);
   useEffect(() => { dialogRef.current?.showModal(); }, []);
   return <dialog ref={dialogRef} className={`staff-dialog side-${side}`} onCancel={onClose} aria-label="스테프 카드">
-    <button type="button" className="staff-dialog-close" onClick={onClose} aria-label="스테프 카드 닫기">×</button>
+    <div className="staff-dialog-tools"><button type="button" className="staff-dialog-close" onClick={onClose} aria-label="스테프 카드 닫기">×</button></div>
     <StaffBoard staff={staff} side={side} nameOf={nameOf} />
   </dialog>;
 }
@@ -825,7 +825,7 @@ function MobileBriefing({ players, sheet, staff, onExit }: { players: Player[]; 
           {mission.sub && <section className="board-box"><h3>서브 임무</h3><MissionLines text={mirrorMission(mission.sub, side)} /></section>}
           {units && <section className="board-box"><h3>부대 배치</h3><ol className="board-units">{groupUnits(units).map((group) => <li key={group.from} className={missionEmphasis(group.text)}><i>{group.from === group.to ? group.from : `${group.from}~${group.to}`}</i><span><MissionText text={group.text} /></span></li>)}</ol></section>}
         </>}
-        {plan?.group && <section className="board-box board-staff"><h3>스테프 사용 · {staffLabel(plan, picked)}</h3>
+        {plan?.group && <section className="board-box board-staff"><h3>스테프 사용</h3><p className="staff-schedule">{staffLabel(plan, picked)}</p>
           {/* 지도 위치로 읽히는 목적지에만 "목적지" 머리말을 붙인다. */}
           <MissionLines text={mirrorMission([plan.target && (staffPath?.targets.length ? `목적지 ${plan.target}` : plan.target), plan.method].filter(Boolean).join(" / ") || "목적지 미정", side)} />
           {plan.composition && <><h4>부대구성</h4><MissionLines text={mirrorMission(plan.composition, side)} /></>}
@@ -1349,7 +1349,7 @@ export default function WarTable() {
           </svg>
           {missionRoutes.map((route) => { const at = .82; const x = route.from.x + (route.to.x - route.from.x) * at; const y = route.from.y + (route.to.y - route.from.y) * at; return <span key={`${route.key}-tag`} className={`mission-route-tag side-${missionSide}${route.roaming ? " is-roaming" : ""}`} style={{ left: `${x * 100}%`, top: `${y * 100}%` }} title={`${route.nickname} · ${route.units.join(", ")}부대${route.roaming ? " · 아군 목적지 주변 유동" : ""}`}>{route.units.join("·")}</span>; })}
           {tool === "memo" && drawPoints.length > 1 && (() => { const area = memoRect(drawPoints[0], drawPoints[1]); return <div className="memo-preview" style={{ left: `${area.left * 100}%`, top: `${area.top * 100}%`, width: `${area.width * 100}%`, height: `${area.height * 100}%` }} />; })()}
-          {openMissionBriefs.map(({ card, player, orders, roles, gaps, brief, staffPlan }) => <div key={card.playerId} className={`tactical-object mission-card side-${missionSide} role-${player.primaryRole}`} style={{ left: `${card.x * 100}%`, top: `${card.y * 100}%`, maxHeight: `${(1 - card.y) * 100}%` }} onPointerDown={(event) => { if (tool === "delete") { event.stopPropagation(); closeMissionCard(card.playerId); } }}>
+          {openMissionBriefs.map(({ card, player, orders, roles, gaps, brief, staffPlan }) => <div key={card.playerId} className={`tactical-object mission-card side-${missionSide} role-${player.primaryRole}`} style={{ left: `min(${card.x * 100}%, calc(99% - min(340px, 45%)))`, top: `${card.y * 100}%`, maxHeight: `${(1 - card.y) * 100}%` }} onPointerDown={(event) => { if (tool === "delete") { event.stopPropagation(); closeMissionCard(card.playerId); } }}>
             <div className="mission-card-head" onPointerDown={(event) => handleCardPointerDown(event, card)}>
               <UnitRoleIcon unitRole={player.primaryRole} isRally={player.secondaryRoles.includes("rally")} />
               <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={() => setPlayerDraft(editablePlayer(player))}>편집</button><strong className="mission-card-name">{!!playerSlot(player) && <b className="mission-card-slot">{playerSlot(player)}</b>}{player.nickname}</strong>
@@ -1362,11 +1362,11 @@ export default function WarTable() {
               {roles.length > 0 && <div className="mission-roles">{roles.map((role) => <span key={role.key} className="mission-role"><b>{role.label}</b>{role.place}</span>)}</div>}
               {brief?.team && <p>{brief.team}</p>}{brief?.badge && <p>{brief.badge}</p>}
               {brief?.common?.map(([head, body], index) => <p key={index}><b>{head}</b> {body}</p>)}
-              {brief && brief.steps.length > 0 && <ol className="mission-steps">{brief.steps.map(([when, what]) => <li key={when + what}><i>{when}</i><span>{what}</span></li>)}</ol>}
+              {brief && brief.steps.length > 0 && <ol className="mission-steps">{brief.steps.map(([when, what]) => <li key={when + what}><i>{when}</i><div><MissionLines text={what} /></div></li>)}</ol>}
               {/* eslint-disable-next-line @next/next/no-img-element -- 정적 PNG 한 장, 최적화 불필요 */}
               {brief?.image && <figure className="mission-figure"><img src={brief.image.src} alt={brief.image.caption} /><figcaption>{brief.image.caption}</figcaption></figure>}
-              {orders.some(Boolean) && <ol className="mission-units">{orders.map((text, index) => <li key={index} className={`mission-unit ${missionEmphasis(text)}`}><i>{index + 1}</i><span>{text}</span></li>)}</ol>}
-              {staffPlan?.group && <section className="mission-staff"><h4>스테프 사용 · {staffLabel(staffPlan, staffPlan.slot)}</h4>
+              {orders.some(Boolean) && <ol className="mission-units">{orders.map((text, index) => <li key={index} className={`mission-unit ${missionEmphasis(text)}`}><i>{index + 1}</i><span><MissionText text={text} /></span></li>)}</ol>}
+              {staffPlan?.group && <section className="mission-staff"><h4>스테프 사용</h4><p className="staff-schedule">{staffLabel(staffPlan, staffPlan.slot)}</p>
                 <MissionLines text={mirrorMission([staffPlan.target, staffPlan.method].filter(Boolean).join(" / ") || "목적지 미정", missionSide)} />
                 {staffPlan.composition && <><h4>부대구성</h4><MissionLines text={mirrorMission(staffPlan.composition, missionSide)} /></>}
               </section>}
