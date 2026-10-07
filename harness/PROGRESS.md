@@ -1,5 +1,16 @@
 # 진행 상황
 
+갱신: 2026-10-08 — 저장소 정리·리팩터링(워크트리 cleanup-20261008, FEATURES 항목 아님, 배포 없음)
+
+- 기준 main 85011fb. 앞선 정리 브랜치 formars0309-cloud/cleanup-20261004의 3커밋(file·globe·window.svg 삭제, db/schema.ts 죽은 주석, 아래 10-04 기록)을 다시 확인해 cherry-pick. 세 아이콘은 앱·CSS·테스트·설정 어디서도 참조하지 않으며 빌드 산출물에서 그 세 파일과 서버 정적 경로 목록만 빠짐.
+- 리팩터링: war-table.tsx의 두 시트 탭 주소를 sheetCsvUrl로, 임무·스테프 fetch를 load 하나로 합침. 동작(실패 시 마지막 값 유지·탭별 독립 실패·30초/복귀 새로고침) 그대로.
+- 타입 오류 수정: npx tsc --noEmit 5건 → 1건. vite.config.ts d1·r2 선택 필드, worker/index.ts ASSETS 지역 타입(DB 필드는 Worker에서 안 써 제거). 남은 1건은 db/index.ts의 cloudflare:workers 모듈 타입 — @cloudflare/workers-types 추가나 미사용 DB 템플릿(db/·drizzle) 제거 중 하나를 정해야 해 보류.
+- 검증: 전후 npm run lint 통과, npm test(빌드 포함) 29개 통과, git diff --check. 기준·결과 소스를 따로 빌드해 청크 해시·UUID를 정규화 비교: 차이는 war-table 청크(변수명·시트 주소 생성 위치), 삭제한 아이콘 3개, 서버 정적 경로 목록·prerenderSecret·빌드 ID뿐.
+- 보류: public/favicon.svg(링크 태그 없음), public/maps/heinapel-tactical-original.png(지도 원본), output/imagegen(기록 자료), db/·drizzle(호스팅 템플릿), war-table.tsx 분리(1,450줄, 테스트가 소스 앞부분을 잘라 읽음).
+- GitHub origin 푸시는 배포를 트리거하지 않음(.github 없음, deployments 0, 공개는 Sites 수동 워크플로). 앞선 가독성 개선 공개 배포 대기 상태는 그대로이며, 다음 배포 시 이 정리분이 함께 올라간다.
+
+---
+
 갱신: 2026-10-04 — 야간 저장소 정리(브랜치 formars0309-cloud/cleanup-20261004, FEATURES 항목 아님, 배포 없음. 2026-10-08 cleanup-20261008에서 main에 반영)
 
 - 삭제: 미참조 create-next-app 아이콘 public/file.svg·globe.svg·window.svg. db/schema.ts의 삭제된 examples/d1 예제 주석 한 줄(스키마 내용 그대로).
