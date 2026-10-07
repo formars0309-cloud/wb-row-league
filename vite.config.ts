@@ -6,7 +6,8 @@ import hostingConfig from "./.openai/hosting.json";
 const SITE_CREATOR_PLACEHOLDER_DATABASE_ID =
   "00000000-0000-4000-8000-000000000000";
 
-const { d1, r2 } = hostingConfig;
+// d1·r2는 DB·저장소를 켤 때만 hosting.json에 들어간다.
+const { d1, r2 }: { project_id: string; d1?: string; r2?: string } = hostingConfig;
 
 // macOS Seatbelt blocks FSEvents, so Codex previews need polling for HMR.
 const isCodexSeatbeltSandbox = process.env.CODEX_SANDBOX === "seatbelt";

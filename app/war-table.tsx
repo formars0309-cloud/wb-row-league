@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { useOperationHistory } from "./operation-history";
 import { PLAYER_SOURCE, ROLE_LABEL, SLOT_SOURCE, ROSTER_ALIASES, type Brief, type MissionOrders, type PrimaryRole } from "./roster";
 
@@ -256,8 +256,11 @@ function normalizeScene(item: Scene, index: number): Scene {
     },
   };
 }
+function sheetCsvUrl(tab: string) {
+  return `https://docs.google.com/spreadsheets/d/1NUorQ8zecl1mDRstKk-F1T7hRF2YYBgS_ZG21gIvcgc/gviz/tq?tqx=out:csv&headers=1&sheet=${encodeURIComponent(tab)}`;
+}
 // 폰 화면 임무는 구글 시트 「스타팅 명단」 탭에서 읽는다. 앱에 사본을 두지 않는다.
-const MISSION_SHEET_CSV = `https://docs.google.com/spreadsheets/d/1NUorQ8zecl1mDRstKk-F1T7hRF2YYBgS_ZG21gIvcgc/gviz/tq?tqx=out:csv&headers=1&sheet=${encodeURIComponent("스타팅 명단")}`;
+const MISSION_SHEET_CSV = sheetCsvUrl("스타팅 명단");
 type SheetMission = { slot: number; nickname: string; team: string; main: string; sub: string; units: MissionOrders };
 type MissionSheet = { missions: Map<number, SheetMission>; common: string[] };
 function entranceBlock(mission: SheetMission | undefined, side: MissionSide, variant: MapVariant) {
@@ -313,7 +316,7 @@ function readMissionSheet(text: string): MissionSheet {
 }
 // 스테프(지팡이 아티 순간이동)는 같은 시트의 「스테프」 탭에서 읽는다. 0번 행의 사용 방법은 전원 공통 규칙이다.
 // 군: 시작/스타팅 = 게임 시작 직후(부대 수는 부대구성을 따른다), 지정 = STAFF 포인트에서 순차 사용.
-const STAFF_SHEET_CSV = `https://docs.google.com/spreadsheets/d/1NUorQ8zecl1mDRstKk-F1T7hRF2YYBgS_ZG21gIvcgc/gviz/tq?tqx=out:csv&headers=1&sheet=${encodeURIComponent("스테프")}`;
+const STAFF_SHEET_CSV = sheetCsvUrl("스테프");
 type StaffPlan = { slot: number; group: "start" | "point" | null; order: number | null; top: boolean | null; target: string; method: string; composition?: string };
 type StaffSheet = { plans: Map<number, StaffPlan>; common: string };
 function readStaffSheet(text: string): StaffSheet {
@@ -658,17 +661,13 @@ function useMissionSheets() {
   const [staff, setStaff] = useState<SheetState<StaffSheet>>({ data: null, failed: false });
   useEffect(() => {
     let alive = true;
-    // 실패해도 마지막으로 읽은 임무는 그대로 두고 경고만 띄운다.
-    const load = () => fetch(MISSION_SHEET_CSV, { cache: "no-store" })
+    // 실패해도 마지막으로 읽은 내용은 그대로 두고 경고만 띄운다.
+    const load = <T,>(url: string, read: (text: string) => T, set: Dispatch<SetStateAction<SheetState<T>>>) => fetch(url, { cache: "no-store" })
       .then((response) => { if (!response.ok) throw new Error(String(response.status)); return response.text(); })
-      .then((text) => { const data = readMissionSheet(text); if (alive) setSheet({ data, failed: false }); })
-      .catch(() => { if (alive) setSheet((current) => ({ ...current, failed: true })); });
+      .then((text) => { const data = read(text); if (alive) set({ data, failed: false }); })
+      .catch(() => { if (alive) set((current) => ({ ...current, failed: true })); });
     // 스테프 탭은 따로 읽어, 실패해도 임무 카드는 그대로 보인다.
-    const loadStaff = () => fetch(STAFF_SHEET_CSV, { cache: "no-store" })
-      .then((response) => { if (!response.ok) throw new Error(String(response.status)); return response.text(); })
-      .then((text) => { const data = readStaffSheet(text); if (alive) setStaff({ data, failed: false }); })
-      .catch(() => { if (alive) setStaff((current) => ({ ...current, failed: true })); });
-    const loadAll = () => { load(); loadStaff(); };
+    const loadAll = () => { load(MISSION_SHEET_CSV, readMissionSheet, setSheet); load(STAFF_SHEET_CSV, readStaffSheet, setStaff); };
     const onVisible = () => { if (document.visibilityState === "visible") loadAll(); };
     loadAll();
     const timer = setInterval(loadAll, 30000);
