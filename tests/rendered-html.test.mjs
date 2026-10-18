@@ -20,6 +20,67 @@ async function historyHelpers() {
   return runInNewContext(`${js}\n({ initialHistory, operationHistory })`, { structuredClone });
 }
 
+test("시트 새로고침은 늦은 이전 응답을 무시하고 탭별 실패와 마지막 데이터를 보존한다", async () => {
+  const source = await readFile(new URL("../app/war-table.tsx", import.meta.url), "utf8");
+  const hook = source.slice(source.indexOf("function useMissionSheets()"), source.indexOf("// 시트를 읽기 전에는"));
+  const js = ts.transpileModule(hook, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
+  const states = [], requests = [];
+  let refresh, onVisible, cleanup, cleared = false, removed = false;
+  runInNewContext(`${js}\nuseMissionSheets();`, {
+    useState(initial) {
+      const index = states.length;
+      states.push(initial);
+      return [initial, (next) => { states[index] = typeof next === "function" ? next(states[index]) : next; }];
+    },
+    useEffect(effect) { cleanup = effect(); },
+    fetch: (url) => new Promise((resolve, reject) => { requests.push({ url, resolve: (text) => resolve(new Response(text)), reject }); }),
+    MISSION_SHEET_CSV: "mission", STAFF_SHEET_CSV: "staff",
+    readMissionSheet: (text) => text, readStaffSheet: (text) => text,
+    setInterval(callback, delay) { assert.equal(delay, 30000); refresh = callback; return 1; },
+    clearInterval(id) { assert.equal(id, 1); cleared = true; },
+    document: {
+      visibilityState: "visible",
+      addEventListener(name, callback) { assert.equal(name, "visibilitychange"); onVisible = callback; },
+      removeEventListener(name, callback) { assert.equal(name, "visibilitychange"); assert.equal(callback, onVisible); removed = true; },
+    },
+  });
+  const settle = () => new Promise(setImmediate);
+  assert.deepEqual(requests.map(({ url }) => url), ["mission", "staff"]);
+  refresh();
+  requests[2].resolve("최신 임무"); requests[3].resolve("최신 STAFF");
+  await settle();
+  requests[0].resolve("이전 임무"); requests[1].reject(new Error("이전 요청 실패"));
+  await settle();
+  assert.equal(states[0].data, "최신 임무");
+  assert.equal(states[0].failed, false);
+  assert.equal(states[1].data, "최신 STAFF");
+  assert.equal(states[1].failed, false);
+
+  refresh();
+  requests[4].reject(new Error("임무 탭 실패")); requests[5].resolve("갱신 STAFF");
+  await settle();
+  assert.equal(states[0].data, "최신 임무");
+  assert.equal(states[0].failed, true);
+  assert.equal(states[1].data, "갱신 STAFF");
+  assert.equal(states[1].failed, false);
+
+  onVisible();
+  requests[6].resolve("복귀 후 임무"); requests[7].reject(new Error("STAFF 탭 실패"));
+  await settle();
+  assert.equal(states[0].data, "복귀 후 임무");
+  assert.equal(states[0].failed, false);
+  assert.equal(states[1].data, "갱신 STAFF");
+  assert.equal(states[1].failed, true);
+
+  refresh();
+  const before = JSON.stringify(states);
+  cleanup();
+  requests[8].resolve("종료 후 임무"); requests[9].reject(new Error("종료 후 실패"));
+  await settle();
+  assert.equal(JSON.stringify(states), before);
+  assert.ok(cleared && removed);
+});
+
 test("실행 취소 전이는 재실행해도 기록을 중복하지 않고 변경 없는 작업은 다시 실행을 보존한다", async () => {
   const { freshOperation } = await rosterHelpers();
   const { initialHistory, operationHistory } = await historyHelpers();
