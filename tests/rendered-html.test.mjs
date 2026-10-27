@@ -11,7 +11,7 @@ async function rosterHelpers() {
   const source = await readFile(new URL("../app/war-table.tsx", import.meta.url), "utf8");
   const helpers = source.slice(0, source.indexOf("function UnitRoleIcon")).replace(/^import .*;$/gm, "").replace(/^export type /gm, "type ");
   const js = ts.transpileModule(helpers, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
-  return runInNewContext(`${js}\n({ freshOperation, normalizeRoster, normalizeOperation, playerBrief, playerSlot, readMissionSheet, mirrorMission, lineExit, entranceBlock, missionTargets, buildMissionPlan, objectivePoint, OBJECTIVE_META, missionLines, missionParts, groupUnits, readStaffSheet, readQuarterCommon, shownName, swapLineNames, quarterToIan, LUCIA_LINE_NAME, staffPoint, staffRoute, slotPoint, readOperation, missionView, missionsByNickname })`, { ...roster });
+  return runInNewContext(`${js}\n({ freshOperation, normalizeRoster, normalizeOperation, playerBrief, playerSlot, readMissionSheet, mirrorMission, lineExit, entranceBlock, missionTargets, buildMissionPlan, objectivePoint, OBJECTIVE_META, missionLines, missionParts, groupUnits, readStaffSheet, readQuarterCommon, colorParts, shownName, swapLineNames, quarterToIan, LUCIA_LINE_NAME, staffPoint, staffRoute, slotPoint, readOperation, missionView, missionsByNickname })`, { ...roster });
 }
 
 async function historyHelpers() {
@@ -465,6 +465,17 @@ test("8강 공통 임무 탭은 번호·내용 머리글로 읽고 빈 내용은
   assert.deepEqual(Array.from(readQuarterCommon('"번호","내용"\n"1",""\n"2",""')), []);
   // 없는 탭을 요청하면 gviz가 첫 탭(스타팅 명단)을 돌려준다.
   assert.throws(() => readQuarterCommon('"스타팅 포인트 번호","닉네임","소속팀"\n"1","무잔","펫 팀"'));
+});
+
+test("공통 임무의 [색:문구]는 그 문구만 색으로 나누고 모르는 색·짝 없는 괄호는 글자 그대로 둔다", async () => {
+  const { colorParts } = await rosterHelpers();
+  const parts = (text) => JSON.parse(JSON.stringify(colorParts(text)));
+  assert.deepEqual(parts("전당은 [초록:150만 이상] / 영목은 [초록:120만 이상] 유지"), [
+    { text: "전당은 " }, { text: "150만 이상", color: "#7fd49b" }, { text: " / 영목은 " }, { text: "120만 이상", color: "#7fd49b" }, { text: " 유지" },
+  ]);
+  assert.deepEqual(parts("[주황:자신에게 주어진 롤을 숙지]"), [{ text: "자신에게 주어진 롤을 숙지", color: "#f5a65b" }]);
+  assert.deepEqual(parts("병력 ([파랑:30만])을 [보라:가져와] [빨강:교체"), [{ text: "병력 (" }, { text: "30만", color: "#7fb8ff" }, { text: ")을 [보라:가져와] [빨강:교체" }]);
+  assert.deepEqual(parts("색 없음"), [{ text: "색 없음" }]);
 });
 
 test("스테프 탭은 머리글로 열을 찾고 공통 규칙·군·순번·사용 위치를 읽으며 잘못된 행을 무시한다", async () => {

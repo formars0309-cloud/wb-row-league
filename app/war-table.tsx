@@ -382,6 +382,18 @@ function readQuarterCommon(text: string): QuarterCommon {
   const items = rows.map((row) => ({ no: (row[at.no] ?? "").trim(), body: (row[at.body] ?? "").trim() })).filter((item) => item.body);
   return items.map((item, index) => ({ no: item.no || String(index + 1), body: item.body }));
 }
+// 공통 임무 시트에 [초록:문구]처럼 적으면 그 문구만 색으로 강조한다. 모르는 색 이름은 글자 그대로 둔다.
+const QUARTER_COLORS: Record<string, string> = { 초록: "#7fd49b", 빨강: "#ff8a80", 파랑: "#7fb8ff", 주황: "#f5a65b", 노랑: "#f2d06b" };
+const QUARTER_COLOR_PATTERN = new RegExp(`\\[(${Object.keys(QUARTER_COLORS).join("|")}):([^\\]]+)\\]`);
+function colorParts(text: string) {
+  const pieces = text.split(new RegExp(QUARTER_COLOR_PATTERN, "g"));
+  const parts: Array<{ text: string; color?: string }> = [];
+  for (let index = 0; index < pieces.length; index += 3) {
+    if (pieces[index]) parts.push({ text: pieces[index] });
+    if (index + 2 < pieces.length) parts.push({ text: pieces[index + 2], color: QUARTER_COLORS[pieces[index + 1]] });
+  }
+  return parts;
+}
 function staffLabel(plan: StaffPlan, slot: number) {
   return plan.group === "start" ? "시작 스테프 · 게임 시작 직후" : `지정 스테프 · ${plan.top ?? TOP_LINE_SLOTS.has(slot) ? "TOP" : "BOTTOM"} 포인트${plan.order ? ` ${plan.order}번째` : ""}`;
 }
@@ -760,7 +772,7 @@ function StaffDialog({ staff, side, nameOf, onClose }: { staff: SheetState<Staff
 function QuarterCommonBoard({ quarter }: { quarter: SheetState<QuarterCommon> }) {
   if (!quarter.data) return <p className="quarter-empty">{quarter.failed ? "공통 임무를 불러오지 못했습니다" : "불러오는 중…"}</p>;
   if (!quarter.data.length) return <p className="quarter-empty">임무 준비 중</p>;
-  return <ol className="quarter-items">{quarter.data.map((item, index) => <li key={index}><b>{item.no}</b><p>{item.body}</p></li>)}</ol>;
+  return <ol className="quarter-items">{quarter.data.map((item, index) => <li key={index}><b>{item.no}</b><p>{colorParts(item.body).map((part, at) => part.color ? <strong key={at} style={{ color: part.color }}>{part.text}</strong> : part.text)}</p></li>)}</ol>;
 }
 // 폰 화면과 PC 카드 화면(onExit)은 8강 루시아 브리핑이다. 첫 화면은 제목·공통 임무·1~30번 명단, 이름을 누르면 개인 카드.
 function MobileBriefing({ players, quarter, missionSheet, staffSheet, onExit }: { players: Player[]; quarter: SheetState<QuarterCommon>; missionSheet: SheetState<MissionSheet>; staffSheet: SheetState<StaffSheet>; onExit?: () => void }) {
