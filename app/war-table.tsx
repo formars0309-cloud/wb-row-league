@@ -269,7 +269,7 @@ function sheetCsvUrl(tab: string) {
 }
 // 폰 화면 임무는 구글 시트 「스타팅 명단」 탭에서 읽는다. 앱에 사본을 두지 않는다.
 const MISSION_SHEET_CSV = sheetCsvUrl("스타팅 명단");
-type SheetMission = { slot: number; nickname: string; team: string; main: string; sub: string; units: MissionOrders };
+type SheetMission = { slot: number; nickname: string; team: string; main: string; sub: string; units: MissionOrders; color?: string };
 type MissionSheet = { missions: Map<number, SheetMission>; common: string[] };
 function entranceBlock(mission: SheetMission | undefined, side: MissionSide, variant: MapVariant) {
   if (mission?.team.replace(/\s/g, "") !== "입구막팀" || !/입구\s*막(?:기|음)/.test(mission.main)) return null;
@@ -304,7 +304,7 @@ function parseCsv(text: string): string[][] {
 function readMissionSheet(text: string): MissionSheet {
   const [head = [], ...rows] = parseCsv(text);
   const column = (name: string) => head.findIndex((cell) => cell.replace(/\s/g, "") === name);
-  const at = { slot: column("스타팅포인트번호"), nickname: column("닉네임"), team: column("소속팀"), main: column("메인임무"), sub: column("서브임무"), units: [1, 2, 3, 4, 5].map((unit) => column(`${unit}번부대`)) };
+  const at = { slot: column("스타팅포인트번호"), nickname: column("닉네임"), team: column("소속팀"), main: column("메인임무"), sub: column("서브임무"), units: [1, 2, 3, 4, 5].map((unit) => column(`${unit}번부대`)), color: column("색") };
   if ([at.slot, at.nickname, at.team, at.main, at.sub, ...at.units].some((index) => index < 0)) throw new Error("시트 머리글을 찾지 못했습니다");
   const missions = new Map<number, SheetMission>();
   let common: string[] | null = null;
@@ -318,7 +318,7 @@ function readMissionSheet(text: string): MissionSheet {
     }
     const slot = Number(label);
     if (!Number.isInteger(slot) || slot < 1 || slot > 30 || !cell(at.nickname) || missions.has(slot)) continue;
-    missions.set(slot, { slot, nickname: cell(at.nickname), team: cell(at.team), main: cell(at.main), sub: cell(at.sub), units: at.units.map(cell) as MissionOrders });
+    missions.set(slot, { slot, nickname: cell(at.nickname), team: cell(at.team), main: cell(at.main), sub: cell(at.sub), units: at.units.map(cell) as MissionOrders, ...(at.color >= 0 && cell(at.color) ? { color: cell(at.color) } : {}) });
   }
   return { missions, common: common ?? [] };
 }
@@ -794,6 +794,8 @@ function MobileBriefing({ players, quarter, missionSheet, staffSheet, onExit }: 
   };
   const missions = missionSheet.data?.missions;
   const nameOf = (slot: number) => slotName(missions, players, slot);
+  // 「8강 개인 임무」 색 칸(초록·빨강·파랑·주황·노랑)으로 닉네임에 색을 입힌다.
+  const colorOf = (slot: number) => QUARTER_COLORS[missions?.get(slot)?.color ?? ""];
   const shell = `mobile-shell is-quarter${onExit ? " is-pc" : ""}`;
 
   if (picked === null) return (
@@ -805,7 +807,7 @@ function MobileBriefing({ players, quarter, missionSheet, staffSheet, onExit }: 
       {quarter.failed && quarter.data && <p className="mobile-sync" role="alert">최신 공통 임무를 불러오지 못했습니다. 마지막으로 받은 내용입니다.</p>}
       <QuarterCommonBoard quarter={quarter} />
       <h2 className="quarter-roster-title">내 이름을 누르면 개인 임무와 STAFF 사용법이 보입니다</h2>
-      <ol className="mobile-roster">{MOBILE_SLOTS.map((slot) => <li key={slot}><button type="button" onClick={() => pick(slot)}><b>{slot}</b><span>{nameOf(slot)}</span></button></li>)}</ol>
+      <ol className="mobile-roster">{MOBILE_SLOTS.map((slot) => <li key={slot}><button type="button" onClick={() => pick(slot)}><b>{slot}</b><span style={{ color: colorOf(slot) }}>{nameOf(slot)}</span></button></li>)}</ol>
     </div>
   );
 
@@ -828,7 +830,7 @@ function MobileBriefing({ players, quarter, missionSheet, staffSheet, onExit }: 
     <div className={shell}>
       <header className="mobile-top">
         <button type="button" className="mobile-back" onClick={() => pick(null)} aria-label="공통 임무와 명단으로 돌아가기">‹</button>
-        <h1 className="quarter-card-name"><b>{picked}</b>{nameOf(picked)}</h1>
+        <h1 className="quarter-card-name"><b>{picked}</b><span style={{ color: colorOf(picked) }}>{nameOf(picked)}</span></h1>
       </header>
       {missionSheet.failed && missionSheet.data && <p className="mobile-sync" role="alert">최신 임무를 불러오지 못했습니다. 마지막으로 받은 내용입니다.</p>}
       <article className="quarter-card">
