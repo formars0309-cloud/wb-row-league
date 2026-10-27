@@ -749,17 +749,11 @@ function StaffDialog({ staff, side, nameOf, onClose }: { staff: SheetState<Staff
     <StaffBoard staff={staff} side={side} nameOf={nameOf} />
   </dialog>;
 }
-// 8강 공통 카드(네이비 HUD): 시트의 번호·내용을 번호순 그대로 보인다.
+// 8강 공통 카드: 시트에 적은 번호·내용만 그대로 보인다. 줄 나눔·강조를 더하지 않고 칸 안의 줄바꿈만 살린다.
 function QuarterCommonBoard({ quarter }: { quarter: SheetState<QuarterCommon> }) {
-  return (
-    <article className="board">
-      <header className="board-head"><b>00</b><strong>공통 임무<small>QUARTERFINAL · 30명 전원</small></strong></header>
-      {!quarter.data ? <p className="board-empty">{quarter.failed ? "공통 임무를 불러오지 못했습니다" : "공통 임무를 불러오는 중…"}</p>
-        : !quarter.data.length ? <p className="board-empty">임무 준비 중</p>
-          : <ol className="quarter-items">{quarter.data.map((item, index) => <li key={index}><b>{item.no}</b><MissionLines text={item.body} /></li>)}</ol>}
-      <p className="board-foot">루시아 진영 기준 · 30 vs 30 · 1인 5부대</p>
-    </article>
-  );
+  if (!quarter.data) return <p className="quarter-empty">{quarter.failed ? "공통 임무를 불러오지 못했습니다" : "불러오는 중…"}</p>;
+  if (!quarter.data.length) return <p className="quarter-empty">임무 준비 중</p>;
+  return <ol className="quarter-items">{quarter.data.map((item, index) => <li key={index}><b>{item.no}</b><p>{item.body}</p></li>)}</ol>;
 }
 // onExit가 있으면 PC에서 연 카드 화면이다. 폰과 같은 화면을 가운데 띄우고 작전판으로 돌아가는 버튼을 단다.
 function MobileBriefing({ players, sheet, staff, quarter, onExit }: { players: Player[]; sheet: SheetState<MissionSheet>; staff: SheetState<StaffSheet>; quarter: SheetState<QuarterCommon>; onExit?: () => void }) {
@@ -810,13 +804,11 @@ function MobileBriefing({ players, sheet, staff, quarter, onExit }: { players: P
   </header>;
   const loading = <p className="board-empty">{sheet.failed ? "임무를 불러오지 못했습니다" : "임무를 불러오는 중…"}</p>;
 
-  // 8강 공통 카드는 루시아 고정이라 진영 전환 대신 배지를 단다.
+  // 8강 공통 카드는 시트 내용만 보이고, 명단으로 돌아가는 버튼 하나만 둔다.
   if (picked === COMMON_SLOT) return (
-    <div className={shell(" side-lucia is-quarter")}>
+    <div className={shell(" is-quarter")}>
       <header className="mobile-top">
         <button type="button" className="mobile-back" onClick={() => pick(null)} aria-label="명단으로 돌아가기">‹</button>
-        <strong>임무 카드</strong>
-        <span className="quarter-badge">8강 · 루시아</span>
       </header>
       {quarter.failed && quarter.data && <p className="mobile-sync" role="alert">최신 공통 임무를 불러오지 못했습니다. 마지막으로 받은 내용입니다.</p>}
       <QuarterCommonBoard quarter={quarter} />
