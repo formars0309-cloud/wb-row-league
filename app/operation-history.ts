@@ -1,5 +1,5 @@
 import { useCallback, useReducer } from "react";
-import type { Operation } from "./war-table";
+import type { Operation } from "./operation";
 
 type History = { present: Operation; past: Operation[]; future: Operation[] };
 type Action =

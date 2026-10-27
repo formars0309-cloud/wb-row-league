@@ -1,5 +1,13 @@
 # 진행 상황
 
+갱신: 2026-10-27 — war-table.tsx 파일 나누기(코드, 미배포)
+
+- 8개 모듈로 분리(FEATURES 참고). 원본 줄 묶음과 완전 일치, lint·typecheck·npm test 35개, 로컬 33화면 DOM 바이트 동일, 이관·카드 검사 통과.
+- 테스트 로더: HELPER_MODULES 이어 붙여 vm 실행, 훅은 use-mission-sheets.ts, 소스 문자열 검사는 APP_MODULES 전체. 새 모듈을 만들면 이 목록에 넣는다.
+- 다음: 모바일 첫 로딩 깜빡임 수정(사용자 요청 순서). 공개 사이트는 v39(나누기 전 리팩터링).
+
+---
+
 갱신: 2026-10-27 — 리팩터링 공개 버전 39 배포
 
 - 사용자 "배포부터 해야겠다". codex Sites 흐름으로 df19bdd 배포: lint·build·npm test 35개 통과, 아카이브 9,268,721바이트(SHA-256 eea6084f…c0d5c6), 버전 39(appgver_36683e899fac819193063eb6cbc31172), 배포 appgdep_6ae0737341e081919c216e0c30ed4c97 succeeded, active·public, source SHA 일치, 단기 자격증명 폐기.

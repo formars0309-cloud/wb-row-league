@@ -4,12 +4,18 @@ import test from "node:test";
 import { runInNewContext } from "node:vm";
 import ts from "typescript";
 
+// 화면 계산 모듈을 의존 순서대로 이어 붙여 한 컨텍스트에서 돌린다(import·export 줄 제거).
+const HELPER_MODULES = ["map-geometry.ts", "sheets.ts", "operation.ts", "missions.ts"];
+// 소스 문자열 검사는 앱 모듈 전체를 대상으로 한다.
+const APP_MODULES = [...HELPER_MODULES, "use-mission-sheets.ts", "briefing.tsx", "player-editor.tsx", "war-table.tsx"];
+const readApp = (files) => Promise.all(files.map((file) => readFile(new URL(`../app/${file}`, import.meta.url), "utf8"))).then((texts) => texts.join("\n"));
+const stripModule = (source) => source.replace(/^import .*;$/gm, "").replace(/^export /gm, "");
+
 async function rosterHelpers() {
   const rosterSource = await readFile(new URL("../app/roster.ts", import.meta.url), "utf8");
   const rosterJs = ts.transpileModule(rosterSource, { compilerOptions: { module: ts.ModuleKind.ESNext } }).outputText;
   const roster = await import(`data:text/javascript;base64,${Buffer.from(rosterJs).toString("base64")}`);
-  const source = await readFile(new URL("../app/war-table.tsx", import.meta.url), "utf8");
-  const helpers = source.slice(0, source.indexOf("function UnitRoleIcon")).replace(/^import .*;$/gm, "").replace(/^export type /gm, "type ");
+  const helpers = stripModule(await readApp(HELPER_MODULES));
   const js = ts.transpileModule(helpers, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
   return runInNewContext(`${js}\n({ freshOperation, normalizeRoster, normalizeOperation, playerBrief, playerSlot, readMissionSheet, mirrorMission, lineExit, entranceBlock, missionTargets, buildMissionPlan, objectivePoint, OBJECTIVE_META, missionLines, missionParts, groupUnits, readStaffSheet, readQuarterCommon, colorParts, shownName, swapLineNames, quarterToIan, LUCIA_LINE_NAME, staffPoint, staffRoute, slotPoint, readOperation, missionView, missionsByNickname })`, { ...roster });
 }
@@ -21,8 +27,7 @@ async function historyHelpers() {
 }
 
 test("시트 새로고침은 늦은 이전 응답을 무시하고 탭별(임무·STAFF·8강 공통·8강 개인·8강 STAFF) 실패와 마지막 데이터를 보존한다", async () => {
-  const source = await readFile(new URL("../app/war-table.tsx", import.meta.url), "utf8");
-  const hook = source.slice(source.indexOf("function useMissionSheets()"), source.indexOf("// 시트를 읽기 전에는"));
+  const hook = stripModule(await readApp(["use-mission-sheets.ts"]));
   const js = ts.transpileModule(hook, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
   const states = [], requests = [];
   let refresh, onVisible, cleanup, cleared = false, removed = false;
@@ -865,7 +870,7 @@ test("server-renders the Heinapel War Table", async () => {
 test("keeps the interactive operation features and map assets wired", async () => {
   const [warTable, roster, theme, page, layout, tacticalMap, fieldMap, socialImage] =
     await Promise.all([
-      readFile(new URL("../app/war-table.tsx", import.meta.url), "utf8"),
+      readApp(APP_MODULES),
       readFile(new URL("../app/roster.ts", import.meta.url), "utf8"),
       readFile(new URL("../app/mdt-theme.css", import.meta.url), "utf8"),
       readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),

@@ -1,8 +1,8 @@
 # 작업 단위 목록 — Heinapel War Table
 
 프로젝트: 헤이나펄 리그 2기 30인(로스터 40인) 전략회의용 디지털 작전판.
-vinext(Next 호환) + React 19 + Cloudflare Workers 배포 형태. 소스는 `app/war-table.tsx`
-단일 컴포넌트 중심, 상태는 `localStorage`(`heinapel-war-table-v0.3`)에 저장.
+vinext(Next 호환) + React 19 + Cloudflare Workers 배포 형태. 소스는 `app/war-table.tsx`(작전판)와
+그 아래 모듈(map-geometry·sheets·use-mission-sheets·operation·missions·briefing·player-editor), 상태는 `localStorage`(`heinapel-war-table-v0.3`)에 저장.
 
 공통 검증 명령:
 
@@ -37,6 +37,10 @@ vinext(Next 호환) + React 19 + Cloudflare Workers 배포 형태. 소스는 `ap
   - 검증: `npm test` — roster.ts 브리프 30개 카운트, RALLY_PLAYERS·번호표 패턴 검증 통과
 
 ## 남은 단위
+
+- [x] 2026-10-27 war-table.tsx 파일 나누기(동작 그대로)
+  - 요청된 것만, 외과적 수정으로. 사용자 "파일나누기한 뒤에 첫로딩 고치자". 1,474줄 war-table.tsx를 선언 단위로 옮겨 map-geometry(좌표)·sheets(시트 파서)·use-mission-sheets(시트 읽기 훅)·operation(작전 데이터·저장본 이관)·missions(임무 계산)·briefing(8강 화면·S 카드)·player-editor(편집 창)·war-table(작전판, 602줄)로 나눔. 의존은 한 방향(geometry ← sheets/operation ← missions ← briefing ← war-table), 코드 줄은 그대로 옮기고 import·export·파일 머리 설명만 추가. 테스트는 검사 내용 그대로, 소스 읽기만 모듈 이어 붙이기로 변경
+  - 검증: 원본과 새 파일의 import 외 줄 묶음 완전 일치(빠짐·변경 0). `npm run lint`, `npm run typecheck`, `npm test`(빌드 포함, 35개). 로컬 dom-snapshot.py 33화면이 나누기 전 빌드와 바이트 동일, migration-check.py·cards-check.py 통과, 페이지 오류 없음. `git diff --check`, 자격증명 검사
 
 - [x] 2026-10-27 린트 점검·동작 그대로 리팩터링
   - 요청된 것만, 외과적 수정으로. 사용자 "린트 에러 고치고 코드들도 리팩터링하자". 시작 시점 `npm run lint`·`npm run typecheck`·빌드 경고 모두 0건이라 고칠 린트 오류는 없었다. 동작을 바꾸지 않는 중복 정리만 한다: 시트 머리글 열 찾기(headerColumns), 적 입구 좌표(enemyGate), 좌표 비교(samePoint)·지도 종류(MAP_VARIANTS), 이관 판정의 rosterRevision 지역 변수, 저장본 단계별 백업 반복문, 색 강조 렌더(ColorText), 번호 없는 선수 배치(formationPoint 재사용), 작전선·지도 거점 표시·편집기 라벨 중복. bf7142b 이후 늘 false였던 roaming 필드·분기·CSS와 안 쓰는 Brief.byUnit 제거. 테스트가 잘라 읽는 경계(`function UnitRoleIcon`, `useMissionSheets`~"// 시트를 읽기 전에는")는 유지
