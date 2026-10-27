@@ -5,6 +5,7 @@
 - 사용자 요청: 햄수 거점 주유는 탑 라인 → 탑으로 화살표. codex가 사전값 확인 후 '8강 개인 임무' I30·J30을 "블링크/하엘로 보병으로 탑 라인 거점 주유 / 아군 전망대 집결 당할경우 전망대 주유 지원"으로(gviz로 두 칸만 변경).
 - 앱: missionTargets에 "(탑|바텀) 라인" → 우리 진형 라인 출구(lineExit(1|25).point) 분기, " / …경우…" 뒷문장은 화살표 계산에서 제외. 테스트 단언 추가(35개).
 - 검증: lint·typecheck·npm test 35개 통과. 로컬 29번 지도 화살표 "4·5" 1개가 탑 출구로, cards-check.py 통과, 캡처 `work/hamsu-line-20261027/local-card-29-map.png` 확인. 서버 종료.
+- 공개 배포: a417aad를 버전 38(appgprj_6a8aa14508008191953a7a38df357899~appgver_5f8c281ea89c81919cddb98d02764c89)로 배포, appgdep_6ae052a848b08191ba21315f7a0659a9 succeeded, active·public·최신 38, 테스트 35개, 아카이브 9,268,871 bytes SHA-256 2264fb36a05cffeab76906c6966105f8b7fd6d83b90240d2302295a8f0888b81, 자격증명 폐기. 공개 29번 지도 화살표 "4·5" 1개 탑 출구, cards-check.py 통과. 첫 공개 캡처는 지도 배경이 로드 전이라 비었고, 배경 그림 로드(1691px) 확인 후 재캡처로 정상 확인. FEATURES [x].
 
 ---
 
