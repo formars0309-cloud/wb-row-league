@@ -1,5 +1,13 @@
 # 진행 상황
 
+갱신: 2026-10-27 — 폰 첫 로딩 깜빡임 수정(코드, 미배포)
+
+- 시트 세 탭이 오기 전에는 제목·"불러오는 중…"만, 시트 원문 사본(localStorage heinapel-sheet-cache:주소)으로 재방문 즉시 표시. 자세한 내용·검증은 FEATURES.
+- 로컬 측정: 처음 방문 0.42초에 시트 기준 첫 화면 한 번, 재방문(응답 3초 지연) 0.02초에 최종 화면. lint·typecheck·npm test 36개, 기존 화면 검사 전부 통과.
+- 다음: 공개 배포는 사용자 요청 시(공개는 v39 — 파일 나누기·이 수정 미포함). 배포 후 `python3 work/mobile-flash-20261027/flash-check.py https://heinapel-war-table.formars0309.chatgpt.site public`(주소 끝 / 없이).
+
+---
+
 갱신: 2026-10-27 — war-table.tsx 파일 나누기(코드, 미배포)
 
 - 8개 모듈로 분리(FEATURES 참고). 원본 줄 묶음과 완전 일치, lint·typecheck·npm test 35개, 로컬 33화면 DOM 바이트 동일, 이관·카드 검사 통과.

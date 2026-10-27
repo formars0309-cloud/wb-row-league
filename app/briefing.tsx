@@ -82,15 +82,17 @@ function QuarterCommonBoard({ quarter }: { quarter: SheetState<QuarterCommon> })
 // 폰 화면과 PC 카드 화면(onExit)은 8강 루시아 브리핑이다. 첫 화면은 제목·공통 임무·1~30번 명단, 이름을 누르면 개인 카드.
 export function MobileBriefing({ players, quarter, missionSheet, staffSheet, onExit }: { players: Player[]; quarter: SheetState<QuarterCommon>; missionSheet: SheetState<MissionSheet>; staffSheet: SheetState<StaffSheet>; onExit?: () => void }) {
   const [picked, setPicked] = useState<number | null>(null);
+  // 저장된 선택을 읽기 전(서버 첫 화면 포함)에는 첫 화면과 카드 중 어디로 갈지 모른다.
+  const [restored, setRestored] = useState(false);
 
   useEffect(() => {
     queueMicrotask(() => {
       // 공유 링크(주소#common)는 늘 첫 화면에서 시작한다.
-      if (location.hash === COMMON_HASH) return;
-      try {
+      if (location.hash !== COMMON_HASH) try {
         const slot = Number(localStorage.getItem(MOBILE_PICK_KEY));
         if (MOBILE_SLOTS.includes(slot)) setPicked(slot);
       } catch { /* 사생활 모드에서는 그냥 고르게 둔다. */ }
+      setRestored(true);
     });
   }, []);
   const pick = (slot: number | null) => {
@@ -102,13 +104,19 @@ export function MobileBriefing({ players, quarter, missionSheet, staffSheet, onE
   // 「8강 개인 임무」 색 칸(초록·빨강·파랑·주황·노랑)으로 닉네임에 색을 입힌다.
   const colorOf = (slot: number) => QUARTER_COLORS[missions?.get(slot)?.color ?? ""];
   const shell = `mobile-shell is-quarter${onExit ? " is-pc" : ""}`;
+  const homeTop = <header className="mobile-top">
+    <h1 className="quarter-title">8강 (루시아 진영) <span>공통 임무 및 개별 임무</span></h1>
+    {onExit && <button type="button" className="mobile-exit" onClick={onExit}>작전판</button>}
+  </header>;
+
+  // 8강 세 탭이 오거나(사본 포함) 실패할 때까지는 제목과 "불러오는 중…"만 보인다. 앱 기본 명단·빈 공통 임무가
+  // 먼저 보였다가 시트 내용으로 바뀌며 밀리거나, 첫 화면이 보였다가 저장된 카드로 넘어가는 것을 막는다.
+  const settled = [quarter, missionSheet, staffSheet].every((tab) => tab.data !== null || tab.failed);
+  if (!restored || !settled) return <div className={shell}>{homeTop}<p className="quarter-empty">불러오는 중…</p></div>;
 
   if (picked === null) return (
     <div className={shell}>
-      <header className="mobile-top">
-        <h1 className="quarter-title">8강 (루시아 진영) <span>공통 임무 및 개별 임무</span></h1>
-        {onExit && <button type="button" className="mobile-exit" onClick={onExit}>작전판</button>}
-      </header>
+      {homeTop}
       {quarter.failed && quarter.data && <p className="mobile-sync" role="alert">최신 공통 임무를 불러오지 못했습니다. 마지막으로 받은 내용입니다.</p>}
       <QuarterCommonBoard quarter={quarter} />
       <h2 className="quarter-roster-title">내 이름을 누르면 개인 임무와 STAFF 사용법이 보입니다</h2>

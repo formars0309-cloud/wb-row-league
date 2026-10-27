@@ -111,6 +111,42 @@ test("시트 새로고침은 늦은 이전 응답을 무시하고 탭별(임무�
   assert.ok(cleared && removed);
 });
 
+test("시트 사본: 저장된 원문을 응답 전에 먼저 보이고, 새 응답으로 바꿔 저장한다. 깨진 사본·저장 실패는 무시하고 실패 시 사본을 남긴다", async () => {
+  const hook = stripModule(await readApp(["use-mission-sheets.ts"]));
+  const js = ts.transpileModule(hook, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
+  const states = [], requests = [];
+  const key = (tab) => `heinapel-sheet-cache:${tab}`;
+  const store = new Map([[key("mission"), "사본 임무"], [key("quarter"), "깨진 사본"], [key("quarter-mission"), "사본 8강 임무"]]);
+  runInNewContext(`${js}\nuseMissionSheets();`, {
+    useState(initial) {
+      const index = states.length;
+      states.push(initial);
+      return [initial, (next) => { states[index] = typeof next === "function" ? next(states[index]) : next; }];
+    },
+    useEffect(effect) { effect(); },
+    fetch: (url) => new Promise((resolve, reject) => { requests.push({ url, resolve: (text) => resolve(new Response(text)), reject }); }),
+    MISSION_SHEET_CSV: "mission", STAFF_SHEET_CSV: "staff", QUARTER_COMMON_CSV: "quarter", QUARTER_MISSION_CSV: "quarter-mission", QUARTER_STAFF_CSV: "quarter-staff",
+    readMissionSheet: (text) => text, readStaffSheet: (text) => text,
+    readQuarterCommon: (text) => { if (text === "깨진 사본") throw new Error("형식이 바뀐 사본"); return text; },
+    setInterval: () => 1, clearInterval() {},
+    document: { visibilityState: "visible", addEventListener() {}, removeEventListener() {} },
+    localStorage: { getItem: (name) => store.get(name) ?? null, setItem(name, value) { if (name === key("staff")) throw new Error("저장소 가득 참"); store.set(name, value); } },
+  });
+  // 응답 전: 사본이 있는 탭은 바로 보이고, 깨진 사본·사본 없는 탭은 비어 있다. 요청은 그대로 다섯 개.
+  assert.deepEqual(states.map((state) => state.data), ["사본 임무", null, null, "사본 8강 임무", null]);
+  assert.ok(states.every((state) => !state.failed));
+  assert.deepEqual(requests.map(({ url }) => url), ["mission", "staff", "quarter", "quarter-mission", "quarter-staff"]);
+  const [mission, staff, quarter, quarterMission] = requests;
+  mission.resolve("새 임무"); staff.resolve("새 STAFF"); quarter.resolve("새 공통"); quarterMission.reject(new Error("8강 개인 탭 실패"));
+  await new Promise(setImmediate);
+  assert.deepEqual(JSON.parse(JSON.stringify(states.slice(0, 3))), [{ data: "새 임무", failed: false }, { data: "새 STAFF", failed: false }, { data: "새 공통", failed: false }]);
+  assert.deepEqual({ ...states[3] }, { data: "사본 8강 임무", failed: true });
+  assert.equal(store.get(key("mission")), "새 임무");
+  assert.equal(store.get(key("quarter")), "새 공통");
+  assert.equal(store.get(key("quarter-mission")), "사본 8강 임무");
+  assert.equal(store.has(key("staff")), false, "사본 저장에 실패해도 화면은 새 내용");
+});
+
 test("실행 취소 전이는 재실행해도 기록을 중복하지 않고 변경 없는 작업은 다시 실행을 보존한다", async () => {
   const { freshOperation } = await rosterHelpers();
   const { initialHistory, operationHistory } = await historyHelpers();
@@ -824,17 +860,14 @@ test("server-renders the Heinapel War Table", async () => {
   assert.match(html, /<title>Heinapel War Table v0\.1<\/title>/i);
   // 저장본 복원이 끝나기 전에 편집해 변경 내용이 복원본에 덮이는 것을 막는다.
   assert.match(html, /<main class="war-shell" inert="">/i);
-  assert.match(html, /불러오는 중/);
-  const roster = html.slice(html.indexOf('class="mobile-roster"'));
-  assert.equal((roster.match(/<li><button type="button"><b>/g) ?? []).length, 30);
-  assert.match(roster, /<b>1<\/b><span>무잔 Muzan<\/span>/);
-  assert.match(roster, /<b>30<\/b><span>늑대장군<\/span>/);
+  // 폰 첫 화면은 시트가 오기 전이라 제목과 "불러오는 중…"만 보인다. 앱 기본 명단을 먼저 그렸다가 바꾸지 않는다.
+  assert.match(html, /<p class="quarter-empty">불러오는 중…<\/p>/);
+  assert.doesNotMatch(html, /class="mobile-roster"|class="quarter-items"/);
   assert.doesNotMatch(html, /mobile-management/);
   assert.doesNotMatch(html, /mobile-exit|is-pc/, "첫 화면(폰)에는 PC 카드 화면 표시가 없다");
   assert.match(html, /class="active tool-select"[^>]*><span>↖<\/span>선택<\/button>/);
   // 폰 첫 화면은 8강 제목·공통 임무·명단이다. 16강의 0번·S 버튼과 진영 전환은 없다.
   assert.match(html, /<h1 class="quarter-title">8강 \(루시아 진영\) <span>공통 임무 및 개별 임무<\/span><\/h1>/);
-  assert.match(html, /내 이름을 누르면 개인 임무와 STAFF 사용법이 보입니다/);
   assert.doesNotMatch(html, /class="mobile-common"|class="mobile-side"/);
   assert.match(html, /PLAYER ROSTER/);
   assert.match(html, /핵심 작전 도구/);
@@ -882,7 +915,8 @@ test("keeps the interactive operation features and map assets wired", async () =
   // 공유 링크 주소#common은 폰·PC 모두 카드 화면의 공통 카드를 열고, 다른 화면으로 가면 주소를 비운다.
   assert.match(warTable, /const COMMON_HASH = "#common";/);
   assert.match(warTable, /<h1 className="quarter-title">8강 \(루시아 진영\) <span>공통 임무 및 개별 임무<\/span><\/h1>/);
-  assert.match(warTable, /if \(location\.hash === COMMON_HASH\) return;/);
+  assert.match(warTable, /if \(location\.hash !== COMMON_HASH\) try \{/);
+  assert.match(warTable, /<h2 className="quarter-roster-title">내 이름을 누르면 개인 임무와 STAFF 사용법이 보입니다<\/h2>/);
   assert.match(warTable, /if \(location\.hash === COMMON_HASH\) setCardsOpen\(true\);/);
 
   assert.match(warTable, /const STORAGE_KEY = "heinapel-war-table-v0\.3"/);

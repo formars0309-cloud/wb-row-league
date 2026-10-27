@@ -38,6 +38,10 @@ vinext(Next 호환) + React 19 + Cloudflare Workers 배포 형태. 소스는 `ap
 
 ## 남은 단위
 
+- [x] 2026-10-27 폰 첫 로딩 깜빡임 수정 — 시트 도착 전 대기 화면·시트 사본
+  - 요청된 것만, 외과적 수정으로. 사용자 "모바일에서 열 때 로딩할 때 살짝 다른 화면이 나오는 원인" → "첫로딩 고치자". 원인: 서버 첫 화면이 앱 기본 명단(10·17·18·25번이 시트와 다름)과 "불러오는 중…" 한 줄로 그려졌다가 시트가 오면 공통 임무 7줄이 생기며 명단이 310→1015px로 밀리고 이름·색이 바뀜, 저장된 카드가 있으면 첫 화면이 보였다가 넘어감. 수정: MobileBriefing은 저장된 선택을 읽고 8강 세 탭이 오거나(사본 포함) 실패할 때까지 제목과 "불러오는 중…"만 보임(실패 시 기존처럼 앱 명단·실패 안내). useMissionSheets는 성공한 탭 원문을 localStorage(heinapel-sheet-cache:주소)에 두고, 다음에 열 때 아직 받은 내용이 없으면 먼저 보임. 깨진 사본·저장소 오류는 무시
+  - 검증: `npm run lint`, `npm run typecheck`, `npm test`(빌드 포함, 36개; 서버 첫 화면은 제목·"불러오는 중…"만이고 명단·공통 목록 없음, 사본 먼저 표시·새 응답으로 교체·저장·깨진 사본 무시·저장 실패 무시·실패 시 사본 유지 단언). 로컬 390px `work/mobile-flash-20261027/flash-check.py`(시작 스크립트로 상태 기록): 처음 방문 loading→시트 기준 첫 화면 한 번(옛 이름·위치 이동 없음), 재방문은 응답 3초 지연에도 사본으로 즉시 최종 화면·응답 뒤 변화 없음, 저장된 카드는 첫 화면 없이 카드로, #common은 첫 화면, 시트 실패 시 앱 명단·실패 안내(캡처 확인). 시트 도착 후 dom-snapshot 33화면이 수정 전과 바이트 동일, cards/color/name/lead/kind 검사 통과, 페이지 오류 없음. 공개 배포 후 `flash-check.py <공개 주소> public` 통과 시 공개 확인
+
 - [x] 2026-10-27 war-table.tsx 파일 나누기(동작 그대로)
   - 요청된 것만, 외과적 수정으로. 사용자 "파일나누기한 뒤에 첫로딩 고치자". 1,474줄 war-table.tsx를 선언 단위로 옮겨 map-geometry(좌표)·sheets(시트 파서)·use-mission-sheets(시트 읽기 훅)·operation(작전 데이터·저장본 이관)·missions(임무 계산)·briefing(8강 화면·S 카드)·player-editor(편집 창)·war-table(작전판, 602줄)로 나눔. 의존은 한 방향(geometry ← sheets/operation ← missions ← briefing ← war-table), 코드 줄은 그대로 옮기고 import·export·파일 머리 설명만 추가. 테스트는 검사 내용 그대로, 소스 읽기만 모듈 이어 붙이기로 변경
   - 검증: 원본과 새 파일의 import 외 줄 묶음 완전 일치(빠짐·변경 0). `npm run lint`, `npm run typecheck`, `npm test`(빌드 포함, 35개). 로컬 dom-snapshot.py 33화면이 나누기 전 빌드와 바이트 동일, migration-check.py·cards-check.py 통과, 페이지 오류 없음. `git diff --check`, 자격증명 검사
