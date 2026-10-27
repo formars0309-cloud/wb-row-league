@@ -780,6 +780,11 @@ test("keeps the interactive operation features and map assets wired", async () =
       stat(new URL("../public/maps/heinapel-field.png", import.meta.url)),
       stat(new URL("../public/og.png", import.meta.url)),
     ]);
+  // 공유 링크 주소#common은 폰·PC 모두 카드 화면의 공통 카드를 열고, 다른 화면으로 가면 주소를 비운다.
+  assert.match(warTable, /const COMMON_HASH = "#common";/);
+  assert.match(warTable, /if \(location\.hash === COMMON_HASH\) setPicked\(COMMON_SLOT\);/);
+  assert.match(warTable, /if \(location\.hash === COMMON_HASH\) setCardsOpen\(true\);/);
+  assert.match(warTable, /if \(slot !== COMMON_SLOT && location\.hash === COMMON_HASH\) history\.replaceState\(null, "", location\.pathname \+ location\.search\);/);
 
   assert.match(warTable, /const STORAGE_KEY = "heinapel-war-table-v0\.3"/);
   assert.match(warTable, /const OBJECTIVE_META = \[/);

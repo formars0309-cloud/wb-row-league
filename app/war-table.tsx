@@ -667,6 +667,8 @@ function CommonItems({ items }: { items: Array<{ head: string; body: string }> }
 const MOBILE_SLOTS = Array.from({ length: 30 }, (_, index) => index + 1);
 const COMMON_SLOT = 0;
 const STAFF_SLOT = -1;
+// 공유 링크(주소#common)는 폰·PC 모두 카드 화면의 8강 공통 카드를 바로 연다.
+const COMMON_HASH = "#common";
 type SheetState<T> = { data: T | null; failed: boolean };
 // 폰 화면과 PC 스테프 창이 같은 시트 읽기를 쓴다. 시트를 고치면 새로고침, 앱으로 돌아올 때, 또는 30초 안에 반영된다.
 function useMissionSheets() {
@@ -773,6 +775,7 @@ function MobileBriefing({ players, sheet, staff, quarter, onExit }: { players: P
         const slot = Number(saved);
         if (saved && (slot === COMMON_SLOT || slot === STAFF_SLOT || MOBILE_SLOTS.includes(slot))) setPicked(slot);
       } catch { /* 사생활 모드에서는 그냥 고르게 둔다. */ }
+      if (location.hash === COMMON_HASH) setPicked(COMMON_SLOT);
     });
   }, []);
   const chooseSide = (next: MissionSide) => {
@@ -781,6 +784,8 @@ function MobileBriefing({ players, sheet, staff, quarter, onExit }: { players: P
   };
   const pick = (slot: number | null) => {
     setPicked(slot);
+    // 공유 링크로 들어왔다가 다른 화면으로 가면 새로고침이 공통 카드로 되돌아가지 않게 주소를 비운다.
+    if (slot !== COMMON_SLOT && location.hash === COMMON_HASH) history.replaceState(null, "", location.pathname + location.search);
     try { if (slot !== null) localStorage.setItem(MOBILE_PICK_KEY, String(slot)); else localStorage.removeItem(MOBILE_PICK_KEY); } catch { /* 저장 실패는 조회를 막지 않는다. */ }
   };
   const missions = sheet.data?.missions;
@@ -1018,6 +1023,7 @@ export default function WarTable() {
           restore(restored);
         }
       } catch { setStorageError("저장 데이터를 읽지 못했습니다. 원본은 보존했습니다. JSON 백업을 확인해 주세요."); }
+      if (location.hash === COMMON_HASH) setCardsOpen(true);
       setReady(true);
     });
   }, [restore]);
