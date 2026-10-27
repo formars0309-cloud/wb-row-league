@@ -325,12 +325,12 @@ function readMissionSheet(text: string): MissionSheet {
 // 스테프(지팡이 아티 순간이동)는 같은 시트의 「스테프」 탭에서 읽는다. 0번 행의 사용 방법은 전원 공통 규칙이다.
 // 군: 시작/스타팅 = 게임 시작 직후(부대 수는 부대구성을 따른다), 지정 = STAFF 포인트에서 순차 사용.
 const STAFF_SHEET_CSV = sheetCsvUrl("스테프");
-type StaffPlan = { slot: number; group: "start" | "point" | null; order: number | null; top: boolean | null; target: string; method: string; composition?: string };
+type StaffPlan = { slot: number; group: "start" | "point" | null; order: number | null; top: boolean | null; target: string; method: string; composition?: string; kind?: string };
 type StaffSheet = { plans: Map<number, StaffPlan>; common: string };
 function readStaffSheet(text: string): StaffSheet {
   const [head = [], ...rows] = parseCsv(text);
   const column = (name: string) => head.findIndex((cell) => cell.replace(/\s/g, "") === name);
-  const at = { slot: column("번호"), group: column("군"), order: column("순번"), place: column("사용위치"), target: column("목적지"), method: column("사용방법"), composition: column("부대구성") };
+  const at = { slot: column("번호"), group: column("군"), order: column("순번"), place: column("사용위치"), target: column("목적지"), method: column("사용방법"), composition: column("부대구성"), kind: column("종류") };
   // 없는 탭을 요청하면 gviz가 첫 탭을 돌려주므로 머리글로 걸러낸다.
   if ([at.slot, at.group, at.order, at.place, at.target].some((index) => index < 0) || (at.method < 0 && at.composition < 0)) throw new Error("스테프 시트 머리글을 찾지 못했습니다");
   const plans = new Map<number, StaffPlan>();
@@ -350,6 +350,7 @@ function readStaffSheet(text: string): StaffSheet {
       target: cell(at.target),
       method: cell(at.method),
       ...(at.composition >= 0 ? { composition: cell(at.composition) } : {}),
+      ...(at.kind >= 0 && cell(at.kind) ? { kind: cell(at.kind) } : {}),
     });
   }
   return { plans, common };
@@ -845,6 +846,7 @@ function MobileBriefing({ players, quarter, missionSheet, staffSheet, onExit }: 
           <dl className="quarter-staff">
             {staffCommon && <><dt>공통</dt><dd>{staffCommon}</dd></>}
             <dt>언제</dt><dd>{staffWhen}</dd>
+            {plan.kind && <><dt>종류</dt><dd>{plan.kind}</dd></>}
             {plan.target && <><dt>어디로</dt><dd>{plan.target}</dd></>}
             {plan.composition && <><dt>부대구성</dt><dd>{plan.composition}</dd></>}
             {plan.method && <><dt>사용 방법</dt><dd>{plan.method}</dd></>}

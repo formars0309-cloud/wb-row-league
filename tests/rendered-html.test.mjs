@@ -537,6 +537,11 @@ test("현재 스테프 부대구성 머리글과 스타팅/지정 STAFF 표기�
   assert.equal(readStaffSheet(withoutMethod).plans.get(2).composition, current.plans.get(2).composition);
   assert.equal(readStaffSheet(withoutMethod).plans.get(2).method, "");
   assert.throws(() => readStaffSheet('"번호","군","순번","사용 위치","목적지"\n"1","시작","","",""'));
+  // 종류 칸은 있으면 읽고, 비거나 열이 없으면 넣지 않는다.
+  const kinds = readStaffSheet('"번호","닉네임","군","순번","사용 위치","목적지","부대구성","종류"\n"1","무잔","지정 순번 STAFF 사용","5","바텀","","","에테리얼 (7명까지가능)"\n"25","조롱말","지정 순번 STAFF 사용","4","탑","","",""').plans;
+  assert.equal(kinds.get(1).kind, "에테리얼 (7명까지가능)");
+  assert.equal("kind" in kinds.get(25), false);
+  assert.equal("kind" in current.plans.get(2), false);
 });
 
 test("PC 지도 카드도 최신 시트의 메인·서브·부대와 루시아 환산을 읽고 저장된 수동 편집·삭제는 덮어쓰지 않는다", async () => {
