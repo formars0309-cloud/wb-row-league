@@ -346,6 +346,19 @@ function readStaffSheet(text: string): StaffSheet {
   }
   return { plans, common };
 }
+// 8강 공통 임무는 「8강 공통 임무」 탭(번호·내용)에서 읽는다. 루시아 기준으로 쓰므로 환산하지 않는다.
+const QUARTER_COMMON_CSV = sheetCsvUrl("8강 공통 임무");
+type QuarterCommon = Array<{ no: string; body: string }>;
+function readQuarterCommon(text: string): QuarterCommon {
+  const [head = [], ...rows] = parseCsv(text);
+  const column = (name: string) => head.findIndex((cell) => cell.replace(/\s/g, "") === name);
+  const at = { no: column("번호"), body: column("내용") };
+  // 없는 탭을 요청하면 gviz가 첫 탭을 돌려주므로 머리글로 걸러낸다.
+  if (at.no < 0 || at.body < 0) throw new Error("8강 공통 임무 머리글을 찾지 못했습니다");
+  // 내용이 빈 줄은 아직 쓰지 않은 번호라 화면에 내지 않는다. 번호가 비면 화면 순서로 매긴다.
+  const items = rows.map((row) => ({ no: (row[at.no] ?? "").trim(), body: (row[at.body] ?? "").trim() })).filter((item) => item.body);
+  return items.map((item, index) => ({ no: item.no || String(index + 1), body: item.body }));
+}
 function staffLabel(plan: StaffPlan, slot: number) {
   return plan.group === "start" ? "시작 스테프 · 게임 시작 직후" : `지정 스테프 · ${plan.top ?? TOP_LINE_SLOTS.has(slot) ? "TOP" : "BOTTOM"} 포인트${plan.order ? ` ${plan.order}번째` : ""}`;
 }
@@ -659,6 +672,7 @@ type SheetState<T> = { data: T | null; failed: boolean };
 function useMissionSheets() {
   const [sheet, setSheet] = useState<SheetState<MissionSheet>>({ data: null, failed: false });
   const [staff, setStaff] = useState<SheetState<StaffSheet>>({ data: null, failed: false });
+  const [quarter, setQuarter] = useState<SheetState<QuarterCommon>>({ data: null, failed: false });
   useEffect(() => {
     let alive = true;
     let latestRequest = 0;
@@ -667,11 +681,12 @@ function useMissionSheets() {
       .then((response) => { if (!response.ok) throw new Error(String(response.status)); return response.text(); })
       .then((text) => { const data = read(text); if (alive && request === latestRequest) set({ data, failed: false }); })
       .catch(() => { if (alive && request === latestRequest) set((current) => ({ ...current, failed: true })); });
-    // 스테프 탭은 따로 읽어, 실패해도 임무 카드는 그대로 보인다.
+    // 스테프·8강 공통 탭은 따로 읽어, 실패해도 임무 카드는 그대로 보인다.
     const loadAll = () => {
       // 복귀·주기 갱신이 겹쳐도 이전 응답이 최신 내용이나 실패 상태를 덮지 않게 한다.
       const request = ++latestRequest;
       load(MISSION_SHEET_CSV, readMissionSheet, setSheet, request); load(STAFF_SHEET_CSV, readStaffSheet, setStaff, request);
+      load(QUARTER_COMMON_CSV, readQuarterCommon, setQuarter, request);
     };
     const onVisible = () => { if (document.visibilityState === "visible") loadAll(); };
     loadAll();
@@ -679,7 +694,7 @@ function useMissionSheets() {
     document.addEventListener("visibilitychange", onVisible);
     return () => { alive = false; clearInterval(timer); document.removeEventListener("visibilitychange", onVisible); };
   }, []);
-  return { sheet, staff };
+  return { sheet, staff, quarter };
 }
 // 시트를 읽기 전에는 앱 명단의 이름을 보여 준다.
 function slotName(missions: Map<number, SheetMission> | undefined, players: Player[], slot: number) {
@@ -732,8 +747,20 @@ function StaffDialog({ staff, side, nameOf, onClose }: { staff: SheetState<Staff
     <StaffBoard staff={staff} side={side} nameOf={nameOf} />
   </dialog>;
 }
+// 8강 공통 카드(네이비 HUD): 시트의 번호·내용을 번호순 그대로 보인다.
+function QuarterCommonBoard({ quarter }: { quarter: SheetState<QuarterCommon> }) {
+  return (
+    <article className="board">
+      <header className="board-head"><b>00</b><strong>공통 임무<small>QUARTERFINAL · 30명 전원</small></strong></header>
+      {!quarter.data ? <p className="board-empty">{quarter.failed ? "공통 임무를 불러오지 못했습니다" : "공통 임무를 불러오는 중…"}</p>
+        : !quarter.data.length ? <p className="board-empty">임무 준비 중</p>
+          : <ol className="quarter-items">{quarter.data.map((item, index) => <li key={index}><b>{item.no}</b><MissionLines text={item.body} /></li>)}</ol>}
+      <p className="board-foot">루시아 진영 기준 · 30 vs 30 · 1인 5부대</p>
+    </article>
+  );
+}
 // onExit가 있으면 PC에서 연 카드 화면이다. 폰과 같은 화면을 가운데 띄우고 작전판으로 돌아가는 버튼을 단다.
-function MobileBriefing({ players, sheet, staff, onExit }: { players: Player[]; sheet: SheetState<MissionSheet>; staff: SheetState<StaffSheet>; onExit?: () => void }) {
+function MobileBriefing({ players, sheet, staff, quarter, onExit }: { players: Player[]; sheet: SheetState<MissionSheet>; staff: SheetState<StaffSheet>; quarter: SheetState<QuarterCommon>; onExit?: () => void }) {
   const [side, setSide] = useState<MissionSide>("ian");
   const [picked, setPicked] = useState<number | null>(null);
 
@@ -765,7 +792,7 @@ function MobileBriefing({ players, sheet, staff, onExit }: { players: Player[]; 
     <div className={shell()}>
       <header className="mobile-top"><span>HEINAPEL WAR TABLE</span><strong>스타팅 멤버</strong>{onExit && <button type="button" className="mobile-exit" onClick={onExit}>작전판</button>}</header>
       {warning}
-      <button type="button" className="mobile-common" onClick={() => pick(COMMON_SLOT)}><b>0</b><span>공통 임무</span><small>30명 전원</small></button>
+      <button type="button" className="mobile-common" onClick={() => pick(COMMON_SLOT)}><b>0</b><span>공통 임무</span><small>8강 · 30명 전원</small></button>
       <button type="button" className="mobile-common" onClick={() => pick(STAFF_SLOT)}><b>S</b><span>스테프 카드</span><small>지팡이 순간이동</small></button>
       <ol className="mobile-roster">{MOBILE_SLOTS.map((slot) => <li key={slot}><button type="button" onClick={() => pick(slot)}><b>{slot}</b><span>{nameOf(slot)}</span></button></li>)}</ol>
     </div>
@@ -778,19 +805,16 @@ function MobileBriefing({ players, sheet, staff, onExit }: { players: Player[]; 
   </header>;
   const loading = <p className="board-empty">{sheet.failed ? "임무를 불러오지 못했습니다" : "임무를 불러오는 중…"}</p>;
 
+  // 8강 공통 카드는 루시아 고정이라 진영 전환 대신 배지를 단다.
   if (picked === COMMON_SLOT) return (
-    <div className={shell(` side-${side}`)}>
-      {top}
-      {warning}
-      <article className="board">
-        <header className="board-head"><b>00</b><strong>공통 임무</strong><span>{MISSION_SIDE_LABEL[side]}</span></header>
-        <p className="board-team">30명 전원</p>
-        {!sheet.data ? loading : !sheet.data.common.length ? <p className="board-empty">임무 준비 중</p> : <section className="board-box"><h3>공통 임무</h3>
-          {/* "기병대 = …"처럼 앞에 대상이 붙은 항목은 대상을 제목으로 세운다. */}
-          <CommonItems items={sheet.data.common.map((item) => splitCommon(mirrorMission(item, side)))} />
-        </section>}
-        <p className="board-foot">{MISSION_SIDE_LABEL[side]} 진영 기준{side === "lucia" ? " · 시트의 이안 기준 위치를 루시아 기준으로 환산" : ""} · 30 vs 30 · 1인 5부대</p>
-      </article>
+    <div className={shell(" side-lucia is-quarter")}>
+      <header className="mobile-top">
+        <button type="button" className="mobile-back" onClick={() => pick(null)} aria-label="명단으로 돌아가기">‹</button>
+        <strong>임무 카드</strong>
+        <span className="quarter-badge">8강 · 루시아</span>
+      </header>
+      {quarter.failed && quarter.data && <p className="mobile-sync" role="alert">최신 공통 임무를 불러오지 못했습니다. 마지막으로 받은 내용입니다.</p>}
+      <QuarterCommonBoard quarter={quarter} />
     </div>
   );
 
@@ -926,7 +950,7 @@ export default function WarTable() {
   const [playerDraft, setPlayerDraft] = useState<Player | null>(null);
   const [staffOpen, setStaffOpen] = useState(false);
   const [cardsOpen, setCardsOpen] = useState(false);
-  const { sheet, staff } = useMissionSheets();
+  const { sheet, staff, quarter } = useMissionSheets();
   const [storageError, setStorageError] = useState("");
   const [ready, setReady] = useState(false);
   const [editingId, setEditingId] = useState(1);
@@ -1440,7 +1464,7 @@ export default function WarTable() {
         </form>}
       </footer>
     </main>
-    <MobileBriefing players={operation.players} sheet={sheet} staff={staff} onExit={cardsOpen ? () => setCardsOpen(false) : undefined} />
+    <MobileBriefing players={operation.players} sheet={sheet} staff={staff} quarter={quarter} onExit={cardsOpen ? () => setCardsOpen(false) : undefined} />
     {staffOpen && <StaffDialog staff={staff} side={missionSide} nameOf={(slot) => slotName(sheet.data?.missions, operation.players, slot)} onClose={() => setStaffOpen(false)} />}
     {playerDraft && <PlayerEditor initial={playerDraft} players={operation.players} onClose={() => setPlayerDraft(null)} onSave={(player) => {
       commit((draft) => { const index = draft.players.findIndex((item) => item.id === player.id); if (index < 0) draft.players.push(player); else draft.players[index] = player; return draft; });

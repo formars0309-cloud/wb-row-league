@@ -1312,6 +1312,24 @@ body {
   font-family: "Noto Sans KR", Arial, sans-serif;
 }
 .mobile-shell.side-lucia { --side: #2a86d8; --side-head: #cfe7fb; --side-line: #9fd0f5; --side-wash: #eef7ff; }
+/* 8강 공통 카드: 네이비 HUD. 남색 바탕에 하늘색 강조, 번호·내용을 큰 번호 칸과 함께 보인다. */
+.mobile-shell.is-quarter { --side: #5db6ff; --side-head: #14386b; --side-line: #2e5c9e; --side-wash: #112b52; background: #071327; color: #eaf2ff; }
+.is-quarter .mobile-back { border-color: #2e5c9e; background: #0d1f3c; color: #5db6ff; }
+.mobile-top > .quarter-badge { margin-left: auto; font-family: inherit; letter-spacing: 0; padding: 6px 12px; border: 1px solid #5db6ff; border-radius: 999px; color: #5db6ff; font-size: 13px; font-weight: 800; }
+.is-quarter .mobile-sync { color: #ffb4a0; }
+.is-quarter .board { border-width: 1px; background: #0d1f3c; }
+.is-quarter .board-head b { color: #5db6ff; }
+.is-quarter .board-head strong { border-left-color: rgba(93, 182, 255, 0.4); }
+.is-quarter .board-head small { display: block; margin-top: 2px; color: #9db6d8; font: 600 12px ui-monospace, monospace; letter-spacing: 0.12em; word-break: keep-all; }
+.is-quarter .board-empty { color: #9db6d8; }
+.is-quarter .board-foot { color: #9db6d8; }
+.is-quarter mark.hl-place { background: #1c4e8c; color: #fff; }
+.is-quarter mark.hl-time { color: #9ed3ff; text-decoration: underline; text-underline-offset: 3px; }
+.quarter-items { display: grid; gap: 10px; margin: 0; padding: 14px 12px; list-style: none; }
+.quarter-items > li { display: flex; gap: 12px; align-items: flex-start; padding: 12px; border: 1px solid #2e5c9e; border-radius: 12px; background: #112b52; }
+.quarter-items > li > b { flex: 0 0 auto; display: grid; place-items: center; min-width: 34px; height: 34px; padding: 0 6px; border-radius: 8px; background: #5db6ff; color: #04122a; font: 900 18px ui-monospace, monospace; }
+.quarter-items .board-line, .quarter-items .board-lines { flex: 1; min-width: 0; padding: 2px 0 0; }
+.quarter-items .board-lines { padding-left: 20px; }
 /* PC에서 연 카드 화면: 작전판을 숨기고 폰 화면을 520px 폭으로 가운데 띄운다. */
 .war-shell.cards-open { display: none; }
 .mobile-shell.is-pc { display: block; padding-inline: max(12px, calc(50% - 260px)); }
