@@ -5,7 +5,8 @@
 - 사용자 요청: 지정 STAFF 중 불개·조롱말·무잔은 "에테리얼 (7명까지가능)" 표시. '8강 스테프' H열(빈 머리글)을 '종류'로 만들고 codex가 사전값 확인 후 H1·H3·H24·H27 기록. gviz로 H열 4칸만 변경, 다른 탭(16강 '스테프' 포함) 바이트 동일.
 - 앱: readStaffSheet가 '종류'를 선택적으로 읽고(kind), 개인 카드 STAFF '언제' 다음에 '종류' 행. 테스트 단언 추가(35개).
 - 검증: lint·typecheck·npm test 35개 통과. 로컬 kind-check.py 390/320·cards-check.py 통과, 25번 카드 캡처 확인. 서버 종료.
-- 다음: 사용자의 직전 "다 되면 배포해줘"에 따라 이어서 배포 → 공개 kind-check.py → FEATURES [x].
+- 공개 배포: 9cbdf02를 버전 37(appgprj_6a8aa14508008191953a7a38df357899~appgver_31676ae2bdbc8191bbae399cc52f7410)로 배포, appgdep_6ae04e4addd88191995644e2f037fc93 succeeded, active·public·최신 37, 테스트 35개, 아카이브 9,269,057 bytes SHA-256 135497bc43352b079c3554ba83233904a64841c5def1116a073409bb9ee984a5, 자격증명 폐기.
+- 공개 검수: kind-check.py·cards-check.py·name-check.py 통과. lead-check.py 1회차는 21번 카드가 "불러오는 중…"이라 실패 — 첫 화면 명단은 시트 응답 전에도 기본 명단 이름으로 30명을 그려 대기 조건이 먼저 풀린 검사 스크립트 시점 문제로 판단, 재실행 2회 모두 통과. FEATURES 종류 표시 [x].
 
 ---
 
