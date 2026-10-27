@@ -6,7 +6,8 @@
 - 8강 개인 임무 시트: '스타팅 명단'을 복제해 '8강 개인 임무'(gid 1661771533) 생성, 소속팀~5번부대 95칸을 mirror.py 규칙(8강 스테프와 동일, 탑↔바텀 포함)으로 codex가 사전 값 확인 후 기록. gviz로 원본 무변경, 30행 전체 기대값 일치. 기록 `work/quarter-missions-20261027/`.
 - 앱: MobileBriefing을 8강 흐름으로 교체 — 첫 화면(제목·공통 임무·"내 이름을 누르면…" 안내·1~30 명단, PC는 작전판 버튼), 개인 카드(번호·이름, 소속팀, 메인, 서브, 부대 묶기, STAFF 언제/어디로/부대구성/사용 방법·공통 규칙, 배치 지도). 문장은 원문 그대로(pre-line), 화살표 계산은 quarterToIan(=루시아 환산+탑↔바텀, 자기 역함수)으로 이안 기준 문장을 넘겨 기존 entranceBlock/buildMissionPlan/staffRoute 재사용, 화면의 라인·포인트·입구 이름은 LUCIA_LINE_NAME(이안 TOP=바텀). 시트 읽기에 '8강 개인 임무'·'8강 스테프' 추가. 16강 폰 전용 코드(진영 전환·S 카드·0번 카드 선택·팀 공통 접기 teamCommon/splitCommon/teamKey/CommonItems) 삭제. 링크 #common은 저장된 선택과 관계없이 첫 화면.
 - 검증: lint·typecheck·npm test 33개 통과, git diff --check. 로컬 cards-check.py: 390px 30명 전원·320px 4명 카드 원문·STAFF·라인 이름 일치, 영문 TOP/BOTTOM 없음, 넘침 없음, PC #common 첫 화면·카드, 오류 없음. 캡처(첫 화면, 7·12번 카드, PC 7번) 직접 확인. 서버·브라우저 종료.
-- 다음: 공개 반영은 사용자 배포 요청·일회성 자격증명 허용 시, 배포 후 `python3 work/quarter-missions-20261027/cards-check.py https://heinapel-war-table.formars0309.chatgpt.site public`. 초안의 '탑 거점 주유팀'→'바텀 거점 주유팀'처럼 규칙상 바뀐 팀 이름은 사용자가 시트에서 확인할 것.
+- 공개 배포: 사용자 "배포 + 일회성 발급 허용". a2dd57c를 버전 33(appgprj_6a8aa14508008191953a7a38df357899~appgver_049d32ccd8e081918d25aec3956a08a4)으로 배포, appgdep_6ae02346d67081918f510a6da611bd42 succeeded, public·최신 33, 테스트 33개, 아카이브 9,267,781 bytes SHA-256 208e64f7ff5dd7dc4d4cc22f5d73d56baff36b5acb1cd66ad6fb8d92ce81d750, 자격증명 폐기. 공개 cards-check.py 통과(390px 30명 전원·320px 4명 원문·STAFF·라인 이름, PC #common, 오류 없음), 첫 화면 캡처 확인.
+- 다음: 초안의 '탑 거점 주유팀'→'바텀 거점 주유팀'처럼 규칙상 바뀐 팀 이름은 사용자가 시트에서 확인할 것.
 
 ---
 
