@@ -356,6 +356,21 @@ function readStaffSheet(text: string): StaffSheet {
 }
 // 8강 공통 임무는 「8강 공통 임무」 탭(번호·내용)에서 읽는다. 루시아 기준으로 쓰므로 환산하지 않는다.
 const QUARTER_COMMON_CSV = sheetCsvUrl("8강 공통 임무");
+// 8강 개인 임무·스테프 탭은 16강 탭과 열이 같아 같은 파서를 쓴다.
+const QUARTER_MISSION_CSV = sheetCsvUrl("8강 개인 임무");
+const QUARTER_STAFF_CSV = sheetCsvUrl("8강 스테프");
+// 8강 시트는 루시아 기준이라 탑·바텀도 이안과 반대로 부른다('탑승'은 제외). 두 번 바꾸면 원래 문장이다.
+function swapLineNames(text: string) {
+  return text.replace(/바텀|탑(?!승)/g, (word) => word === "탑" ? "바텀" : "탑");
+}
+// 화살표 계산은 이안 기준 문장을 받으므로 루시아 8강 문장을 되돌려 넘긴다.
+function quarterToIan(text: string) {
+  return swapLineNames(mirrorMission(text, "lucia"));
+}
+// 이안 기준 TOP 쪽이 루시아 8강의 바텀이다.
+function LUCIA_LINE_NAME(top: boolean) {
+  return top ? "바텀" : "탑";
+}
 type QuarterCommon = Array<{ no: string; body: string }>;
 function readQuarterCommon(text: string): QuarterCommon {
   const [head = [], ...rows] = parseCsv(text);
@@ -398,19 +413,6 @@ function missionParts(text: string): Array<{ text: string; kind?: "place" | "tim
   }
   if (last < text.length) parts.push({ text: text.slice(last) });
   return parts;
-}
-// 공통 임무의 "팀 = …" 항목은 그 팀 카드에도 싣는다. 시트 표기 차이(기병대·기마팀)만 맞춘다.
-const TEAM_ALIAS = new Map([["기병", "기마"]]);
-function teamKey(name: string) {
-  const key = name.replace(/\s/g, "").replace(/(팀|대)$/, "");
-  return TEAM_ALIAS.get(key) ?? key;
-}
-function splitCommon(item: string) {
-  const [, head, body] = item.match(/^([^=]{1,12}?)\s*=\s*([\s\S]+)$/) ?? [];
-  return head ? { head: head.trim(), body } : { head: "", body: item };
-}
-function teamCommon(common: string[], team: string) {
-  return common.map(splitCommon).filter((item) => !item.head || (!!team && teamKey(item.head) === teamKey(team)));
 }
 // 같은 지시가 이어지면 "2~5"처럼 한 줄로 묶는다.
 function groupUnits(units: string[]) {
@@ -659,7 +661,6 @@ function EraserIcon() {
 // 폰 화면: 첫 화면은 주전 30명 번호순 3열, 이름을 누르면 시트 임무를 04 작전보드형 카드로 보여 준다.
 // 시트를 고치면 다음 새로고침, 앱으로 돌아올 때, 또는 30초 안에 반영된다.
 const MOBILE_PICK_KEY = "heinapel-mobile-slot";
-const MOBILE_SIDE_KEY = "heinapel-mobile-side";
 function MissionText({ text }: { text: string }) {
   return <>{missionParts(text).map((part, index) => part.kind ? <mark key={index} className={`hl-${part.kind}`}>{part.text}</mark> : part.text)}</>;
 }
@@ -669,12 +670,7 @@ function MissionLines({ text }: { text: string }) {
     ? <ul className="board-lines">{lines.map((line, index) => <li key={index}><MissionText text={line} /></li>)}</ul>
     : <p className="board-line"><MissionText text={lines[0] ?? text} /></p>;
 }
-function CommonItems({ items }: { items: Array<{ head: string; body: string }> }) {
-  return <div className="board-common">{items.map((item, index) => <div key={index}>{item.head && <b>{item.head}</b>}<MissionLines text={item.body} /></div>)}</div>;
-}
 const MOBILE_SLOTS = Array.from({ length: 30 }, (_, index) => index + 1);
-const COMMON_SLOT = 0;
-const STAFF_SLOT = -1;
 // 공유 링크(주소#common)는 폰·PC 모두 카드 화면의 8강 공통 카드를 바로 연다.
 const COMMON_HASH = "#common";
 type SheetState<T> = { data: T | null; failed: boolean };
@@ -683,6 +679,8 @@ function useMissionSheets() {
   const [sheet, setSheet] = useState<SheetState<MissionSheet>>({ data: null, failed: false });
   const [staff, setStaff] = useState<SheetState<StaffSheet>>({ data: null, failed: false });
   const [quarter, setQuarter] = useState<SheetState<QuarterCommon>>({ data: null, failed: false });
+  const [quarterMissions, setQuarterMissions] = useState<SheetState<MissionSheet>>({ data: null, failed: false });
+  const [quarterStaff, setQuarterStaff] = useState<SheetState<StaffSheet>>({ data: null, failed: false });
   useEffect(() => {
     let alive = true;
     let latestRequest = 0;
@@ -691,12 +689,13 @@ function useMissionSheets() {
       .then((response) => { if (!response.ok) throw new Error(String(response.status)); return response.text(); })
       .then((text) => { const data = read(text); if (alive && request === latestRequest) set({ data, failed: false }); })
       .catch(() => { if (alive && request === latestRequest) set((current) => ({ ...current, failed: true })); });
-    // 스테프·8강 공통 탭은 따로 읽어, 실패해도 임무 카드는 그대로 보인다.
+    // 탭마다 따로 읽어, 한 탭이 실패해도 다른 카드는 그대로 보인다.
     const loadAll = () => {
       // 복귀·주기 갱신이 겹쳐도 이전 응답이 최신 내용이나 실패 상태를 덮지 않게 한다.
       const request = ++latestRequest;
       load(MISSION_SHEET_CSV, readMissionSheet, setSheet, request); load(STAFF_SHEET_CSV, readStaffSheet, setStaff, request);
       load(QUARTER_COMMON_CSV, readQuarterCommon, setQuarter, request);
+      load(QUARTER_MISSION_CSV, readMissionSheet, setQuarterMissions, request); load(QUARTER_STAFF_CSV, readStaffSheet, setQuarterStaff, request);
     };
     const onVisible = () => { if (document.visibilityState === "visible") loadAll(); };
     loadAll();
@@ -704,7 +703,7 @@ function useMissionSheets() {
     document.addEventListener("visibilitychange", onVisible);
     return () => { alive = false; clearInterval(timer); document.removeEventListener("visibilitychange", onVisible); };
   }, []);
-  return { sheet, staff, quarter };
+  return { sheet, staff, quarter, quarterMissions, quarterStaff };
 }
 // 시트를 읽기 전에는 앱 명단의 이름을 보여 준다.
 function slotName(missions: Map<number, SheetMission> | undefined, players: Player[], slot: number) {
@@ -763,135 +762,103 @@ function QuarterCommonBoard({ quarter }: { quarter: SheetState<QuarterCommon> })
   if (!quarter.data.length) return <p className="quarter-empty">임무 준비 중</p>;
   return <ol className="quarter-items">{quarter.data.map((item, index) => <li key={index}><b>{item.no}</b><p>{item.body}</p></li>)}</ol>;
 }
-// onExit가 있으면 PC에서 연 카드 화면이다. 폰과 같은 화면을 가운데 띄우고 작전판으로 돌아가는 버튼을 단다.
-function MobileBriefing({ players, sheet, staff, quarter, onExit }: { players: Player[]; sheet: SheetState<MissionSheet>; staff: SheetState<StaffSheet>; quarter: SheetState<QuarterCommon>; onExit?: () => void }) {
-  const [side, setSide] = useState<MissionSide>("ian");
+// 폰 화면과 PC 카드 화면(onExit)은 8강 루시아 브리핑이다. 첫 화면은 제목·공통 임무·1~30번 명단, 이름을 누르면 개인 카드.
+function MobileBriefing({ players, quarter, missionSheet, staffSheet, onExit }: { players: Player[]; quarter: SheetState<QuarterCommon>; missionSheet: SheetState<MissionSheet>; staffSheet: SheetState<StaffSheet>; onExit?: () => void }) {
   const [picked, setPicked] = useState<number | null>(null);
 
   useEffect(() => {
     queueMicrotask(() => {
+      // 공유 링크(주소#common)는 늘 첫 화면에서 시작한다.
+      if (location.hash === COMMON_HASH) return;
       try {
-        // 저장값이 없으면 null이 0(공통 임무)으로 바뀌지 않게 문자열 그대로 비교한다.
-        if (localStorage.getItem(MOBILE_SIDE_KEY) === "lucia") setSide("lucia");
-        const saved = localStorage.getItem(MOBILE_PICK_KEY);
-        const slot = Number(saved);
-        if (saved && (slot === COMMON_SLOT || slot === STAFF_SLOT || MOBILE_SLOTS.includes(slot))) setPicked(slot);
+        const slot = Number(localStorage.getItem(MOBILE_PICK_KEY));
+        if (MOBILE_SLOTS.includes(slot)) setPicked(slot);
       } catch { /* 사생활 모드에서는 그냥 고르게 둔다. */ }
-      if (location.hash === COMMON_HASH) setPicked(COMMON_SLOT);
     });
   }, []);
-  const chooseSide = (next: MissionSide) => {
-    setSide(next);
-    try { localStorage.setItem(MOBILE_SIDE_KEY, next); } catch { /* 저장 실패는 조회를 막지 않는다. */ }
-  };
   const pick = (slot: number | null) => {
     setPicked(slot);
-    // 공유 링크로 들어왔다가 다른 화면으로 가면 새로고침이 공통 카드로 되돌아가지 않게 주소를 비운다.
-    if (slot !== COMMON_SLOT && location.hash === COMMON_HASH) history.replaceState(null, "", location.pathname + location.search);
     try { if (slot !== null) localStorage.setItem(MOBILE_PICK_KEY, String(slot)); else localStorage.removeItem(MOBILE_PICK_KEY); } catch { /* 저장 실패는 조회를 막지 않는다. */ }
   };
-  const missions = sheet.data?.missions;
+  const missions = missionSheet.data?.missions;
   const nameOf = (slot: number) => slotName(missions, players, slot);
-  const warning = sheet.failed && <p className="mobile-sync" role="alert">{sheet.data ? "최신 임무를 불러오지 못했습니다. 마지막으로 받은 내용입니다." : "임무를 불러오지 못했습니다. 연결을 확인하고 새로고침해 주세요."}</p>;
+  const shell = `mobile-shell is-quarter${onExit ? " is-pc" : ""}`;
 
-  const shell = (extra = "") => `mobile-shell${extra}${onExit ? " is-pc" : ""}`;
   if (picked === null) return (
-    <div className={shell()}>
-      <header className="mobile-top"><span>HEINAPEL WAR TABLE</span><strong>스타팅 멤버</strong>{onExit && <button type="button" className="mobile-exit" onClick={onExit}>작전판</button>}</header>
-      {warning}
-      <button type="button" className="mobile-common" onClick={() => pick(COMMON_SLOT)}><b>0</b><span>공통 임무</span><small>8강 · 30명 전원</small></button>
-      <button type="button" className="mobile-common" onClick={() => pick(STAFF_SLOT)}><b>S</b><span>스테프 카드</span><small>지팡이 순간이동</small></button>
+    <div className={shell}>
+      <header className="mobile-top">
+        <h1 className="quarter-title">8강 (루시아 진영) <span>공통 임무 및 개별 임무</span></h1>
+        {onExit && <button type="button" className="mobile-exit" onClick={onExit}>작전판</button>}
+      </header>
+      {quarter.failed && quarter.data && <p className="mobile-sync" role="alert">최신 공통 임무를 불러오지 못했습니다. 마지막으로 받은 내용입니다.</p>}
+      <QuarterCommonBoard quarter={quarter} />
+      <h2 className="quarter-roster-title">내 이름을 누르면 개인 임무와 STAFF 사용법이 보입니다</h2>
       <ol className="mobile-roster">{MOBILE_SLOTS.map((slot) => <li key={slot}><button type="button" onClick={() => pick(slot)}><b>{slot}</b><span>{nameOf(slot)}</span></button></li>)}</ol>
     </div>
   );
 
-  const top = <header className="mobile-top">
-    <button type="button" className="mobile-back" onClick={() => pick(null)} aria-label="명단으로 돌아가기">‹</button>
-    <strong>임무 카드</strong>
-    <div className="mobile-side">{MISSION_SIDES.map((item) => <button type="button" key={item} className={side === item ? "active" : ""} aria-pressed={side === item} onClick={() => chooseSide(item)}>{MISSION_SIDE_LABEL[item]}</button>)}</div>
-  </header>;
-  const loading = <p className="board-empty">{sheet.failed ? "임무를 불러오지 못했습니다" : "임무를 불러오는 중…"}</p>;
-
-  // 8강 공통 카드는 제목과 시트 내용만 보이고, 명단으로 돌아가는 버튼 하나만 둔다.
-  if (picked === COMMON_SLOT) return (
-    <div className={shell(" is-quarter")}>
-      <header className="mobile-top">
-        <button type="button" className="mobile-back" onClick={() => pick(null)} aria-label="명단으로 돌아가기">‹</button>
-        <h1 className="quarter-title">8강 (루시아 진영) <span>공통 임무 및 개별 임무</span></h1>
-      </header>
-      {quarter.failed && quarter.data && <p className="mobile-sync" role="alert">최신 공통 임무를 불러오지 못했습니다. 마지막으로 받은 내용입니다.</p>}
-      <QuarterCommonBoard quarter={quarter} />
-    </div>
-  );
-
-  const plans = staff.data?.plans;
-
-  if (picked === STAFF_SLOT) return (
-    <div className={shell(` side-${side}`)}>
-      {top}
-      {warning}
-      <StaffBoard staff={staff} side={side} nameOf={nameOf} />
-    </div>
-  );
-
+  // 시트 문장은 그대로 보이고, 화살표 계산에는 이안 기준으로 되돌린 문장을 넘긴다.
+  const side: MissionSide = "lucia";
   const mission = missions?.get(picked);
-  const orders = mission?.units.map((text) => mirrorMission(text, side));
-  const units = orders?.some(Boolean) ? orders : null;
+  const units = mission?.units.some(Boolean) ? mission.units : null;
   const ready = !!mission && !!(mission.main || mission.sub || units);
-  const leaders = new Map([...(missions?.values() ?? [])].map((item): [string, MissionOrders] => [item.nickname, item.units]));
-  const block = entranceBlock(mission, side, "tactical");
-  const routes = block ? [] : buildMissionPlan(units, side, "tactical", leaders).routes;
+  const leaders = new Map([...(missions?.values() ?? [])].map((item): [string, MissionOrders] => [item.nickname, item.units.map(quarterToIan) as MissionOrders]));
+  const block = mission ? entranceBlock({ ...mission, main: quarterToIan(mission.main) }, side, "tactical") : null;
+  const routes = block ? [] : buildMissionPlan(units && units.map(swapLineNames), side, "tactical", leaders).routes;
   const home = slotPoint(picked, side, "tactical");
   const line = home ? lineExit(picked, side, "tactical") : null;
-  const common = teamCommon((sheet.data?.common ?? []).map((item) => mirrorMission(item, side)), mission?.team ?? "");
-  const plan = plans?.get(picked);
-  const staffPath = staffRoute(plan, picked, side, "tactical", leaders);
+  const plan = staffSheet.data?.plans.get(picked);
+  const staffPath = staffRoute(plan && { ...plan, top: plan.top === null ? null : !plan.top, target: quarterToIan(plan.target) }, picked, side, "tactical", leaders);
+  const staffWhen = plan?.group === "start" ? "게임 시작 직후 (시작 스테프)" : staffPath ? `지정 순번 · ${LUCIA_LINE_NAME(staffPath.top)} 포인트${plan?.order ? ` ${plan.order}번째` : ""}` : "";
+  const staffCommon = staffSheet.data?.common;
 
   return (
-    <div className={shell(` side-${side}`)}>
-      {top}
-      {warning}
-      <article className="board">
-        <header className="board-head"><b>{String(picked).padStart(2, "0")}</b><strong>{nameOf(picked)}</strong><span>{MISSION_SIDE_LABEL[side]}</span></header>
-        <p className="board-team">{mission?.team || "소속팀 미정"}</p>
-        {!missions ? loading : !ready ? <p className="board-empty">임무 준비 중</p> : <>
-          {mission.main && <section className="board-box"><h3>메인 임무</h3><MissionLines text={mirrorMission(mission.main, side)} /></section>}
-          {mission.sub && <section className="board-box"><h3>서브 임무</h3><MissionLines text={mirrorMission(mission.sub, side)} /></section>}
-          {units && <section className="board-box"><h3>부대 배치</h3><ol className="board-units">{groupUnits(units).map((group) => <li key={group.from} className={missionEmphasis(group.text)}><i>{group.from === group.to ? group.from : `${group.from}~${group.to}`}</i><span><MissionText text={group.text} /></span></li>)}</ol></section>}
+    <div className={shell}>
+      <header className="mobile-top">
+        <button type="button" className="mobile-back" onClick={() => pick(null)} aria-label="공통 임무와 명단으로 돌아가기">‹</button>
+        <h1 className="quarter-card-name"><b>{picked}</b>{nameOf(picked)}</h1>
+      </header>
+      {missionSheet.failed && missionSheet.data && <p className="mobile-sync" role="alert">최신 임무를 불러오지 못했습니다. 마지막으로 받은 내용입니다.</p>}
+      <article className="quarter-card">
+        {mission?.team && <p className="quarter-team">{mission.team}</p>}
+        {!missions ? <p className="quarter-empty">{missionSheet.failed ? "임무를 불러오지 못했습니다" : "불러오는 중…"}</p> : !ready ? <p className="quarter-empty">임무 준비 중</p> : <>
+          {mission.main && <section className="quarter-section"><h2>메인 임무</h2><p>{mission.main}</p></section>}
+          {mission.sub && <section className="quarter-section"><h2>서브 임무</h2><p>{mission.sub}</p></section>}
+          {units && <section className="quarter-section"><h2>부대 배치</h2><ol className="quarter-units">{groupUnits(units).map((group) => <li key={group.from}><b>{group.from === group.to ? group.from : `${group.from}~${group.to}`}</b><p>{group.text}</p></li>)}</ol></section>}
         </>}
-        {plan?.group && <section className="board-box board-staff"><h3>스테프 사용</h3><p className="staff-schedule">{staffLabel(plan, picked)}</p>
-          {/* 지도 위치로 읽히는 목적지에만 "목적지" 머리말을 붙인다. */}
-          <MissionLines text={mirrorMission([plan.target && (staffPath?.targets.length ? `목적지 ${plan.target}` : plan.target), plan.method].filter(Boolean).join(" / ") || "목적지 미정", side)} />
-          {plan.composition && <><h4>부대구성</h4><MissionLines text={mirrorMission(plan.composition, side)} /></>}
+        {plan?.group && <section className="quarter-section"><h2>STAFF 사용</h2>
+          <dl className="quarter-staff">
+            {staffCommon && <><dt>공통</dt><dd>{staffCommon}</dd></>}
+            <dt>언제</dt><dd>{staffWhen}</dd>
+            {plan.target && <><dt>어디로</dt><dd>{plan.target}</dd></>}
+            {plan.composition && <><dt>부대구성</dt><dd>{plan.composition}</dd></>}
+            {plan.method && <><dt>사용 방법</dt><dd>{plan.method}</dd></>}
+          </dl>
         </section>}
-        {/* 개인 임무가 먼저 보이게 공통 임무는 접어 둔다. */}
-        {common.length > 0 && <details className="board-box board-fold"><summary>공통 임무 · {common.find((item) => item.head)?.head ?? "전원"}<span className="fold-open">펼쳐 보기 ▾</span><span className="fold-close">접기 ▴</span></summary><CommonItems items={common} /></details>}
-        {/* 라인 화살표는 임무가 없어도 보여 준다. */}
-        {home && line && <section className="board-box"><h3>배치 지도 · {block ? `적 ${block.top ? "TOP" : "BOTTOM"} 입구 차단` : line.top ? "TOP Line" : "Bottom Line"}</h3>
-          <div className="mobile-map">
-            <div className="mobile-map-art" />
-            <svg viewBox="0 0 1000 1000" preserveAspectRatio="none" aria-label={block ? "내 자리와 적 입구 차단 위치" : "내 자리, 라인 출구와 부대 목적지"}>
-              <defs>
-                <marker id="mobile-head" markerWidth="9" markerHeight="9" refX="9" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" /></marker>
-                <marker id="block-head" viewBox="0 0 9 6" markerWidth="3" markerHeight="2.4" refX="9" refY="3" orient="auto"><path className="block-head" d="M0,0 L0,6 L9,3 z" /></marker>
-                <marker id="staff-head" viewBox="0 0 9 6" markerWidth="3" markerHeight="2.4" refX="9" refY="3" orient="auto"><path className="staff-head" d="M0,0 L0,6 L9,3 z" /></marker>
-                {(["top", "bottom"] as const).map((key) => <marker key={key} id={`line-head-${key}`} viewBox="0 0 9 6" markerWidth="3" markerHeight="2.4" refX="9" refY="3" orient="auto"><path className={`line-head is-${key}`} d="M0,0 L0,6 L9,3 z" /></marker>)}
-              </defs>
-              {routes.map((route) => <line key={route.target} className={route.roaming ? "is-roaming" : ""} x1={home.x * 1000} y1={home.y * 1000} x2={route.to.x * 1000} y2={route.to.y * 1000} markerEnd="url(#mobile-head)" />)}
-              {block ? <line className="block-route" x1={home.x * 1000} y1={home.y * 1000} x2={block.point.x * 1000} y2={block.point.y * 1000} markerEnd="url(#block-head)" /> :
-                <line className={`line-route ${line.top ? "is-top" : "is-bottom"}`} x1={line.start.x * 1000} y1={line.start.y * 1000} x2={line.point.x * 1000} y2={line.point.y * 1000} markerEnd={`url(#line-head-${line.top ? "top" : "bottom"})`} />}
-              {staffPath?.targets.map((target) => <line key={target.key} className="staff-route" x1={staffPath.from.x * 1000} y1={staffPath.from.y * 1000} x2={target.point.x * 1000} y2={target.point.y * 1000} markerEnd="url(#staff-head)" />)}
-            </svg>
-            {OBJECTIVE_META.filter((objective) => !objective.id.startsWith("lookout-") || objective.id.startsWith(`lookout-${side}-`)).map((objective) => <span key={objective.id} className={`mobile-objective${objective.id.startsWith("lookout-") ? ` is-lookout-${objective.id.endsWith("west") ? "west" : "east"}` : ""}`} style={{ left: `${objective.tactical.x}%`, top: `${objective.tactical.y}%` }}>{objective.id.startsWith("lookout-") ? `전망대 ${objective.id.endsWith("west") ? 1 : 2}` : objective.label}</span>)}
-            {block ? <span className="mobile-block" style={{ left: `${block.point.x * 100}%`, top: `${block.point.y * 100}%` }}>⊣<b>적 {block.top ? "TOP" : "BOTTOM"} 입구 차단</b></span> :
-              <span className={`mobile-line ${line.top ? "is-top" : "is-bottom"}`} style={{ left: `${clamp(line.start.x + (line.point.x - line.start.x) * 1.4) * 100}%`, top: `${clamp(line.start.y + (line.point.y - line.start.y) * 1.4) * 100}%` }}>{line.top ? "TOP" : "BOTTOM"}</span>}
-            {routes.map((route) => { const at = .8; return <span key={route.target} className={`mobile-tag${route.roaming ? " is-roaming" : ""}`} style={{ left: `${(home.x + (route.to.x - home.x) * at) * 100}%`, top: `${(home.y + (route.to.y - home.y) * at) * 100}%` }}>{route.units.join("·")}</span>; })}
-            {/* 지도가 작아 내가 쓸 STAFF 포인트만 점과 이름표로 보인다. 이름표는 진형 바깥쪽에 붙인다. */}
-            {staffPath && plan?.group === "point" && <span className={`mobile-staff is-${staffPath.top === (side === "ian") ? "right" : "left"}`} style={{ left: `${staffPath.from.x * 100}%`, top: `${staffPath.from.y * 100}%` }}><b>STAFF</b></span>}
-            <span className="mobile-home" style={{ left: `${home.x * 100}%`, top: `${home.y * 100}%` }}>{picked}</span>
-          </div>
-        </section>}
-        <p className="board-foot">{MISSION_SIDE_LABEL[side]} 진영 기준{side === "lucia" ? " · 시트의 이안 기준 위치를 루시아 기준으로 환산" : ""} · 30 vs 30 · 1인 5부대</p>
+      {home && line && <section className="quarter-section"><h2>배치 지도 · {block ? `적 ${LUCIA_LINE_NAME(block.top)} 입구 차단` : `${LUCIA_LINE_NAME(line.top)} 라인`}</h2>
+        <div className="mobile-map">
+          <div className="mobile-map-art" />
+          <svg viewBox="0 0 1000 1000" preserveAspectRatio="none" aria-label={block ? "내 자리와 적 입구 차단 위치" : "내 자리, 라인 출구와 부대 목적지"}>
+            <defs>
+              <marker id="mobile-head" markerWidth="9" markerHeight="9" refX="9" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" /></marker>
+              <marker id="block-head" viewBox="0 0 9 6" markerWidth="3" markerHeight="2.4" refX="9" refY="3" orient="auto"><path className="block-head" d="M0,0 L0,6 L9,3 z" /></marker>
+              <marker id="staff-head" viewBox="0 0 9 6" markerWidth="3" markerHeight="2.4" refX="9" refY="3" orient="auto"><path className="staff-head" d="M0,0 L0,6 L9,3 z" /></marker>
+              {(["top", "bottom"] as const).map((key) => <marker key={key} id={`line-head-${key}`} viewBox="0 0 9 6" markerWidth="3" markerHeight="2.4" refX="9" refY="3" orient="auto"><path className={`line-head is-${key}`} d="M0,0 L0,6 L9,3 z" /></marker>)}
+            </defs>
+            {routes.map((route) => <line key={route.target} className={route.roaming ? "is-roaming" : ""} x1={home.x * 1000} y1={home.y * 1000} x2={route.to.x * 1000} y2={route.to.y * 1000} markerEnd="url(#mobile-head)" />)}
+            {block ? <line className="block-route" x1={home.x * 1000} y1={home.y * 1000} x2={block.point.x * 1000} y2={block.point.y * 1000} markerEnd="url(#block-head)" /> :
+              <line className={`line-route ${line.top ? "is-top" : "is-bottom"}`} x1={line.start.x * 1000} y1={line.start.y * 1000} x2={line.point.x * 1000} y2={line.point.y * 1000} markerEnd={`url(#line-head-${line.top ? "top" : "bottom"})`} />}
+            {staffPath?.targets.map((target) => <line key={target.key} className="staff-route" x1={staffPath.from.x * 1000} y1={staffPath.from.y * 1000} x2={target.point.x * 1000} y2={target.point.y * 1000} markerEnd="url(#staff-head)" />)}
+          </svg>
+          {OBJECTIVE_META.filter((objective) => !objective.id.startsWith("lookout-") || objective.id.startsWith(`lookout-${side}-`)).map((objective) => <span key={objective.id} className={`mobile-objective${objective.id.startsWith("lookout-") ? ` is-lookout-${objective.id.endsWith("west") ? "west" : "east"}` : ""}`} style={{ left: `${objective.tactical.x}%`, top: `${objective.tactical.y}%` }}>{objective.id.startsWith("lookout-") ? `전망대 ${objective.id.endsWith("west") ? 1 : 2}` : objective.label}</span>)}
+          {block ? <span className="mobile-block" style={{ left: `${block.point.x * 100}%`, top: `${block.point.y * 100}%` }}>⊣<b>적 {LUCIA_LINE_NAME(block.top)} 입구 차단</b></span> :
+            <span className={`mobile-line ${line.top ? "is-top" : "is-bottom"}`} style={{ left: `${clamp(line.start.x + (line.point.x - line.start.x) * 1.4) * 100}%`, top: `${clamp(line.start.y + (line.point.y - line.start.y) * 1.4) * 100}%` }}>{LUCIA_LINE_NAME(line.top)}</span>}
+          {routes.map((route) => { const at = .8; return <span key={route.target} className={`mobile-tag${route.roaming ? " is-roaming" : ""}`} style={{ left: `${(home.x + (route.to.x - home.x) * at) * 100}%`, top: `${(home.y + (route.to.y - home.y) * at) * 100}%` }}>{route.units.join("·")}</span>; })}
+          {/* 지도가 작아 내가 쓸 STAFF 포인트만 점과 이름표로 보인다. 이름표는 진형 바깥쪽에 붙인다. */}
+          {staffPath && plan?.group === "point" && <span className={`mobile-staff is-${staffPath.top ? "left" : "right"}`} style={{ left: `${staffPath.from.x * 100}%`, top: `${staffPath.from.y * 100}%` }}><b>STAFF</b></span>}
+          <span className="mobile-home" style={{ left: `${home.x * 100}%`, top: `${home.y * 100}%` }}>{picked}</span>
+        </div>
+      </section>}
       </article>
     </div>
   );
@@ -956,7 +923,7 @@ export default function WarTable() {
   const [playerDraft, setPlayerDraft] = useState<Player | null>(null);
   const [staffOpen, setStaffOpen] = useState(false);
   const [cardsOpen, setCardsOpen] = useState(false);
-  const { sheet, staff, quarter } = useMissionSheets();
+  const { sheet, staff, quarter, quarterMissions, quarterStaff } = useMissionSheets();
   const [storageError, setStorageError] = useState("");
   const [ready, setReady] = useState(false);
   const [editingId, setEditingId] = useState(1);
@@ -1471,7 +1438,7 @@ export default function WarTable() {
         </form>}
       </footer>
     </main>
-    <MobileBriefing players={operation.players} sheet={sheet} staff={staff} quarter={quarter} onExit={cardsOpen ? () => setCardsOpen(false) : undefined} />
+    <MobileBriefing players={operation.players} quarter={quarter} missionSheet={quarterMissions} staffSheet={quarterStaff} onExit={cardsOpen ? () => setCardsOpen(false) : undefined} />
     {staffOpen && <StaffDialog staff={staff} side={missionSide} nameOf={(slot) => slotName(sheet.data?.missions, operation.players, slot)} onClose={() => setStaffOpen(false)} />}
     {playerDraft && <PlayerEditor initial={playerDraft} players={operation.players} onClose={() => setPlayerDraft(null)} onSave={(player) => {
       commit((draft) => { const index = draft.players.findIndex((item) => item.id === player.id); if (index < 0) draft.players.push(player); else draft.players[index] = player; return draft; });

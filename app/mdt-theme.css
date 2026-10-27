@@ -1313,7 +1313,7 @@ body {
 }
 .mobile-shell.side-lucia { --side: #2a86d8; --side-head: #cfe7fb; --side-line: #9fd0f5; --side-wash: #eef7ff; }
 /* 8강 공통 카드: 눈이 편한 짙은 남회색 바탕에 순백이 아닌 글자. 테두리·강조 없이 번호와 내용만 크게 보인다. */
-.mobile-shell.is-quarter { background: #111a27; color: #e3e8ef; font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif; }
+.mobile-shell.is-quarter { --side: #8fb3dc; --side-head: #cfe0f5; --side-line: rgba(143, 179, 220, 0.28); --side-wash: #182436; background: #111a27; color: #e3e8ef; font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif; }
 .is-quarter .mobile-back { width: 44px; height: 44px; border-color: rgba(143, 179, 220, 0.28); background: transparent; color: #a9c1de; }
 .is-quarter .mobile-top { max-width: 640px; margin: 0 auto 8px; padding-bottom: 16px; border-bottom: 1px solid rgba(143, 179, 220, 0.16); }
 .quarter-title { flex: 1; min-width: 0; margin: 0; font-size: 21px; font-weight: 700; line-height: 1.45; letter-spacing: -0.01em; word-break: keep-all; overflow-wrap: anywhere; }
@@ -1325,7 +1325,26 @@ body {
 .quarter-items > li { display: flex; gap: 16px; padding: 22px 0; border-top: 1px solid rgba(143, 179, 220, 0.16); }
 .quarter-items > li:first-child { border-top: 0; padding-top: 8px; }
 .quarter-items > li > b { flex: 0 0 26px; color: #8fb3dc; font-size: 22px; font-weight: 700; line-height: 1.6; font-variant-numeric: tabular-nums; text-align: right; }
-.quarter-items > li > p { flex: 1; min-width: 0; margin: 0; font-size: 20px; font-weight: 500; line-height: 1.75; letter-spacing: -0.01em; white-space: pre-line; word-break: keep-all; overflow-wrap: anywhere; }
+.is-quarter .mobile-exit { border-color: rgba(143, 179, 220, 0.28); background: transparent; color: #a9c1de; }
+.quarter-roster-title { max-width: 640px; margin: 28px auto 12px; padding: 18px 6px 0; border-top: 1px solid rgba(143, 179, 220, 0.16); color: #9aa9bb; font-size: 15px; font-weight: 600; line-height: 1.5; word-break: keep-all; }
+.is-quarter .mobile-roster { max-width: 640px; margin: 0 auto; }
+.is-quarter .mobile-roster button { border-color: rgba(143, 179, 220, 0.18); background: #182436; color: #e3e8ef; }
+.is-quarter .mobile-roster b { background: transparent; color: #8fb3dc; font-size: 14px; }
+.is-quarter .mobile-roster span { font-size: 15px; font-weight: 600; }
+.quarter-card-name { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 10px; margin: 0; font-size: 24px; font-weight: 700; line-height: 1.35; word-break: keep-all; overflow-wrap: anywhere; }
+.quarter-card-name b { color: #8fb3dc; font-variant-numeric: tabular-nums; }
+.quarter-card { max-width: 640px; margin: 0 auto; padding: 0 6px; }
+.quarter-team { margin: 4px 0 8px; color: #a9c1de; font-size: 18px; font-weight: 600; line-height: 1.5; }
+.quarter-section { padding: 18px 0; border-top: 1px solid rgba(143, 179, 220, 0.16); }
+.quarter-section h2 { margin: 0 0 8px; color: #8fb3dc; font-size: 15px; font-weight: 700; }
+.quarter-section > p, .quarter-units p, .quarter-staff dd { margin: 0; font-size: 20px; font-weight: 500; line-height: 1.7; letter-spacing: -0.01em; white-space: pre-line; word-break: keep-all; overflow-wrap: anywhere; }
+.quarter-units { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.quarter-units li { display: flex; gap: 14px; }
+.quarter-units b { flex: 0 0 34px; color: #8fb3dc; font-size: 18px; font-weight: 700; line-height: 1.9; font-variant-numeric: tabular-nums; }
+.quarter-staff { display: grid; grid-template-columns: max-content 1fr; gap: 8px 14px; margin: 0; }
+.quarter-staff dt { color: #9aa9bb; font-size: 16px; font-weight: 600; line-height: 2.1; }
+.quarter-section .mobile-map { margin-top: 4px; border-radius: 10px; overflow: hidden; }
+.quarter-items > li > p {flex: 1; min-width: 0; margin: 0; font-size: 20px; font-weight: 500; line-height: 1.75; letter-spacing: -0.01em; white-space: pre-line; word-break: keep-all; overflow-wrap: anywhere; }
 /* PC에서 연 카드 화면: 작전판을 숨기고 폰 화면을 520px 폭으로 가운데 띄운다. */
 .war-shell.cards-open { display: none; }
 .mobile-shell.is-pc { display: block; padding-inline: max(12px, calc(50% - 260px)); }

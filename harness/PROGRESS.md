@@ -1,5 +1,15 @@
 # 진행 상황
 
+갱신: 2026-10-27 — 버전 32 배포 · 8강 루시아 개인 카드와 링크 흐름(공개 배포 전)
+
+- 버전 32: df57538(공통 카드 제목 + PC 이름 연동). 1차 시도는 codex가 아카이브 최상위 .openai를 요구하는 잘못된 검사로 버전 저장 전 중단(소스 푸시만 완료), 2차는 새 자격증명 없이 시도했다가 원격 확인 인증 필요로 중단, 사용자 재허용 후 3차에서 검사 기준을 dist/.openai/hosting.json으로 바로잡아 성공. appgprj_6a8aa14508008191953a7a38df357899~appgver_ecdcdd777a6081918f99abae7bfd57eb, appgdep_6ae01b54a0108191ae31cc2b15ad756d succeeded, public·최신 32, 테스트 32개, 아카이브 9,268,349 bytes SHA-256 b3de974437fb642ba1b5b319c76190c197292968e5a659c57add2792575e4a1d, 자격증명 폐기. 공개 calm-check.py(제목·5개 항목) 통과.
+- 8강 개인 임무 시트: '스타팅 명단'을 복제해 '8강 개인 임무'(gid 1661771533) 생성, 소속팀~5번부대 95칸을 mirror.py 규칙(8강 스테프와 동일, 탑↔바텀 포함)으로 codex가 사전 값 확인 후 기록. gviz로 원본 무변경, 30행 전체 기대값 일치. 기록 `work/quarter-missions-20261027/`.
+- 앱: MobileBriefing을 8강 흐름으로 교체 — 첫 화면(제목·공통 임무·"내 이름을 누르면…" 안내·1~30 명단, PC는 작전판 버튼), 개인 카드(번호·이름, 소속팀, 메인, 서브, 부대 묶기, STAFF 언제/어디로/부대구성/사용 방법·공통 규칙, 배치 지도). 문장은 원문 그대로(pre-line), 화살표 계산은 quarterToIan(=루시아 환산+탑↔바텀, 자기 역함수)으로 이안 기준 문장을 넘겨 기존 entranceBlock/buildMissionPlan/staffRoute 재사용, 화면의 라인·포인트·입구 이름은 LUCIA_LINE_NAME(이안 TOP=바텀). 시트 읽기에 '8강 개인 임무'·'8강 스테프' 추가. 16강 폰 전용 코드(진영 전환·S 카드·0번 카드 선택·팀 공통 접기 teamCommon/splitCommon/teamKey/CommonItems) 삭제. 링크 #common은 저장된 선택과 관계없이 첫 화면.
+- 검증: lint·typecheck·npm test 33개 통과, git diff --check. 로컬 cards-check.py: 390px 30명 전원·320px 4명 카드 원문·STAFF·라인 이름 일치, 영문 TOP/BOTTOM 없음, 넘침 없음, PC #common 첫 화면·카드, 오류 없음. 캡처(첫 화면, 7·12번 카드, PC 7번) 직접 확인. 서버·브라우저 종료.
+- 다음: 공개 반영은 사용자 배포 요청·일회성 자격증명 허용 시, 배포 후 `python3 work/quarter-missions-20261027/cards-check.py https://heinapel-war-table.formars0309.chatgpt.site public`. 초안의 '탑 거점 주유팀'→'바텀 거점 주유팀'처럼 규칙상 바뀐 팀 이름은 사용자가 시트에서 확인할 것.
+
+---
+
 갱신: 2026-10-27 — 시트 「명단」 단일 출처 연동(공개 배포 전)
 
 - 사용자 요청: 번호·닉네임만 있는 시트를 만들어 그곳만 고치면 앱과 다른 시트가 따라 바뀌게. 확인 결과 '스타팅 명단' B는 직접 입력, '스테프'·'8강 스테프' B는 이미 '스타팅 명단'을 VLOOKUP.
