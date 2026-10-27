@@ -1,5 +1,12 @@
 # 진행 상황
 
+갱신: 2026-10-27 — 리팩터링 공개 버전 39 배포
+
+- 사용자 "배포부터 해야겠다". codex Sites 흐름으로 df19bdd 배포: lint·build·npm test 35개 통과, 아카이브 9,268,721바이트(SHA-256 eea6084f…c0d5c6), 버전 39(appgver_36683e899fac819193063eb6cbc31172), 배포 appgdep_6ae0737341e081919c216e0c30ed4c97 succeeded, active·public, source SHA 일치, 단기 자격증명 폐기.
+- 공개 확인: dom-snapshot.py 공개 33화면이 로컬 리팩터 빌드와 바이트 동일, cards-check.py 공개 390/320/PC 통과, 페이지 오류 없음. (주소 끝에 / 를 붙이면 cards-check의 PC 단계가 //#common 이 되어 시간 초과 — 주소는 / 없이 넘긴다.)
+
+---
+
 갱신: 2026-10-27 — 린트 점검·동작 그대로 리팩터링(코드, 미배포)
 
 - 사용자 "린트 에러 고치고 코드들도 리팩터링하자". 시작 시점 lint·typecheck·빌드 경고 0건이라 린트 수정할 것은 없었음(사용자에게 알림).
