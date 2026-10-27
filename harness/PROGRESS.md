@@ -1,5 +1,16 @@
 # 진행 상황
 
+갱신: 2026-10-27 — 임무·STAFF 카드 가독성 개선과 10-19 유지보수 수정본 공개 버전 29 배포
+
+- 사용자 "배포해줘" 요청. `maintenance/20261019-validation-cleanup`을 main에 빨리감기 병합(a817010→1f95589). `npm run lint`, `npm run typecheck`, `npm test`(빌드 포함, 30개 통과·실패/건너뜀 0), `git diff --check`, 변경분 자격증명·개인정보 패턴 검사 통과 후 origin/main 푸시.
+- 배포 전 get_site: active·public·최신 버전 28, 연결 자격증명 null. 사용자 "일회성 발급 허용" 답변에 따라 이번 배포용 단기 자격증명만 발급(숨긴 stdin 사용 후 폐기). 공개 설정·권한·예약 변경 없음.
+- `codex exec -s danger-full-access`의 bundled site-workflow.mjs: Sites 원격 d3ccaf3가 HEAD 조상 확인→lint→공식 build→테스트 30개→소스 푸시·원격 HEAD 일치→패키징(.openai/hosting.json·dist/server/index.js 포함). 아카이브 9,267,117 bytes, SHA-256 5d9931e50a41b09a108bf753e798605cacd20afb5f2440b5be122936e5529d4b. 저장 버전 29 appgprj_6a8aa14508008191953a7a38df357899~appgver_466017a65bb0819192ef5efb75f2725d(source 1f9558915e2135b7be67d1485b00f49188f74254 일치), 배포 appgdep_6adfef1894148191931bd9f646af3984 succeeded, get_site public·최신 29.
+- 공개 검수(이 기기, 최신 시트 gviz 재다운로드): HTTP 200, 폰 390px·PC 1440px 30명 개인 임무·스테프 전수 대조, S 카드 시작/지정 순번, 루시아 7시 축복·6시 용기 환산, 긴 PC 카드 드래그 후 끝까지 스크롤, 공개 구버전 저장본 revision 6 이관·백업·새로고침 보존. 가독성: PC 본문 16px·카드 340px·옛 x=.95 위치 화면 내 표시·STAFF 창 600px·스크롤 끝 닫기, 390/320px 본문 17px·긴 14번 이름·S 시작 16명·순번·부대구성·끝까지 스크롤·진영 전환·공통 접기(응답 가로채기, 시트 쓰기 없음), 가로 넘침·페이지 오류 없음. 캡처 직접 확인, 브라우저 종료. 자료 `work/release29-20261027/`(git 제외), 스크립트 재실행 가능.
+- 주의: Sites get_site 응답에 `siwc_bypass_bearer_token` 값이 포함돼 Codex 로컬 세션 기록(~/.codex/sessions)에 남는다(오늘 조회·배포 세션 2개와 이전 1개). 저장소·이 기록에는 값 없음. 교체 여부는 사용자 결정으로 남김.
+- FEATURES 가독성 개선 배포 항목 완료 처리. 남은 미완 항목 없음.
+
+---
+
 갱신: 2026-10-19 — 린트·타입 오류 수정·저장소 정리 점검(로컬 유지보수, 공개 반영 없음)
 
 - 사용자 명시 유지보수 요청 한 단위. 시작 `main`/`origin/main` `a817010`·clean. 작업 브랜치 `maintenance/20261019-validation-cleanup`. 기존 `FEATURES.md`의 공개 배포 미완 항목과 검증 기준은 그대로 보존했다.
