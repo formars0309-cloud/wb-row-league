@@ -92,6 +92,7 @@ const STARTING_POINT_CENTER: Record<MapVariant, Record<"lucia" | "ian", Point>> 
   tactical: { lucia: { x: .4044, y: .2294 }, ian: { x: .6265, y: .5193 } },
   field: { lucia: { x: .3793, y: .3673 }, ian: { x: .6313, y: .5973 } },
 };
+const MAP_VARIANTS = Object.keys(STARTING_POINT_CENTER) as MapVariant[];
 const OBJECTIVE_META = [
   { id: "spirit-west", label: "9시 치료", location: "서쪽", tactical: { x: 26.92, y: 37.76 }, field: { x: 21.03, y: 55.33 } },
   { id: "spirit-north", label: "12시 용기", location: "북쪽", tactical: { x: 58.56, y: 5.38 }, field: { x: 62.28, y: 15.58 } },
@@ -113,6 +114,7 @@ function freshOperation(): Operation {
 }
 function clone<T>(value: T): T { return JSON.parse(JSON.stringify(value)) as T; }
 function clamp(value: number) { return Math.max(0.025, Math.min(0.975, value)); }
+function samePoint(a: Point, b: Point) { return Math.abs(a.x - b.x) < 1e-9 && Math.abs(a.y - b.y) < 1e-9; }
 // 이안 라인 안내 이미지(output/imagegen/ian-top-bottom-staff-v4.png): 3·4번과 28·29번 사이 사선으로 15명씩 나눈다.
 // 출구는 TOP이 1번 성의 1시 방향, Bottom이 25번 성의 7시 방향. 루시아는 진형과 함께 180도 돈다.
 const TOP_LINE_SLOTS = new Set([1, 2, 3, 6, 7, 8, 12, 13, 14, 19, 20, 21, 26, 27, 28]);
@@ -178,7 +180,8 @@ const SEATS_BEFORE_2026_10_04 = new Map([["마스터", 5], ["TESLA", 6], ["Mim M
 const SEATS_BEFORE_CARD_SYNC = new Map([["Elega", 19], ["5000", 26]]);
 function normalizeRoster(saved: Operation): Player[] {
   const players = saved.players;
-  const photoRoster = (saved.rosterRevision ?? 0) >= 2;
+  const revision = saved.rosterRevision ?? 0;
+  const photoRoster = revision >= 2;
   if (photoRoster && players.length > 30) throw new Error("주전은 최대 30명입니다.");
   const ids = new Set<number>();
   const names = new Set<string>();
@@ -199,12 +202,12 @@ function normalizeRoster(saved: Operation): Player[] {
   if (photoRoster) {
     const renamed = players.map((player) => {
       const nickname = ROSTER_ALIASES.get(player.nickname);
-      return nickname && (SLOT_BY_NICKNAME.get(nickname) === 2 || ((saved.rosterRevision ?? 0) < 5 && player.nickname === "GINSENG MAN")) ? { ...player, nickname, brief: player.brief ? { ...player.brief, nickname } : player.brief } : player;
-    }).map((player) => player.slot != null && ((saved.rosterRevision === 2 && SEATS_BEFORE_2026_10_04.get(player.nickname) === player.slot) ||
-      ((saved.rosterRevision ?? 0) < 6 && SEATS_BEFORE_CARD_SYNC.get(player.nickname) === player.slot)) ? { ...player, slot: undefined } : player);
+      return nickname && (SLOT_BY_NICKNAME.get(nickname) === 2 || (revision < 5 && player.nickname === "GINSENG MAN")) ? { ...player, nickname, brief: player.brief ? { ...player.brief, nickname } : player.brief } : player;
+    }).map((player) => player.slot != null && ((revision === 2 && SEATS_BEFORE_2026_10_04.get(player.nickname) === player.slot) ||
+      (revision < 6 && SEATS_BEFORE_CARD_SYNC.get(player.nickname) === player.slot)) ? { ...player, slot: undefined } : player);
     if (new Set(renamed.map((player) => player.nickname.trim().toLowerCase())).size !== renamed.length) throw new Error("잘못된 명단");
     // 실제 멤버 교체다. 옛 선수의 ID·임무·보직은 넘기지 않고, 이미 지운 선수는 되살리지 않는다.
-    if ((saved.rosterRevision ?? 0) < 5 && renamed.some((player) => player.nickname === "TOMAS SHELBY")) {
+    if (revision < 5 && renamed.some((player) => player.nickname === "TOMAS SHELBY")) {
       if (renamed.some((player) => player.nickname === "알나인티 님")) return renamed.filter((player) => player.nickname !== "TOMAS SHELBY");
       const newcomer = { ...INITIAL_PLAYERS.find((player) => player.nickname === "알나인티 님")!, id: Math.max(...players.map((player) => player.id)) + 1 };
       if (!Number.isSafeInteger(newcomer.id)) throw new Error("선수 ID를 이관할 수 없습니다.");
@@ -218,22 +221,23 @@ function normalizeRoster(saved: Operation): Player[] {
 }
 function normalizeOperation(saved: Operation): Operation {
   const players = normalizeRoster(saved);
+  const revision = saved.rosterRevision ?? 0;
   const previousIds = new Set(saved.players.map((player) => player.id));
-  const ids = new Set(players.filter((player) => (saved.rosterRevision ?? 0) >= 2 || previousIds.has(player.id)).map((player) => String(player.id)));
-  const reseat = (saved.rosterRevision ?? 0) >= 2 && (saved.rosterRevision ?? 0) < 4;
+  const ids = new Set(players.filter((player) => revision >= 2 || previousIds.has(player.id)).map((player) => String(player.id)));
+  const reseat = revision >= 2 && revision < 4;
   const byId = new Map(players.map((player) => [String(player.id), player]));
-  const replaced = (saved.rosterRevision ?? 0) >= 2 && (saved.rosterRevision ?? 0) < 5 ? saved.players.find((player) => player.nickname === "TOMAS SHELBY") : undefined;
+  const replaced = revision >= 2 && revision < 5 ? saved.players.find((player) => player.nickname === "TOMAS SHELBY") : undefined;
   const newcomer = replaced && players.find((player) => player.nickname === "알나인티 님" && !previousIds.has(player.id));
   return { ...saved, players, rosterRevision: 6, cards: saved.cards?.filter((card) => ids.has(String(card.playerId))),
     scenes: saved.scenes.map((item, index) => {
       const positions = Object.fromEntries(Object.entries(item.positions ?? {}).filter(([id]) => ids.has(id))
-        .map(([id, point]) => [id, (saved.rosterRevision ?? 0) >= 2 && (saved.rosterRevision ?? 0) < 6 && byId.has(id) ? moveFromOldSeat(byId.get(id)!, point, saved.rosterRevision!) : point]));
+        .map(([id, point]) => [id, revision >= 2 && revision < 6 && byId.has(id) ? moveFromOldSeat(byId.get(id)!, point, revision) : point]));
       // 교체된 선수의 말이 기본 스타팅 자리에 있을 때만 새 선수도 6번에 배치한다. 직접 옮긴 말은 승계하지 않는다.
       const point = replaced && item.positions?.[String(replaced.id)];
-      if (newcomer && point && replaced && (replaced.slot === undefined || replaced.slot === (saved.rosterRevision === 2 ? 20 : 6))) {
-        for (const side of MISSION_SIDES) for (const variant of ["tactical", "field"] as const) for (const slot of reseat ? [6, 20] : [6]) {
+      if (newcomer && point && replaced && (replaced.slot === undefined || replaced.slot === (revision === 2 ? 20 : 6))) {
+        for (const side of MISSION_SIDES) for (const variant of MAP_VARIANTS) for (const slot of reseat ? [6, 20] : [6]) {
           const old = slotPoint(slot, side, variant)!;
-          if (Math.abs(old.x - point.x) < 1e-9 && Math.abs(old.y - point.y) < 1e-9) positions[String(newcomer.id)] = slotPoint(6, side, variant)!;
+          if (samePoint(old, point)) positions[String(newcomer.id)] = slotPoint(6, side, variant)!;
         }
       }
       return { ...normalizeScene(item, index), positions };
@@ -246,9 +250,9 @@ function moveFromOldSeat(player: Player, point: Point, revision: number): Point 
   const previous = [revision < 4 ? SEATS_BEFORE_2026_10_04.get(player.nickname) : undefined, SEATS_BEFORE_CARD_SYNC.get(player.nickname)].filter((slot) => slot !== undefined);
   const slot = playerSlot(player);
   if (!slot || slot !== SLOT_BY_NICKNAME.get(player.nickname)) return point;
-  for (const before of previous) for (const side of MISSION_SIDES) for (const variant of ["tactical", "field"] as const) {
+  for (const before of previous) for (const side of MISSION_SIDES) for (const variant of MAP_VARIANTS) {
     const old = slotPoint(before, side, variant);
-    if (old && Math.abs(old.x - point.x) < 1e-9 && Math.abs(old.y - point.y) < 1e-9) return slotPoint(slot, side, variant) ?? point;
+    if (old && samePoint(old, point)) return slotPoint(slot, side, variant) ?? point;
   }
   return point;
 }
@@ -275,9 +279,11 @@ function entranceBlock(mission: SheetMission | undefined, side: MissionSide, var
   if (mission?.team.replace(/\s/g, "") !== "입구막팀" || !/입구\s*막(?:기|음)/.test(mission.main)) return null;
   const top = /탑|top/i.test(mission.main);
   if (!top && !/바텀|bottom/i.test(mission.main)) return null;
-  // 같은 전장 라인은 상대 진형의 반대쪽 출구와 연결된다(진형은 180도 회전).
-  const enemy = lineExit(top ? 25 : 1, side === "ian" ? "lucia" : "ian", variant);
-  return { top, point: enemy.start };
+  return { top, point: enemyGate(top, side, variant) };
+}
+// 같은 전장 라인은 상대 진형의 반대쪽 출구와 연결된다(진형은 180도 회전).
+function enemyGate(top: boolean, side: MissionSide, variant: MapVariant) {
+  return lineExit(top ? 25 : 1, side === "ian" ? "lucia" : "ian", variant).start;
 }
 function parseCsv(text: string): string[][] {
   const rows: string[][] = [];
@@ -298,12 +304,16 @@ function parseCsv(text: string): string[][] {
   if (cell || row.length) { row.push(cell); rows.push(row); }
   return rows;
 }
+// 머리글 이름(공백 무시)으로 열 번호를 찾는다. 없으면 -1.
+function headerColumns(head: string[]) {
+  return (name: string) => head.findIndex((cell) => cell.replace(/\s/g, "") === name);
+}
 // 열은 머리글 이름으로 찾는다. 시트에서 열을 옮기거나 다른 열을 지워도 이름만 같으면 된다.
 // 번호 칸이 0·"공통 임무"인 행은 전원 공통 임무다. gviz는 숫자 열의 글자를 빈칸으로 바꾸므로
 // 번호 칸이 빈 내용 행도 공통 임무로 읽는다. 그 행은 번호 칸을 뺀 나머지 칸을 차례로 쓴다.
 function readMissionSheet(text: string): MissionSheet {
   const [head = [], ...rows] = parseCsv(text);
-  const column = (name: string) => head.findIndex((cell) => cell.replace(/\s/g, "") === name);
+  const column = headerColumns(head);
   const at = { slot: column("스타팅포인트번호"), nickname: column("닉네임"), team: column("소속팀"), main: column("메인임무"), sub: column("서브임무"), units: [1, 2, 3, 4, 5].map((unit) => column(`${unit}번부대`)), color: column("색"), lead: column("맨위안내") };
   if ([at.slot, at.nickname, at.team, at.main, at.sub, ...at.units].some((index) => index < 0)) throw new Error("시트 머리글을 찾지 못했습니다");
   const missions = new Map<number, SheetMission>();
@@ -329,7 +339,7 @@ type StaffPlan = { slot: number; group: "start" | "point" | null; order: number 
 type StaffSheet = { plans: Map<number, StaffPlan>; common: string };
 function readStaffSheet(text: string): StaffSheet {
   const [head = [], ...rows] = parseCsv(text);
-  const column = (name: string) => head.findIndex((cell) => cell.replace(/\s/g, "") === name);
+  const column = headerColumns(head);
   const at = { slot: column("번호"), group: column("군"), order: column("순번"), place: column("사용위치"), target: column("목적지"), method: column("사용방법"), composition: column("부대구성"), kind: column("종류") };
   // 없는 탭을 요청하면 gviz가 첫 탭을 돌려주므로 머리글로 걸러낸다.
   if ([at.slot, at.group, at.order, at.place, at.target].some((index) => index < 0) || (at.method < 0 && at.composition < 0)) throw new Error("스테프 시트 머리글을 찾지 못했습니다");
@@ -375,7 +385,7 @@ function LUCIA_LINE_NAME(top: boolean) {
 type QuarterCommon = Array<{ no: string; body: string }>;
 function readQuarterCommon(text: string): QuarterCommon {
   const [head = [], ...rows] = parseCsv(text);
-  const column = (name: string) => head.findIndex((cell) => cell.replace(/\s/g, "") === name);
+  const column = headerColumns(head);
   const at = { no: column("번호"), body: column("내용") };
   // 없는 탭을 요청하면 gviz가 첫 탭을 돌려주므로 머리글로 걸러낸다.
   if (at.no < 0 || at.body < 0) throw new Error("8강 공통 임무 머리글을 찾지 못했습니다");
@@ -536,7 +546,7 @@ function missionTargets(text: string, side: MissionSide, variant: MapVariant, mi
     if (/입구\s*막는.*(?:밀|섬멸)/.test(order)) return [];
     const top = /탑|top/i.test(order), bottom = /바텀|bottom/i.test(order);
     if (!top && !bottom) return [];
-    return [{ key: top ? "enemy-top-gate" : "enemy-bottom-gate", point: lineExit(top ? 25 : 1, side === "ian" ? "lucia" : "ian", variant).start }];
+    return [{ key: top ? "enemy-top-gate" : "enemy-bottom-gate", point: enemyGate(top, side, variant) }];
   } else if (/(?:탑|바텀)\s*라인/.test(order)) {
     // "탑 라인 거점 주유"는 우리 진형의 그 라인 출구로 나간다.
     const top = /탑\s*라인/.test(order);
@@ -589,7 +599,7 @@ function missionCommandRoles(orders: string[]) {
   });
   return roles;
 }
-type MissionRoute = { target: string; to: Point; units: number[]; roaming: boolean };
+type MissionRoute = { target: string; to: Point; units: number[] };
 function buildMissionPlan(orders: string[] | null, side: MissionSide, variant: MapVariant, missions: Map<string, MissionOrders>) {
   const byTarget = new Map<string, { point: Point; units: number[] }>();
   const gaps: number[] = [];
@@ -598,7 +608,7 @@ function buildMissionPlan(orders: string[] | null, side: MissionSide, variant: M
     if (targets.length) { targets.forEach(({ key, point }) => byTarget.set(key, { point, units: [...(byTarget.get(key)?.units ?? []), index + 1] })); return; }
     gaps.push(index + 1);
   });
-  const routes: MissionRoute[] = [...byTarget].map(([target, { point, units }]) => ({ target, to: point, units, roaming: false }));
+  const routes: MissionRoute[] = [...byTarget].map(([target, { point, units }]) => ({ target, to: point, units }));
   return { routes, gaps: gaps.sort((a, b) => a - b) };
 }
 // 집결 탑승 경로도 카드와 같은 시트·편집 임무의 집결장 목적지를 따라간다.
@@ -687,6 +697,10 @@ function MissionLines({ text }: { text: string }) {
   return lines.length > 1
     ? <ul className="board-lines">{lines.map((line, index) => <li key={index}><MissionText text={line} /></li>)}</ul>
     : <p className="board-line"><MissionText text={lines[0] ?? text} /></p>;
+}
+// 시트의 [초록:문구] 표기를 색 글자로 보인다.
+function ColorText({ text }: { text: string }) {
+  return <>{colorParts(text).map((part, index) => part.color ? <strong key={index} style={{ color: part.color }}>{part.text}</strong> : part.text)}</>;
 }
 const MOBILE_SLOTS = Array.from({ length: 30 }, (_, index) => index + 1);
 // 공유 링크(주소#common)는 폰·PC 모두 카드 화면의 8강 공통 카드를 바로 연다.
@@ -778,7 +792,7 @@ function StaffDialog({ staff, side, nameOf, onClose }: { staff: SheetState<Staff
 function QuarterCommonBoard({ quarter }: { quarter: SheetState<QuarterCommon> }) {
   if (!quarter.data) return <p className="quarter-empty">{quarter.failed ? "공통 임무를 불러오지 못했습니다" : "불러오는 중…"}</p>;
   if (!quarter.data.length) return <p className="quarter-empty">임무 준비 중</p>;
-  return <ol className="quarter-items">{quarter.data.map((item, index) => <li key={index}><b>{item.no}</b><p>{colorParts(item.body).map((part, at) => part.color ? <strong key={at} style={{ color: part.color }}>{part.text}</strong> : part.text)}</p></li>)}</ol>;
+  return <ol className="quarter-items">{quarter.data.map((item, index) => <li key={index}><b>{item.no}</b><p><ColorText text={item.body} /></p></li>)}</ol>;
 }
 // 폰 화면과 PC 카드 화면(onExit)은 8강 루시아 브리핑이다. 첫 화면은 제목·공통 임무·1~30번 명단, 이름을 누르면 개인 카드.
 function MobileBriefing({ players, quarter, missionSheet, staffSheet, onExit }: { players: Player[]; quarter: SheetState<QuarterCommon>; missionSheet: SheetState<MissionSheet>; staffSheet: SheetState<StaffSheet>; onExit?: () => void }) {
@@ -840,7 +854,7 @@ function MobileBriefing({ players, quarter, missionSheet, staffSheet, onExit }: 
       </header>
       {missionSheet.failed && missionSheet.data && <p className="mobile-sync" role="alert">최신 임무를 불러오지 못했습니다. 마지막으로 받은 내용입니다.</p>}
       <article className="quarter-card">
-        {mission?.lead && <p className="quarter-lead">{colorParts(mission.lead).map((part, at) => part.color ? <strong key={at} style={{ color: part.color }}>{part.text}</strong> : part.text)}</p>}
+        {mission?.lead && <p className="quarter-lead"><ColorText text={mission.lead} /></p>}
         {mission?.team && <p className="quarter-team">{mission.team}</p>}
         {!missions ? <p className="quarter-empty">{missionSheet.failed ? "임무를 불러오지 못했습니다" : "불러오는 중…"}</p> : !ready ? <p className="quarter-empty">임무 준비 중</p> : <>
           {mission.main && <section className="quarter-section"><h2>메인 임무</h2><p>{mission.main}</p></section>}
@@ -867,15 +881,19 @@ function MobileBriefing({ players, quarter, missionSheet, staffSheet, onExit }: 
               <marker id="staff-head" viewBox="0 0 9 6" markerWidth="3" markerHeight="2.4" refX="9" refY="3" orient="auto"><path className="staff-head" d="M0,0 L0,6 L9,3 z" /></marker>
               {(["top", "bottom"] as const).map((key) => <marker key={key} id={`line-head-${key}`} viewBox="0 0 9 6" markerWidth="3" markerHeight="2.4" refX="9" refY="3" orient="auto"><path className={`line-head is-${key}`} d="M0,0 L0,6 L9,3 z" /></marker>)}
             </defs>
-            {routes.map((route) => <line key={route.target} className={route.roaming ? "is-roaming" : ""} x1={home.x * 1000} y1={home.y * 1000} x2={route.to.x * 1000} y2={route.to.y * 1000} markerEnd="url(#mobile-head)" />)}
+            {routes.map((route) => <line key={route.target} x1={home.x * 1000} y1={home.y * 1000} x2={route.to.x * 1000} y2={route.to.y * 1000} markerEnd="url(#mobile-head)" />)}
             {block ? <line className="block-route" x1={home.x * 1000} y1={home.y * 1000} x2={block.point.x * 1000} y2={block.point.y * 1000} markerEnd="url(#block-head)" /> :
               <line className={`line-route ${line.top ? "is-top" : "is-bottom"}`} x1={line.start.x * 1000} y1={line.start.y * 1000} x2={line.point.x * 1000} y2={line.point.y * 1000} markerEnd={`url(#line-head-${line.top ? "top" : "bottom"})`} />}
             {staffPath?.targets.map((target) => <line key={target.key} className="staff-route" x1={staffPath.from.x * 1000} y1={staffPath.from.y * 1000} x2={target.point.x * 1000} y2={target.point.y * 1000} markerEnd="url(#staff-head)" />)}
           </svg>
-          {OBJECTIVE_META.filter((objective) => !objective.id.startsWith("lookout-") || objective.id.startsWith(`lookout-${side}-`)).map((objective) => <span key={objective.id} className={`mobile-objective${objective.id.startsWith("lookout-") ? ` is-lookout-${objective.id.endsWith("west") ? "west" : "east"}` : ""}`} style={{ left: `${objective.tactical.x}%`, top: `${objective.tactical.y}%` }}>{objective.id.startsWith("lookout-") ? `전망대 ${objective.id.endsWith("west") ? 1 : 2}` : objective.label}</span>)}
+          {OBJECTIVE_META.filter((objective) => !objective.id.startsWith("lookout-") || objective.id.startsWith(`lookout-${side}-`)).map((objective) => {
+            // 우리 진영 전망대 두 곳만 서쪽 1·동쪽 2로 부른다.
+            const lookout = objective.id.startsWith("lookout-") ? (objective.id.endsWith("west") ? "west" : "east") : null;
+            return <span key={objective.id} className={`mobile-objective${lookout ? ` is-lookout-${lookout}` : ""}`} style={{ left: `${objective.tactical.x}%`, top: `${objective.tactical.y}%` }}>{lookout ? `전망대 ${lookout === "west" ? 1 : 2}` : objective.label}</span>;
+          })}
           {block ? <span className="mobile-block" style={{ left: `${block.point.x * 100}%`, top: `${block.point.y * 100}%` }}>⊣<b>적 {LUCIA_LINE_NAME(block.top)} 입구 차단</b></span> :
             <span className={`mobile-line ${line.top ? "is-top" : "is-bottom"}`} style={{ left: `${clamp(line.start.x + (line.point.x - line.start.x) * 1.4) * 100}%`, top: `${clamp(line.start.y + (line.point.y - line.start.y) * 1.4) * 100}%` }}>{LUCIA_LINE_NAME(line.top)}</span>}
-          {routes.map((route) => { const at = .8; return <span key={route.target} className={`mobile-tag${route.roaming ? " is-roaming" : ""}`} style={{ left: `${(home.x + (route.to.x - home.x) * at) * 100}%`, top: `${(home.y + (route.to.y - home.y) * at) * 100}%` }}>{route.units.join("·")}</span>; })}
+          {routes.map((route) => { const at = .8; return <span key={route.target} className="mobile-tag" style={{ left: `${(home.x + (route.to.x - home.x) * at) * 100}%`, top: `${(home.y + (route.to.y - home.y) * at) * 100}%` }}>{route.units.join("·")}</span>; })}
           {/* 지도가 작아 내가 쓸 STAFF 포인트만 점과 이름표로 보인다. 이름표는 진형 바깥쪽에 붙인다. */}
           {staffPath && plan?.group === "point" && <span className={`mobile-staff is-${staffPath.top ? "left" : "right"}`} style={{ left: `${staffPath.from.x * 100}%`, top: `${staffPath.from.y * 100}%` }}><b>STAFF</b></span>}
           <span className="mobile-home" style={{ left: `${home.x * 100}%`, top: `${home.y * 100}%` }}>{picked}</span>
@@ -920,14 +938,14 @@ function PlayerEditor({ initial, players, onSave, onDelete, onClose }: { initial
         {!draft.brief ? <button type="button" onClick={() => patch({ brief: { nickname: draft.nickname, file: "", team: "", foot: "", steps: [], units: ["", "", "", "", ""] } })}>임무 추가</button> : <>
           <label>카드 부제<input value={draft.brief.team} onChange={(event) => patchBrief({ team: event.target.value })} /></label>
           <label>배지<input value={draft.brief.badge ?? ""} onChange={(event) => patchBrief({ badge: event.target.value })} /></label>
-          {(["common", "steps"] as const).map((field) => <fieldset key={field}><legend>{field === "common" ? "공통 지시" : "시간·조건별 지시"}</legend>
+          {(["common", "steps"] as const).map((field) => { const label = field === "common" ? "공통" : "조건"; return <fieldset key={field}><legend>{field === "common" ? "공통 지시" : "시간·조건별 지시"}</legend>
             {(draft.brief?.[field] ?? []).map(([head, body], index) => <div className="brief-pair" key={index}>
-              <input aria-label={`${field === "common" ? "공통" : "조건"} ${index + 1} 제목`} value={head} placeholder="제목·시간·조건" onChange={(event) => patchBrief({ [field]: draft.brief?.[field]?.map((pair, at) => at === index ? [event.target.value, pair[1]] : pair) })} />
-              <textarea aria-label={`${field === "common" ? "공통" : "조건"} ${index + 1} 내용`} value={body} onChange={(event) => patchBrief({ [field]: draft.brief?.[field]?.map((pair, at) => at === index ? [pair[0], event.target.value] : pair) })} />
-              <button type="button" aria-label={`${field === "common" ? "공통" : "조건"} ${index + 1} 삭제`} onClick={() => patchBrief({ [field]: draft.brief?.[field]?.filter((_, at) => at !== index) })}>삭제</button>
+              <input aria-label={`${label} ${index + 1} 제목`} value={head} placeholder="제목·시간·조건" onChange={(event) => patchBrief({ [field]: draft.brief?.[field]?.map((pair, at) => at === index ? [event.target.value, pair[1]] : pair) })} />
+              <textarea aria-label={`${label} ${index + 1} 내용`} value={body} onChange={(event) => patchBrief({ [field]: draft.brief?.[field]?.map((pair, at) => at === index ? [pair[0], event.target.value] : pair) })} />
+              <button type="button" aria-label={`${label} ${index + 1} 삭제`} onClick={() => patchBrief({ [field]: draft.brief?.[field]?.filter((_, at) => at !== index) })}>삭제</button>
             </div>)}
-            <button type="button" onClick={() => patchBrief({ [field]: [...(draft.brief?.[field] ?? []), ["", ""]] })}>{field === "common" ? "공통 지시 추가" : "조건 지시 추가"}</button>
-          </fieldset>)}
+            <button type="button" onClick={() => patchBrief({ [field]: [...(draft.brief?.[field] ?? []), ["", ""]] })}>{label} 지시 추가</button>
+          </fieldset>; })}
           {draft.brief.units.map((text, index) => <label key={index}>부대 {index + 1}<textarea value={text} onChange={(event) => patchBrief({ units: draft.brief?.units.map((value, at) => at === index ? event.target.value : value) as MissionOrders })} /></label>)}
           <label>하단 안내<input value={draft.brief.foot} onChange={(event) => patchBrief({ foot: event.target.value })} /></label>
           {draft.brief.image && <button type="button" onClick={() => patchBrief({ image: undefined })}>첨부 이미지 삭제</button>}
@@ -997,19 +1015,13 @@ export default function WarTable() {
         if (raw) {
           const saved = JSON.parse(raw) as Operation;
           const restored = readOperation(saved);
-          if ((saved.rosterRevision ?? 0) < 6) {
-            const backupKey = `${STORAGE_KEY}-before-card-sync-2026-10-06`;
-            if (localStorage.getItem(backupKey) === null) localStorage.setItem(backupKey, raw);
+          // 이관 단계마다 그 전 원본을 한 번만 백업한다.
+          const revision = saved.rosterRevision ?? 0;
+          for (const [below, name] of [[6, "card-sync-2026-10-06"], [5, "sheet-roster-2026-10-06"], [2, "photo-roster-2026-10-01"]] as const) {
+            const backupKey = `${STORAGE_KEY}-before-${name}`;
+            if (revision < below && localStorage.getItem(backupKey) === null) localStorage.setItem(backupKey, raw);
           }
-          if ((saved.rosterRevision ?? 0) < 5) {
-            const backupKey = `${STORAGE_KEY}-before-sheet-roster-2026-10-06`;
-            if (localStorage.getItem(backupKey) === null) localStorage.setItem(backupKey, raw);
-          }
-          if ((saved.rosterRevision ?? 0) < 2) {
-            const backupKey = `${STORAGE_KEY}-before-photo-roster-2026-10-01`;
-            if (localStorage.getItem(backupKey) === null) localStorage.setItem(backupKey, raw);
-            localStorage.removeItem(MOBILE_PICK_KEY);
-          }
+          if (revision < 2) localStorage.removeItem(MOBILE_PICK_KEY);
           restore(restored);
         }
       } catch { setStorageError("저장 데이터를 읽지 못했습니다. 원본은 보존했습니다. JSON 백업을 확인해 주세요."); }
@@ -1280,7 +1292,6 @@ export default function WarTable() {
   };
   const deployStarters = (side: MissionSide) => {
     const starters = operation.players.filter((player) => player.lineup === "starter");
-    const center = STARTING_POINT_CENTER[mapVariant][side];
     // 번호가 없는 사람은 진형 아래에 한 줄로 세워 배치에서 빠지지 않게 한다.
     const unnumbered = starters.filter((player) => !playerSlot(player));
     commit((draft) => {
@@ -1292,11 +1303,7 @@ export default function WarTable() {
         const spot = slot ? slotPoint(slot, side, mapVariant) : null;
         if (spot) { target.positions[String(player.id)] = spot; return; }
         const index = unnumbered.indexOf(player);
-        const turn = side === "ian" ? 1 : -1;
-        target.positions[String(player.id)] = {
-          x: clamp(center.x + (index - (unnumbered.length - 1) / 2) * .026 * turn),
-          y: clamp(center.y + .135 * turn),
-        };
+        target.positions[String(player.id)] = formationPoint({ x: (index - (unnumbered.length - 1) / 2) * .026, y: .135 }, side, mapVariant);
       });
       return draft;
     });
@@ -1367,11 +1374,17 @@ export default function WarTable() {
           {OBJECTIVE_META.map((objective) => { const owner = scene.objectiveOwners?.[objective.id] ?? "neutral"; const point = objective[mapVariant]; return <button type="button" key={objective.id} className={`capture-objective owner-${owner}`} style={{ left: `${point.x}%`, top: `${point.y}%` }} onClick={() => cycleObjective(objective.id)} aria-label={`${objective.location} ${objective.label}: ${owner === "neutral" ? "중립" : owner === "lucia" ? "루시아팀" : "이안팀"}`} title={`${objective.location} ${objective.label} · 클릭하여 점령 상태 변경`}><span>{objective.label}</span></button>; })}
           <svg className="tactical-svg" viewBox="0 0 1000 1000" preserveAspectRatio="none" aria-label="전술 오브젝트 레이어">
             <defs><marker id="move-head" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#55cfff" /></marker><marker id="attack-head" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#ff5353" /></marker><marker id="route-head-ian" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#f0c463" /></marker><marker id="route-head-lucia" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#5cb8ff" /></marker></defs>
-            {missionRoutes.map((route) => <line key={route.key} className={`mission-route side-${missionSide}${route.roaming ? " is-roaming" : ""}`} x1={route.from.x * 1000} y1={route.from.y * 1000} x2={route.to.x * 1000} y2={route.to.y * 1000} markerEnd={`url(#route-head-${missionSide})`} />)}
-            {objects.filter((object) => ["moveArrow", "attackArrow", "defense"].includes(object.type)).map((object) => object.points?.length ? <path key={object.id} className={`tactical-object freehand-path ${object.type === "defense" ? "defense-line" : `arrow-${object.type}`}`} onClick={() => deleteObject(object.id)} d={smoothPath(object.points)} markerEnd={object.type === "defense" ? undefined : `url(#${object.type === "moveArrow" ? "move-head" : "attack-head"})`} /> : <line key={object.id} className={`tactical-object ${object.type === "defense" ? "defense-line" : `arrow-${object.type}`}`} onClick={() => deleteObject(object.id)} x1={object.x * 1000} y1={object.y * 1000} x2={(object.x2 ?? object.x) * 1000} y2={(object.y2 ?? object.y) * 1000} markerEnd={object.type === "defense" ? undefined : `url(#${object.type === "moveArrow" ? "move-head" : "attack-head"})`} />)}
+            {missionRoutes.map((route) => <line key={route.key} className={`mission-route side-${missionSide}`} x1={route.from.x * 1000} y1={route.from.y * 1000} x2={route.to.x * 1000} y2={route.to.y * 1000} markerEnd={`url(#route-head-${missionSide})`} />)}
+            {objects.filter((object) => ["moveArrow", "attackArrow", "defense"].includes(object.type)).map((object) => {
+              const kind = object.type === "defense" ? "defense-line" : `arrow-${object.type}`;
+              const markerEnd = object.type === "defense" ? undefined : `url(#${object.type === "moveArrow" ? "move-head" : "attack-head"})`;
+              return object.points?.length
+                ? <path key={object.id} className={`tactical-object freehand-path ${kind}`} onClick={() => deleteObject(object.id)} d={smoothPath(object.points)} markerEnd={markerEnd} />
+                : <line key={object.id} className={`tactical-object ${kind}`} onClick={() => deleteObject(object.id)} x1={object.x * 1000} y1={object.y * 1000} x2={(object.x2 ?? object.x) * 1000} y2={(object.y2 ?? object.y) * 1000} markerEnd={markerEnd} />;
+            })}
             {drawPoints.length > 1 && tool !== "memo" && <path className={`draw-preview freehand-path ${drawType === "defense" ? "defense-line" : "arrow-attackArrow"}`} d={smoothPath(drawPoints)} markerEnd={drawType === "attackArrow" ? "url(#attack-head)" : undefined} />}
           </svg>
-          {missionRoutes.map((route) => { const at = .82; const x = route.from.x + (route.to.x - route.from.x) * at; const y = route.from.y + (route.to.y - route.from.y) * at; return <span key={`${route.key}-tag`} className={`mission-route-tag side-${missionSide}${route.roaming ? " is-roaming" : ""}`} style={{ left: `${x * 100}%`, top: `${y * 100}%` }} title={`${route.nickname} · ${route.units.join(", ")}부대${route.roaming ? " · 아군 목적지 주변 유동" : ""}`}>{route.units.join("·")}</span>; })}
+          {missionRoutes.map((route) => { const at = .82; const x = route.from.x + (route.to.x - route.from.x) * at; const y = route.from.y + (route.to.y - route.from.y) * at; return <span key={`${route.key}-tag`} className={`mission-route-tag side-${missionSide}`} style={{ left: `${x * 100}%`, top: `${y * 100}%` }} title={`${route.nickname} · ${route.units.join(", ")}부대`}>{route.units.join("·")}</span>; })}
           {tool === "memo" && drawPoints.length > 1 && (() => { const area = memoRect(drawPoints[0], drawPoints[1]); return <div className="memo-preview" style={{ left: `${area.left * 100}%`, top: `${area.top * 100}%`, width: `${area.width * 100}%`, height: `${area.height * 100}%` }} />; })()}
           {openMissionBriefs.map(({ card, player, orders, roles, gaps, brief, staffPlan }) => <div key={card.playerId} className={`tactical-object mission-card side-${missionSide} role-${player.primaryRole}`} style={{ left: `min(${card.x * 100}%, calc(99% - min(340px, 45%)))`, top: `${card.y * 100}%`, maxHeight: `${(1 - card.y) * 100}%` }} onPointerDown={(event) => { if (tool === "delete") { event.stopPropagation(); closeMissionCard(card.playerId); } }}>
             <div className="mission-card-head" onPointerDown={(event) => handleCardPointerDown(event, card)}>

@@ -615,7 +615,7 @@ test("8강 루시아 시트 문장은 그대로 보이고, 탑·바텀을 바꿔
   // 햄수 8강 4·5번: "탑 라인 거점 주유"는 루시아 탑(이안 기준 바텀) 라인 출구로, 경우를 단 전망대 뒷문장은 화살표에서 뺀다.
   const lineUnits = ["블링크 보병으로 탑 라인 거점 주유 / 아군 전망대 집결 당할경우 전망대 주유 지원", "하엘로 보병으로 탑 라인 거점 주유 / 아군 전망대 집결 당할경우 전망대 주유 지원"];
   const linePlan = buildMissionPlan(lineUnits.map(swapLineNames), "lucia", "tactical", new Map());
-  assert.equal(JSON.stringify(linePlan.routes), JSON.stringify([{ target: "own-bottom-line", to: lineExit(25, "lucia", "tactical").point, units: [1, 2], roaming: false }]));
+  assert.equal(JSON.stringify(linePlan.routes), JSON.stringify([{ target: "own-bottom-line", to: lineExit(25, "lucia", "tactical").point, units: [1, 2] }]));
   assert.equal(LUCIA_LINE_NAME(lineExit(25, "lucia", "tactical").top), "탑");
   assert.deepEqual(Array.from(buildMissionPlan(["거점 주유 / 아군 전망대 집결 당할경우 전망대 주유 지원"], "lucia", "tactical", new Map()).gaps), [1]);
   const block = entranceBlock({ team: "입구막팀", main: quarterToIan("적 바텀 입구 막기") }, "lucia", "tactical");

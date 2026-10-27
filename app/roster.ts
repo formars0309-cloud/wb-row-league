@@ -11,7 +11,6 @@ export type Brief = {
   common?: Array<[string, string]>; // 팀 공통 문단
   steps: Array<[string, string]>; // 타임라인·조건별 지시 (라벨, 본문)
   units: MissionOrders; // 부대1~5. 지도 경로와 집결장·주둔장 배지는 이 문장에서 읽는다.
-  byUnit?: boolean; // 부대별 오더인 팀은 PNG 카드에도 부대 5줄을 싣는다
   badge?: string; // 카드 우상단 배지. 비우면 병종 이름
   image?: { src: string; caption: string }; // 카드에 싣는 그림. public/ 기준 경로
   foot: string;

@@ -38,6 +38,10 @@ vinext(Next 호환) + React 19 + Cloudflare Workers 배포 형태. 소스는 `ap
 
 ## 남은 단위
 
+- [x] 2026-10-27 린트 점검·동작 그대로 리팩터링
+  - 요청된 것만, 외과적 수정으로. 사용자 "린트 에러 고치고 코드들도 리팩터링하자". 시작 시점 `npm run lint`·`npm run typecheck`·빌드 경고 모두 0건이라 고칠 린트 오류는 없었다. 동작을 바꾸지 않는 중복 정리만 한다: 시트 머리글 열 찾기(headerColumns), 적 입구 좌표(enemyGate), 좌표 비교(samePoint)·지도 종류(MAP_VARIANTS), 이관 판정의 rosterRevision 지역 변수, 저장본 단계별 백업 반복문, 색 강조 렌더(ColorText), 번호 없는 선수 배치(formationPoint 재사용), 작전선·지도 거점 표시·편집기 라벨 중복. bf7142b 이후 늘 false였던 roaming 필드·분기·CSS와 안 쓰는 Brief.byUnit 제거. 테스트가 잘라 읽는 경계(`function UnitRoleIcon`, `useMissionSheets`~"// 시트를 읽기 전에는")는 유지
+  - 검증: `npm run lint`, `npm run typecheck`, `npm test`(빌드 포함, 35개; roaming 기대값만 필드 제거). 리팩터링 전후 같은 실제 시트로 `work/refactor-20261027/dom-snapshot.py`(폰 첫 화면·30명 카드, PC 30장 카드·경로·루시아 일괄 배치, S 창) DOM 비교 — 전 빌드 2회 바이트 동일, 전후 차이는 빈 `class=""` 제거뿐. 서버 첫 화면 HTML은 파일 해시·빌드 ID 외 동일. `work/refactor-20261027/migration-check.py`로 revision 6/4/1 백업 키·폰 선택 지움, 번호 없는 선수 좌표가 옛 공식과 정확히 같음. cards-check.py 로컬 통과, 페이지 오류 없음. `git diff --check`, 자격증명 검사. 공개 배포는 사용자 요청 시
+
 - [x] 2026-10-27 부대 문장 "탑/바텀 라인" 화살표·경우 뒷문장 제외
   - 요청된 것만, 외과적 수정으로. 사용자 "거점 주유는 탑라인이야 탑으로 화살표 넣어줘 햄수님". 시트 햄수 4·5번 앞 문장에 "탑 라인"을 넣고, missionTargets가 "(탑|바텀) 라인"이면 우리 진형 그 라인 출구로 화살표, " / …경우…" 뒷문장은 예비 지시로 화살표 계산에서 뺀다(시트·roster.ts에 해당 문장은 햄수 두 칸뿐). 카드 문장 표시는 그대로.
   - 검증: `npm run lint`, `npm run typecheck`, `npm test`(빌드 포함; 햄수 4·5 → 루시아 탑(이안 바텀) 라인 출구 한 목적지, 경우 뒷문장만 있는 부대는 화살표 없음). gviz 전후 I30·J30만 변경. 로컬 390px 29번 카드 지도 4·5 화살표 1개·탑 라인, cards-check.py 통과, 캡처 확인. 공개 배포 후 같은 확인.
