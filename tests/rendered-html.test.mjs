@@ -11,7 +11,7 @@ async function rosterHelpers() {
   const source = await readFile(new URL("../app/war-table.tsx", import.meta.url), "utf8");
   const helpers = source.slice(0, source.indexOf("function UnitRoleIcon")).replace(/^import .*;$/gm, "").replace(/^export type /gm, "type ");
   const js = ts.transpileModule(helpers, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
-  return runInNewContext(`${js}\n({ freshOperation, normalizeRoster, normalizeOperation, playerBrief, playerSlot, readMissionSheet, mirrorMission, lineExit, entranceBlock, missionTargets, buildMissionPlan, objectivePoint, OBJECTIVE_META, missionLines, missionParts, teamCommon, groupUnits, readStaffSheet, readQuarterCommon, staffPoint, staffRoute, slotPoint, readOperation, missionView, missionsByNickname })`, { ...roster });
+  return runInNewContext(`${js}\n({ freshOperation, normalizeRoster, normalizeOperation, playerBrief, playerSlot, readMissionSheet, mirrorMission, lineExit, entranceBlock, missionTargets, buildMissionPlan, objectivePoint, OBJECTIVE_META, missionLines, missionParts, teamCommon, groupUnits, readStaffSheet, readQuarterCommon, shownName, staffPoint, staffRoute, slotPoint, readOperation, missionView, missionsByNickname })`, { ...roster });
 }
 
 async function historyHelpers() {
@@ -529,6 +529,25 @@ test("PC 지도 카드도 최신 시트의 메인·서브·부대와 루시아 �
   assert.equal(playerBrief({ ...player, nickname: "새로 만든 선수" }, sheet), undefined);
   sheet.missions.get(19).main = "새 시트 임무";
   assert.equal(playerBrief(player, sheet).steps[0][1], "새 시트 임무");
+});
+
+test("시트 「명단」에서 이름만 바뀐 기본 자리 선수는 PC에서도 그 번호의 시트 임무와 새 이름을 쓴다", async () => {
+  const { freshOperation, readMissionSheet, playerBrief, shownName, missionsByNickname } = await rosterHelpers();
+  const sheet = readMissionSheet([
+    '"스타팅 포인트 번호","닉네임","소속팀","메인임무","서브임무","1번부대","2번부대","3번부대","4번부대","5번부대"',
+    '"7","TESLA 새이름","집결장/주둔장","3시 치료의 영목 집결장","","3시 치료 집결","","","",""',
+  ].join("\n"));
+  const tesla = freshOperation().players.find((item) => item.nickname === "TESLA");
+  const before = JSON.stringify(tesla);
+  assert.equal(shownName(tesla, sheet), "TESLA 새이름");
+  assert.equal(playerBrief(tesla, sheet).team, "집결장/주둔장");
+  assert.equal(missionsByNickname([tesla], sheet).get("TESLA 새이름")[0], "3시 치료 집결");
+  assert.equal(JSON.stringify(tesla), before, "저장된 이름은 바꾸지 않는다");
+  assert.equal(shownName(tesla), "TESLA", "시트를 읽기 전에는 저장된 이름");
+  // 직접 다른 번호로 옮긴 선수와 앱에서 새로 만든 선수에는 번호 대응을 쓰지 않는다.
+  assert.equal(playerBrief({ ...tesla, slot: 8, brief: null }, sheet), undefined);
+  assert.equal(shownName({ ...tesla, slot: 8 }, sheet), "TESLA");
+  assert.equal(playerBrief({ ...tesla, nickname: "새로 만든 선수", slot: 7, brief: null }, sheet), undefined);
 });
 
 test("19번 5000·26번 Elega 변경은 기존 ID·카드·수동 배치를 보존하며 기본 자리만 한 번 옮긴다", async () => {

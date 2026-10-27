@@ -158,9 +158,17 @@ function playerBrief(player: Player, sheet?: MissionSheet | null): Brief | undef
   return mission ? { nickname: mission.nickname, file: "", team: mission.team, foot: "", units: mission.units,
     steps: [["메인 임무", mission.main], ["서브 임무", mission.sub]].filter(([, text]) => text) as Array<[string, string]> } : player.brief ?? undefined;
 }
+// 이름이 같은 시트 행을 먼저 찾는다. 시트 「명단」에서 이름만 바뀐 경우를 위해, 기본 명단 선수가 기본 자리에
+// 그대로 있으면 그 번호의 시트 행을 쓴다. 직접 옮긴 번호나 앱에서 새로 만든 선수에는 적용하지 않는다.
 function sheetMissionForPlayer(player: Player, sheet?: MissionSheet | null) {
   const nickname = ROSTER_ALIASES.get(player.nickname) ?? player.nickname;
-  return [...(sheet?.missions.values() ?? [])].find((item) => (ROSTER_ALIASES.get(item.nickname) ?? item.nickname) === nickname);
+  const byName = [...(sheet?.missions.values() ?? [])].find((item) => (ROSTER_ALIASES.get(item.nickname) ?? item.nickname) === nickname);
+  const home = SLOT_BY_NICKNAME.get(nickname);
+  return byName ?? (home !== undefined && playerSlot(player) === home ? sheet?.missions.get(home) : undefined);
+}
+// 화면에 보이는 이름은 시트를 따른다. 저장된 이름은 편집·이관용으로 그대로 둔다.
+function shownName(player: Player, sheet?: MissionSheet | null) {
+  return sheetMissionForPlayer(player, sheet)?.nickname ?? player.nickname;
 }
 function playerSlot(player: Player): number | undefined {
   return player.slot === undefined ? SLOT_BY_NICKNAME.get(player.nickname) : player.slot ?? undefined;
@@ -575,7 +583,7 @@ function buildMissionPlan(orders: string[] | null, side: MissionSide, variant: M
 }
 // 집결 탑승 경로도 카드와 같은 시트·편집 임무의 집결장 목적지를 따라간다.
 function missionsByNickname(players: Player[], sheet?: MissionSheet | null) {
-  return new Map(players.flatMap((player): Array<[string, MissionOrders]> => { const brief = playerBrief(player, sheet); return brief ? [[player.nickname, brief.units]] : []; }));
+  return new Map(players.flatMap((player): Array<[string, MissionOrders]> => { const brief = playerBrief(player, sheet); return brief ? [[shownName(player, sheet), brief.units]] : []; }));
 }
 function missionView(player: Player, missions: Map<string, MissionOrders>, side: MissionSide, variant: MapVariant, sheet?: MissionSheet | null) {
   const original = playerBrief(player, sheet);
@@ -981,7 +989,7 @@ export default function WarTable() {
     if (!player) return null;
     const { brief, orders, roles, plan } = missionView(player, missions, missionSide, mapVariant, sheet.data);
     const origin = scene.positions[String(player.id)] ?? STARTING_POINT_CENTER[mapVariant][missionSide];
-    const routes = plan.routes.map((route) => ({ ...route, key: `${card.playerId}-${route.target}`, nickname: player.nickname, from: origin }));
+    const routes = plan.routes.map((route) => ({ ...route, key: `${card.playerId}-${route.target}`, nickname: shownName(player, sheet.data), from: origin }));
     const mission = sheetMissionForPlayer(player, sheet.data);
     const staffPlan = mission && staff.data?.plans.get(mission.slot);
     return { card, player, orders, roles, routes, gaps: plan.gaps, brief, staffPlan };
@@ -1344,7 +1352,7 @@ export default function WarTable() {
           <div className="roster-list" aria-label={`플레이어 명단 ${visiblePlayers.length}명 표시 · 총 ${operation.players.length}명`}>
             {visiblePlayers.map((player) => (
               <button draggable type="button" key={player.id} className={`player-row ${editingId === player.id ? "is-active" : ""} ${scene.positions[String(player.id)] ? "is-placed" : ""}`} onDragStart={(event) => handleRosterDrag(event, player.id)} onClick={() => { setEditingId(player.id); openMissionCard(player.id); if (!scene.positions[String(player.id)]) setSelectedIds([player.id]); }}>
-                <span className="player-num">{playerSlot(player) ?? "—"}</span><span className="player-copy"><strong className={playerNameClass(player)}>{player.nickname}</strong><span className={`lineup-badge ${player.lineup}`}>주전</span></span><span className="edit-glyph">{scene.positions[String(player.id)] ? "●" : "⋮⋮"}</span>
+                <span className="player-num">{playerSlot(player) ?? "—"}</span><span className="player-copy"><strong className={playerNameClass(player)}>{shownName(player, sheet.data)}</strong><span className={`lineup-badge ${player.lineup}`}>주전</span></span><span className="edit-glyph">{scene.positions[String(player.id)] ? "●" : "⋮⋮"}</span>
               </button>
             ))}
           </div>
@@ -1379,10 +1387,10 @@ export default function WarTable() {
           {openMissionBriefs.map(({ card, player, orders, roles, gaps, brief, staffPlan }) => <div key={card.playerId} className={`tactical-object mission-card side-${missionSide} role-${player.primaryRole}`} style={{ left: `min(${card.x * 100}%, calc(99% - min(340px, 45%)))`, top: `${card.y * 100}%`, maxHeight: `${(1 - card.y) * 100}%` }} onPointerDown={(event) => { if (tool === "delete") { event.stopPropagation(); closeMissionCard(card.playerId); } }}>
             <div className="mission-card-head" onPointerDown={(event) => handleCardPointerDown(event, card)}>
               <UnitRoleIcon unitRole={player.primaryRole} isRally={player.secondaryRoles.includes("rally")} />
-              <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={() => setPlayerDraft(editablePlayer(player))}>편집</button><strong className="mission-card-name">{!!playerSlot(player) && <b className="mission-card-slot">{playerSlot(player)}</b>}{player.nickname}</strong>
+              <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={() => setPlayerDraft(editablePlayer(player))}>편집</button><strong className="mission-card-name">{!!playerSlot(player) && <b className="mission-card-slot">{playerSlot(player)}</b>}{shownName(player, sheet.data)}</strong>
               <div className="mission-card-actions">
-                {orders && <button type="button" className={`mission-card-route ${card.route ? "active" : ""}`} aria-pressed={!!card.route} onClick={() => toggleMissionRoute(card.playerId)} title={`${player.nickname} 부대 목적지를 지도에 표시`}>경로</button>}
-                <button type="button" className="mission-card-close" onClick={() => closeMissionCard(card.playerId)} aria-label={`${player.nickname} 임무 카드 닫기`}>×</button>
+                {orders && <button type="button" className={`mission-card-route ${card.route ? "active" : ""}`} aria-pressed={!!card.route} onClick={() => toggleMissionRoute(card.playerId)} title={`${shownName(player, sheet.data)} 부대 목적지를 지도에 표시`}>경로</button>}
+                <button type="button" className="mission-card-close" onClick={() => closeMissionCard(card.playerId)} aria-label={`${shownName(player, sheet.data)} 임무 카드 닫기`}>×</button>
               </div>
             </div>
             {orders ? <div className="mission-card-body" onClick={() => { if (tool === "select") toggleMissionRoute(card.playerId); }} role="presentation">
@@ -1405,7 +1413,7 @@ export default function WarTable() {
           {objects.filter((object) => object.type === "memo").map((note) => { const span = memoSpan(note); const isEditing = memoDraft?.id === note.id; return <div key={note.id} className={`tactical-object map-memo${isEditing ? " is-editing" : ""}`} style={{ left: `${note.x * 100}%`, top: `${note.y * 100}%`, width: `${span.width * 100}%`, height: `${span.height * 100}%` }}>{isEditing ? <textarea ref={memoInputRef} aria-label="메모 내용" placeholder="메모를 입력하세요" value={memoDraft.text} onChange={(event) => setMemoDraft({ id: note.id, text: event.target.value })} onBlur={() => finishMemoEdit(true)} onKeyDown={(event) => { if (event.key === "Escape") { event.preventDefault(); finishMemoEdit(false); } }} /> : <button type="button" className="memo-face" onPointerDown={(event) => handleMemoPointerDown(event, note)} onClick={(event) => { if (event.detail !== 0) return; if (tool === "delete") deleteObject(note.id); else if (tool === "select") setMemoDraft({ id: note.id, text: note.text ?? "" }); }} title={tool === "delete" ? "클릭해 메모 삭제" : "클릭해 메모 수정 · 드래그로 이동"}><span className={note.text ? "" : "is-placeholder"}>{note.text || "메모 입력"}</span></button>}</div>; })}
           {objects.filter((object) => object.type === "attackArrow").map((object, index) => { const origin = object.points?.[0] ?? { x: object.x, y: object.y }; return <span key={`${object.id}-order`} className="attack-line-order" style={{ left: `${origin.x * 100}%`, top: `${origin.y * 100}%` }} aria-hidden="true">{index + 1}</span>; })}
           {objects.filter((object) => ["rally", "step", "text"].includes(object.type)).map((object) => <button type="button" key={object.id} className={`tactical-object map-marker marker-${object.type}`} style={{ left: `${object.x * 100}%`, top: `${object.y * 100}%` }} onClick={() => deleteObject(object.id)}><span>{object.type === "rally" ? "⚔" : object.type === "step" ? `S${stepObjects.findIndex((item) => item.id === object.id) + 1}` : object.text}</span></button>)}
-          {operation.players.filter((player) => scene.positions[String(player.id)] && (roleFilter === "all" || player.primaryRole === roleFilter)).map((player) => { const pos = scene.positions[String(player.id)]; const isRally = player.secondaryRoles.includes("rally"); const tooltip = `${player.nickname} · ${ROLE_LABEL[player.primaryRole]}${player.secondaryRoles.length ? ` · ${player.secondaryRoles.map((role) => SECONDARY_LABEL[role]).join("/")}` : ""}`; return <button type="button" key={player.id} className={`player-token role-${player.primaryRole} ${isRally ? "is-rally" : ""} ${selectedIds.includes(player.id) ? "selected" : ""}`} style={{ left: `${pos.x * 100}%`, top: `${pos.y * 100}%` }} onPointerDown={(event) => handleTokenPointerDown(event, player.id)} aria-label={tooltip} data-tooltip={tooltip}><UnitRoleIcon unitRole={player.primaryRole} isRally={isRally} /><span className="token-num">{playerSlot(player) ?? "·"}</span></button>; })}
+          {operation.players.filter((player) => scene.positions[String(player.id)] && (roleFilter === "all" || player.primaryRole === roleFilter)).map((player) => { const pos = scene.positions[String(player.id)]; const isRally = player.secondaryRoles.includes("rally"); const tooltip = `${shownName(player, sheet.data)} · ${ROLE_LABEL[player.primaryRole]}${player.secondaryRoles.length ? ` · ${player.secondaryRoles.map((role) => SECONDARY_LABEL[role]).join("/")}` : ""}`; return <button type="button" key={player.id} className={`player-token role-${player.primaryRole} ${isRally ? "is-rally" : ""} ${selectedIds.includes(player.id) ? "selected" : ""}`} style={{ left: `${pos.x * 100}%`, top: `${pos.y * 100}%` }} onPointerDown={(event) => handleTokenPointerDown(event, player.id)} aria-label={tooltip} data-tooltip={tooltip}><UnitRoleIcon unitRole={player.primaryRole} isRally={isRally} /><span className="token-num">{playerSlot(player) ?? "·"}</span></button>; })}
           <div className="map-note"><span>{mapVariant === "tactical" ? "TACTICAL OVERVIEW" : "FIELD REFERENCE"}</span><strong>{mapVariant === "tactical" ? "헤이나펄 전술 맵" : "헤이나펄 실전 지형"}</strong><small>{TOOL_META.find((item) => item.id === tool)?.hint}</small></div><div className="map-coordinates"><span>GRID A-01</span><span>생명의 반석 기준 작전도</span><span>GRID H-09</span></div>
         </section>
 
@@ -1413,7 +1421,7 @@ export default function WarTable() {
           <div className="panel-heading"><div><span className="eyebrow">TACTICAL CONTROL</span><h2>핵심 작전 도구</h2></div></div>
           <div className="tool-grid">{TOOL_META.map((item) => <button type="button" key={item.id} className={`${tool === item.id ? "active" : ""} tool-${item.id}`} onClick={() => setTool(item.id)} title={item.hint}>{item.id === "delete" ? <EraserIcon /> : <span>{item.glyph}</span>}{item.label}</button>)}</div>
           <div className="assignment-panel">
-            {editing && <><div className="assignment-player"><span>SELECTED PLAYER</span><strong className={playerNameClass(editing)}>{editing.nickname}</strong><small>명단에서 아이디를 선택한 뒤 역할을 지정하세요.</small></div>
+            {editing && <><div className="assignment-player"><span>SELECTED PLAYER</span><strong className={playerNameClass(editing)}>{shownName(editing, sheet.data)}</strong><small>명단에서 아이디를 선택한 뒤 역할을 지정하세요.</small></div>
             <div className="assignment-heading">병종</div>
             <div className="assignment-grid three-column">
               {(Object.keys(ROLE_LABEL) as PrimaryRole[]).map((role) => <button type="button" key={role} className={`assignment-button role-${role} ${editing.primaryRole === role ? "active" : ""}`} onClick={() => patchPlayer(editing.id, { primaryRole: role })}><UnitRoleIcon unitRole={role} />{ROLE_LABEL[role]}</button>)}
