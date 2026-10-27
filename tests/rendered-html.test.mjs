@@ -448,11 +448,13 @@ test("구글 시트 임무는 머리글 이름으로 열을 찾고 따옴표·�
   assert.throws(() => readMissionSheet('"번호","닉네임"\n"1","무잔"'));
 });
 
-test("8강 개인 임무의 색 칸은 있으면 닉네임 색으로 읽고 없거나 비면 넣지 않는다", async () => {
+test("8강 개인 임무의 색·맨 위 안내 칸은 있으면 읽고 없거나 비면 넣지 않는다", async () => {
   const { readMissionSheet } = await rosterHelpers();
   const head = '"스타팅 포인트 번호","닉네임","소속팀","메인임무","서브임무","1번부대","2번부대","3번부대","4번부대","5번부대"';
-  const { missions } = readMissionSheet([`${head},"색"`, '"1","무잔","펫 팀","","","","","","","","초록"', '"3","바르니","생석 팀","","","","","","","",""'].join("\n"));
+  const { missions } = readMissionSheet([`${head},"색","맨 위 안내"`, '"1","무잔","펫 팀","","","","","","","","초록",""', '"3","바르니","생석 팀","","","","","","","","","첫 스타트에 집결 탑승"'].join("\n"));
   assert.equal(missions.get(1).color, "초록");
+  assert.equal(missions.get(3).lead, "첫 스타트에 집결 탑승");
+  assert.equal("lead" in missions.get(1), false);
   assert.equal("color" in missions.get(3), false);
   assert.equal("color" in readMissionSheet(`${head}\n"1","무잔","펫 팀","","","","","","",""`).missions.get(1), false);
 });

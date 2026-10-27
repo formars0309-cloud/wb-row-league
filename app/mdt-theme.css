@@ -1337,7 +1337,8 @@ body {
 .quarter-team { margin: 8px 0 16px; color: #a9c1de; font-size: 21px; font-weight: 600; line-height: 1.5; }
 .quarter-section { padding: 28px 0; border-top: 1px solid rgba(143, 179, 220, 0.16); }
 .quarter-section h2 { margin: 0 0 14px; color: #8fb3dc; font-size: 18px; font-weight: 700; }
-.quarter-section > p, .quarter-units p, .quarter-staff dd { margin: 0; font-size: 23px; font-weight: 500; line-height: 1.75; letter-spacing: -0.01em; white-space: pre-line; word-break: keep-all; overflow-wrap: anywhere; }
+.quarter-lead { margin: 8px 0 20px; padding-bottom: 24px; border-bottom: 1px solid rgba(143, 179, 220, 0.16); }
+.quarter-lead, .quarter-section > p, .quarter-units p, .quarter-staff dd { margin: 0; font-size: 23px; font-weight: 500; line-height: 1.75; letter-spacing: -0.01em; white-space: pre-line; word-break: keep-all; overflow-wrap: anywhere; }
 .quarter-units { display: grid; gap: 16px; margin: 0; padding: 0; list-style: none; }
 .quarter-units li { display: flex; gap: 16px; }
 .quarter-units b { flex: 0 0 38px; color: #8fb3dc; font-size: 21px; font-weight: 700; line-height: 1.9; font-variant-numeric: tabular-nums; }
