@@ -804,11 +804,12 @@ function MobileBriefing({ players, sheet, staff, quarter, onExit }: { players: P
   </header>;
   const loading = <p className="board-empty">{sheet.failed ? "임무를 불러오지 못했습니다" : "임무를 불러오는 중…"}</p>;
 
-  // 8강 공통 카드는 시트 내용만 보이고, 명단으로 돌아가는 버튼 하나만 둔다.
+  // 8강 공통 카드는 제목과 시트 내용만 보이고, 명단으로 돌아가는 버튼 하나만 둔다.
   if (picked === COMMON_SLOT) return (
     <div className={shell(" is-quarter")}>
       <header className="mobile-top">
         <button type="button" className="mobile-back" onClick={() => pick(null)} aria-label="명단으로 돌아가기">‹</button>
+        <h1 className="quarter-title">8강 (루시아 진영) <span>공통 임무 및 개별 임무</span></h1>
       </header>
       {quarter.failed && quarter.data && <p className="mobile-sync" role="alert">최신 공통 임무를 불러오지 못했습니다. 마지막으로 받은 내용입니다.</p>}
       <QuarterCommonBoard quarter={quarter} />
