@@ -597,7 +597,7 @@ test("시트 「명단」에서 이름만 바뀐 기본 자리 선수는 PC에�
 });
 
 test("8강 루시아 시트 문장은 그대로 보이고, 탑·바텀을 바꿔 부르며, 화살표는 16강과 같은 곳을 가리킨다", async () => {
-  const { swapLineNames, quarterToIan, LUCIA_LINE_NAME, mirrorMission, buildMissionPlan, entranceBlock, staffRoute } = await rosterHelpers();
+  const { swapLineNames, quarterToIan, LUCIA_LINE_NAME, mirrorMission, buildMissionPlan, entranceBlock, staffRoute, lineExit } = await rosterHelpers();
   assert.equal(swapLineNames("탑 라인 / 바텀 입구 / 집결 탑승"), "바텀 라인 / 탑 입구 / 집결 탑승");
   assert.equal(quarterToIan("루시아 기준 7시 축복의 전당 집결장 및 주둔장"), "이안 기준 1시 천무의 전당 집결장 및 주둔장");
   assert.equal(quarterToIan("바텀 라인 입구막는 적 보병 처리 / 12시 용기 / 11시"), "탑 라인 입구막는 적 보병 처리 / 6시 용기 / 11시");
@@ -612,6 +612,12 @@ test("8강 루시아 시트 문장은 그대로 보이고, 탑·바텀을 바꿔
   assert.equal(JSON.stringify(quarter), JSON.stringify(old));
   assert.ok(old.routes.length >= 3);
   // 입구막팀: 시트의 "바텀 입구"는 이안 기준 TOP 입구이고, 화면 이름은 다시 바텀이다.
+  // 햄수 8강 4·5번: "탑 라인 거점 주유"는 루시아 탑(이안 기준 바텀) 라인 출구로, 경우를 단 전망대 뒷문장은 화살표에서 뺀다.
+  const lineUnits = ["블링크 보병으로 탑 라인 거점 주유 / 아군 전망대 집결 당할경우 전망대 주유 지원", "하엘로 보병으로 탑 라인 거점 주유 / 아군 전망대 집결 당할경우 전망대 주유 지원"];
+  const linePlan = buildMissionPlan(lineUnits.map(swapLineNames), "lucia", "tactical", new Map());
+  assert.equal(JSON.stringify(linePlan.routes), JSON.stringify([{ target: "own-bottom-line", to: lineExit(25, "lucia", "tactical").point, units: [1, 2], roaming: false }]));
+  assert.equal(LUCIA_LINE_NAME(lineExit(25, "lucia", "tactical").top), "탑");
+  assert.deepEqual(Array.from(buildMissionPlan(["거점 주유 / 아군 전망대 집결 당할경우 전망대 주유 지원"], "lucia", "tactical", new Map()).gaps), [1]);
   const block = entranceBlock({ team: "입구막팀", main: quarterToIan("적 바텀 입구 막기") }, "lucia", "tactical");
   assert.equal(block.top, true);
   assert.equal(LUCIA_LINE_NAME(block.top), "바텀");

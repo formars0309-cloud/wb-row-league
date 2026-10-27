@@ -524,7 +524,8 @@ function missionTargets(text: string, side: MissionSide, variant: MapVariant, mi
     return rally ? missionTargets(rally, side, variant, missions, true) : [];
   }
   // 획득 조건에 등장한 거점은 출발 조건이며, 화살표의 목적지는 조건 뒤의 지시다.
-  const order = text.replace(/^.*(?:획득\s*시|획득하면)/, "");
+  // "… / 아군 전망대 집결 당할경우 …"처럼 경우를 단 뒷문장은 예비 지시라 화살표는 앞 문장을 따른다.
+  const order = text.replace(/^.*(?:획득\s*시|획득하면)/, "").replace(/\s*\/[^/]*경우.*$/, "");
   let ids: string[];
   if (order.includes("전망대")) {
     const left = /좌측|왼쪽|전망대(?:\s*주둔)?\s*1/.test(order);
@@ -536,6 +537,10 @@ function missionTargets(text: string, side: MissionSide, variant: MapVariant, mi
     const top = /탑|top/i.test(order), bottom = /바텀|bottom/i.test(order);
     if (!top && !bottom) return [];
     return [{ key: top ? "enemy-top-gate" : "enemy-bottom-gate", point: lineExit(top ? 25 : 1, side === "ian" ? "lucia" : "ian", variant).start }];
+  } else if (/(?:탑|바텀)\s*라인/.test(order)) {
+    // "탑 라인 거점 주유"는 우리 진형의 그 라인 출구로 나간다.
+    const top = /탑\s*라인/.test(order);
+    return [{ key: top ? "own-top-line" : "own-bottom-line", point: lineExit(top ? 1 : 25, side, variant).point }];
   } else {
     const names = [...order.matchAll(/(?:(?<!\d)(1[0-2]|[1-9])시\s*(?:적\s*)?)?(천무|축복|치료|용기|군왕|목명)/g)];
     if (names.length) {
