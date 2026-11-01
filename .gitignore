@@ -41,3 +41,6 @@ yarn-error.log*
 /.wrangler/
 /outputs/
 /work/
+
+# claude code 로컬 설정
+/.claude/settings.local.json
