@@ -1,5 +1,14 @@
 # 진행 상황
 
+갱신: 2026-11-01 — 8강 지정 스테프 순번 변경(시트만)·순번 이미지 드라이브 저장
+
+- 사용자: 불개 탑 8, 벙커(Bünker) 바텀 8, 글렌피딕 탑 9. 글렌피딕 스타팅 역할(12시 용기 주둔장)은 빼고, 벙커·불개·햄수 공통 부대구성 문구는 그대로.
+- codex가 사전값 확인 후 '8강 스테프' 7칸 RAW 기록: C19 지정 순번 STAFF 사용·D19 9·E19 탑·F19/G19 비움, E23 바텀, E24 탑. 첫 시도는 B열('명단' VLOOKUP 수식) 때문에 중단 — 조건을 "C:G 수식 없음"으로 고쳐 재실행. gviz 전후 7칸만 변경, 나머지 다섯 탭 바이트 동일. 공개 cards-check.py 390/320/PC 통과.
+- 지정 스테프 순번 이미지(탑 9·바텀 8, 바뀐 줄 강조) `work/staff-image-20261101/`(HTML→Chrome 헤드리스 2배). codex `google_drive_upload_file`로 내 드라이브 최상위에 비공유 업로드(ID 1f9NKbqpOSYx5AKMOzDNMpGRbPDfBsIfg, 104,239바이트 일치).
+- 남은 확인: 글렌피딕 '8강 개인 임무'(소속팀 주둔장·12시 용기 관련 문장)는 손대지 않음.
+
+---
+
 갱신: 2026-10-27 — 공개 버전 40 배포(파일 나누기·첫 로딩 수정)
 
 - codex Sites 흐름으로 bb6d010 배포: lint·build·npm test 36개 통과, 아카이브 9,269,470바이트(SHA-256 3e0dfbe5…1eb2ce), 버전 40(appgver_d2b6ef6ae7348191a372fdfd165d4359), 배포 appgdep_6ae087ccc2988191aafc3d3a70dc2c3d succeeded, active·public, source SHA 일치, 단기 자격증명 폐기.
