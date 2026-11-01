@@ -9,7 +9,7 @@
 - 최종: main, 로컬 커밋 3개 추가(푸시 안 함)
   - db6906b 린트 범위·gitignore 중복 설정 정리
   - 0cf0ac4 지침 파일 통일: CLAUDE.md 추가, 하네스 README 중복 제거, PROGRESS 과거 기록 분리
-  - (이 보고서 커밋)
+  - 8ae0a88 2026-11-01 유지보수 보고서와 검사 로그 보존(이 파일 자체; 해시는 커밋 후 추가)
 - 환경: Node v24.20.0, npm 11.19.0, node_modules는 package-lock과 일치(npm ls 오류 없음)라 설치 생략.
 - 실제 실행 경로: `vite.config.ts`(vinext+@openai/sites 플러그인+cloudflare) → `worker/index.ts` → `app/`. 배포는 Codex Sites 워크플로(수동)이며 CI·.github 없음. 배포 명령은 실행하지 않았다.
 
