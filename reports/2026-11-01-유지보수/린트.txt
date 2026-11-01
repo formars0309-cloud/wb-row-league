@@ -1,0 +1,11 @@
+
+> wb-row-league@0.1.0 lint
+> eslint . --ignore-pattern dist --ignore-pattern .next
+
+exit=0
+## 정리 후 재검사
+
+> wb-row-league@0.1.0 lint
+> eslint .
+
+exit=0

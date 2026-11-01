@@ -1,0 +1,184 @@
+
+> wb-row-league@0.1.0 test
+> npm run build && node --test tests/rendered-html.test.mjs
+
+
+> wb-row-league@0.1.0 build
+> vinext build
+
+
+  vinext build  (Vite 8.0.13)
+
+[1/5] analyze client references...
+[2Ktransforming...✓ 219 modules transformed.
+rendering chunks...
+✓ built in 200ms
+[2/5] analyze server references...
+[2Ktransforming...✓ 84 modules transformed.
+rendering chunks...
+✓ built in 51ms
+[3/5] build rsc environment...
+[2Ktransforming...✓ 217 modules transformed.
+rendering chunks...
+computing gzip size...
+✓ built in 178ms
+[4/5] build client environment...
+[2Ktransforming...✓ 125 modules transformed.
+rendering chunks...
+computing gzip size...
+✓ built in 209ms
+[5/5] build ssr environment...
+[2Ktransforming...✓ 90 modules transformed.
+rendering chunks...
+computing gzip size...
+✓ built in 154ms
+[0m
+  Route (app)
+  ─ ? /
+
+  ? Unknown
+
+  ? Some routes could not be classified. vinext currently uses static analysis
+    and cannot detect dynamic API usage (headers(), cookies(), etc.) at build time.
+    Automatic classification will be improved in a future release.
+
+  Build complete. Run `vinext start` to start the production server.
+
+✔ 시트 새로고침은 늦은 이전 응답을 무시하고 탭별(임무·STAFF·8강 공통·8강 개인·8강 STAFF) 실패와 마지막 데이터를 보존한다 (34.526792ms)
+✔ 시트 사본: 저장된 원문을 응답 전에 먼저 보이고, 새 응답으로 바꿔 저장한다. 깨진 사본·저장 실패는 무시하고 실패 시 사본을 남긴다 (4.257042ms)
+✔ 실행 취소 전이는 재실행해도 기록을 중복하지 않고 변경 없는 작업은 다시 실행을 보존한다 (32.59975ms)
+✔ 연속 드래그는 한 단계로 취소·복원하고 기록은 최근 60단계로 제한한다 (21.896042ms)
+✔ 저장본의 잘못된 장면·좌표·이벤트·오브젝트·카드는 화면에 적용하기 전에 거부한다 (15.448375ms)
+✔ 저장본 검사는 기존 장면 기본값과 전술 오브젝트·카드의 JSON 왕복을 보존한다 (15.909958ms)
+✔ 새 정본의 편집 명단은 이름·보직·임무 삭제와 빈 명단을 JSON 왕복 후에도 보존한다 (13.824125ms)
+✔ 기존 저장본은 한 번만 현재 명단으로 이관하고 편집본에서는 삭제 선수를 되살리지 않는다 (11.125ms)
+✔ 2번의 기존 닉네임은 저장된 ID·부대·장면·카드를 보존해 벌꿀오소리형으로 바꾼다 (11.263041ms)
+✔ 가져온 명단의 중복 ID·닉네임과 잘못된 임무·번호를 거부한다 (13.042375ms)
+✔ 2026-10-06 시트 30명의 번호와 이름이 정확히 일치하고 앱에는 기본 임무가 없다 (10.943542ms)
+✔ 2026-10-06 멤버 교체는 한 번만 이관하고 기존 선수의 편집·빈 명단·원본을 보존한다 (14.32575ms)
+✔ 2026-10-06 이미 편집한 새 선수는 중복 추가하거나 덮어쓰지 않는다 (16.003833ms)
+✔ 2026-10-04 시트 자리 변경: 저장본의 이전 기본 번호만 한 번 새 번호로 옮기고 직접 바꾼 번호는 보존한다 (14.210834ms)
+✔ 2026-10-04 자리 변경 전 배치: 옛 기본 자리에 남은 말만 새 번호 자리로 한 번 옮긴다 (10.767416ms)
+✔ 구버전 명단은 ID와 편집을 보존하며 30명으로 이관하고 삭제 선수의 모든 장면 배치와 카드를 정리한다 (10.638833ms)
+✔ 구글 시트 임무는 머리글 이름으로 열을 찾고 따옴표·줄바꿈·빈 칸·잘못된 행·공통 임무 행을 처리한다 (10.440875ms)
+✔ 8강 개인 임무의 색·맨 위 안내 칸은 있으면 읽고 없거나 비면 넣지 않는다 (10.30275ms)
+✔ 8강 공통 임무 탭은 번호·내용 머리글로 읽고 빈 내용은 숨기며 번호가 비면 순서대로 매긴다 (10.481125ms)
+✔ 공통 임무의 [색:문구]는 그 문구만 색으로 나누고 모르는 색·짝 없는 괄호는 글자 그대로 둔다 (12.938917ms)
+✔ 스테프 탭은 머리글로 열을 찾고 공통 규칙·군·순번·사용 위치를 읽으며 잘못된 행을 무시한다 (10.642083ms)
+✔ 현재 스테프 부대구성 머리글과 스타팅/지정 STAFF 표기를 읽고 기존 사용 방법도 함께 보존한다 (10.298125ms)
+✔ PC 지도 카드도 최신 시트의 메인·서브·부대와 루시아 환산을 읽고 저장된 수동 편집·삭제는 덮어쓰지 않는다 (10.77625ms)
+✔ 시트 「명단」에서 이름만 바뀐 기본 자리 선수는 PC에서도 그 번호의 시트 임무와 새 이름을 쓴다 (15.704875ms)
+✔ 8강 루시아 시트 문장은 그대로 보이고, 탑·바텀을 바꿔 부르며, 화살표는 16강과 같은 곳을 가리킨다 (10.295084ms)
+✔ 19번 5000·26번 Elega 변경은 기존 ID·카드·수동 배치를 보존하며 기본 자리만 한 번 옮긴다 (13.943166ms)
+✔ STAFF 포인트 두 곳은 성 자리와 겹치지 않고 진영과 함께 돌며, 스테프 화살표는 군에 맞는 곳에서 목적지로 간다 (10.693417ms)
+✔ 루시아 카드는 시트의 이안 기준 위치 문구를 좌우 환산한다 (15.768083ms)
+✔ 안내 이미지대로 TOP·Bottom Line을 15명씩 나누고 출구를 진영에 맞춰 돌린다 (9.879833ms)
+✔ 입구막팀의 메인 임무만 담당 라인의 적 입구 차단 표시를 만든다 (9.553209ms)
+✔ 임무 화살표는 시계와 거점 이름을 함께 확인하고 획득 조건 뒤의 실제 목표로 향한다 (9.6835ms)
+✔ 전망대 1·2와 명시된 적 TOP·Bottom 입구는 자기 진영과 담당 방향에 맞춘다 (13.222833ms)
+✔ 집결 탑승은 해당 집결장의 실제 목표로 향하고 필드 부대에는 임의의 화살표가 없다 (9.67875ms)
+✔ 모바일 카드 가독성: 문장 줄 나누기·위치/타이밍 강조·같은 부대 묶기 (10.126625ms)
+✔ server-renders the Heinapel War Table (34.584792ms)
+✔ keeps the interactive operation features and map assets wired (1.24875ms)
+ℹ tests 36
+ℹ suites 0
+ℹ pass 36
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 618.199291
+exit=0
+
+## 정리 후 재검사 (임시 복사본 /private/tmp/claude-501/-Users-app-orca-projects-My-Projects/d3be9b3a-37fe-4298-8743-51c7db2c0149/scratchpad/wb-build2)
+
+> wb-row-league@0.1.0 test
+> npm run build && node --test tests/rendered-html.test.mjs
+
+
+> wb-row-league@0.1.0 build
+> vinext build
+
+
+  vinext build  (Vite 8.0.13)
+
+[1/5] analyze client references...
+[2Ktransforming...✓ 219 modules transformed.
+rendering chunks...
+✓ built in 169ms
+[2/5] analyze server references...
+[2Ktransforming...✓ 84 modules transformed.
+rendering chunks...
+✓ built in 50ms
+[3/5] build rsc environment...
+[2Ktransforming...✓ 217 modules transformed.
+rendering chunks...
+computing gzip size...
+✓ built in 170ms
+[4/5] build client environment...
+[2Ktransforming...✓ 125 modules transformed.
+rendering chunks...
+computing gzip size...
+✓ built in 202ms
+[5/5] build ssr environment...
+[2Ktransforming...✓ 90 modules transformed.
+rendering chunks...
+computing gzip size...
+✓ built in 147ms
+[0m
+  Route (app)
+  ─ ? /
+
+  ? Unknown
+
+  ? Some routes could not be classified. vinext currently uses static analysis
+    and cannot detect dynamic API usage (headers(), cookies(), etc.) at build time.
+    Automatic classification will be improved in a future release.
+
+  Build complete. Run `vinext start` to start the production server.
+
+✔ 시트 새로고침은 늦은 이전 응답을 무시하고 탭별(임무·STAFF·8강 공통·8강 개인·8강 STAFF) 실패와 마지막 데이터를 보존한다 (29.138292ms)
+✔ 시트 사본: 저장된 원문을 응답 전에 먼저 보이고, 새 응답으로 바꿔 저장한다. 깨진 사본·저장 실패는 무시하고 실패 시 사본을 남긴다 (4.231833ms)
+✔ 실행 취소 전이는 재실행해도 기록을 중복하지 않고 변경 없는 작업은 다시 실행을 보존한다 (32.168625ms)
+✔ 연속 드래그는 한 단계로 취소·복원하고 기록은 최근 60단계로 제한한다 (21.799125ms)
+✔ 저장본의 잘못된 장면·좌표·이벤트·오브젝트·카드는 화면에 적용하기 전에 거부한다 (16.041291ms)
+✔ 저장본 검사는 기존 장면 기본값과 전술 오브젝트·카드의 JSON 왕복을 보존한다 (14.873292ms)
+✔ 새 정본의 편집 명단은 이름·보직·임무 삭제와 빈 명단을 JSON 왕복 후에도 보존한다 (10.883917ms)
+✔ 기존 저장본은 한 번만 현재 명단으로 이관하고 편집본에서는 삭제 선수를 되살리지 않는다 (16.1705ms)
+✔ 2번의 기존 닉네임은 저장된 ID·부대·장면·카드를 보존해 벌꿀오소리형으로 바꾼다 (12.354125ms)
+✔ 가져온 명단의 중복 ID·닉네임과 잘못된 임무·번호를 거부한다 (10.735541ms)
+✔ 2026-10-06 시트 30명의 번호와 이름이 정확히 일치하고 앱에는 기본 임무가 없다 (10.824459ms)
+✔ 2026-10-06 멤버 교체는 한 번만 이관하고 기존 선수의 편집·빈 명단·원본을 보존한다 (15.796125ms)
+✔ 2026-10-06 이미 편집한 새 선수는 중복 추가하거나 덮어쓰지 않는다 (10.057916ms)
+✔ 2026-10-04 시트 자리 변경: 저장본의 이전 기본 번호만 한 번 새 번호로 옮기고 직접 바꾼 번호는 보존한다 (13.433458ms)
+✔ 2026-10-04 자리 변경 전 배치: 옛 기본 자리에 남은 말만 새 번호 자리로 한 번 옮긴다 (10.36875ms)
+✔ 구버전 명단은 ID와 편집을 보존하며 30명으로 이관하고 삭제 선수의 모든 장면 배치와 카드를 정리한다 (10.746917ms)
+✔ 구글 시트 임무는 머리글 이름으로 열을 찾고 따옴표·줄바꿈·빈 칸·잘못된 행·공통 임무 행을 처리한다 (10.093041ms)
+✔ 8강 개인 임무의 색·맨 위 안내 칸은 있으면 읽고 없거나 비면 넣지 않는다 (9.546875ms)
+✔ 8강 공통 임무 탭은 번호·내용 머리글로 읽고 빈 내용은 숨기며 번호가 비면 순서대로 매긴다 (12.577417ms)
+✔ 공통 임무의 [색:문구]는 그 문구만 색으로 나누고 모르는 색·짝 없는 괄호는 글자 그대로 둔다 (9.536459ms)
+✔ 스테프 탭은 머리글로 열을 찾고 공통 규칙·군·순번·사용 위치를 읽으며 잘못된 행을 무시한다 (10.132167ms)
+✔ 현재 스테프 부대구성 머리글과 스타팅/지정 STAFF 표기를 읽고 기존 사용 방법도 함께 보존한다 (9.964ms)
+✔ PC 지도 카드도 최신 시트의 메인·서브·부대와 루시아 환산을 읽고 저장된 수동 편집·삭제는 덮어쓰지 않는다 (13.569417ms)
+✔ 시트 「명단」에서 이름만 바뀐 기본 자리 선수는 PC에서도 그 번호의 시트 임무와 새 이름을 쓴다 (9.062167ms)
+✔ 8강 루시아 시트 문장은 그대로 보이고, 탑·바텀을 바꿔 부르며, 화살표는 16강과 같은 곳을 가리킨다 (10.197375ms)
+✔ 19번 5000·26번 Elega 변경은 기존 ID·카드·수동 배치를 보존하며 기본 자리만 한 번 옮긴다 (14.590333ms)
+✔ STAFF 포인트 두 곳은 성 자리와 겹치지 않고 진영과 함께 돌며, 스테프 화살표는 군에 맞는 곳에서 목적지로 간다 (18.051833ms)
+✔ 루시아 카드는 시트의 이안 기준 위치 문구를 좌우 환산한다 (9.828417ms)
+✔ 안내 이미지대로 TOP·Bottom Line을 15명씩 나누고 출구를 진영에 맞춰 돌린다 (10.259583ms)
+✔ 입구막팀의 메인 임무만 담당 라인의 적 입구 차단 표시를 만든다 (10.54025ms)
+✔ 임무 화살표는 시계와 거점 이름을 함께 확인하고 획득 조건 뒤의 실제 목표로 향한다 (13.01625ms)
+✔ 전망대 1·2와 명시된 적 TOP·Bottom 입구는 자기 진영과 담당 방향에 맞춘다 (9.772ms)
+✔ 집결 탑승은 해당 집결장의 실제 목표로 향하고 필드 부대에는 임의의 화살표가 없다 (9.31975ms)
+✔ 모바일 카드 가독성: 문장 줄 나누기·위치/타이밍 강조·같은 부대 묶기 (9.374833ms)
+✔ server-renders the Heinapel War Table (38.832792ms)
+✔ keeps the interactive operation features and map assets wired (2.7455ms)
+ℹ tests 36
+ℹ suites 0
+ℹ pass 36
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 604.710167
+exit=0
