@@ -1,5 +1,13 @@
 # 진행 상황
 
+갱신: 2026-11-03 — 스테프 순번 화면 공개 버전 42 배포 · 사용자 시트 정리분 점검
+
+- 배포: 사용자 "배포해줘". codex Sites 흐름으로 33b5f65를 버전 42(appgver_bb3b21b590148191b3c8e67da4a6bb2a)로 배포, appgdep_6ae8c863bc288191a1892194d2b529f0 succeeded, active·public, 테스트 37개, 아카이브 9,270,283바이트(SHA-256 084107ff…feb0e), 자격증명 폐기. 공개 staff-check.py 390/320/PC(탑 11·바텀 8·시작 5곳)·cards-check.py 통과. FEATURES [x]. 공유 링크 `https://heinapel-war-table.formars0309.chatgpt.site/#staff`.
+- 시트 점검(사용자가 직접 정리): gviz 재수집 `work/sheet-check-20261103/`. '4강 개인 임무' 30명 거의 전부(팀명·메인·서브·부대·색·맨 위 안내)와 '4강 스테프' 14행 변경, 다른 7개 탭 무변경. `compute.mjs`로 30명 차단·화살표·STAFF 표시 계산, 공개 카드 14·26·28·6·21 확인 — 원문·색·안내·전망대 화살표 정상.
+- 발견: ① '4강 스테프' 14행(GINSENG MAN) 군이 '스타팅'인데 순번 7·바텀이 들어가 앱은 "시작 스테프·목적지 미정"으로 읽음. 28행(보수) 군이 '지정'인데 순번·위치 비고 목적지 '전망대' → "지정 바텀(순번 없음)". 군 칸을 서로 바꿔야 의도대로(정정안 `edits-group.json`, 사용자 확인 전 미기록). ② '테슬라님 집결 탑승'(21·22·28·29 3번 부대)은 TESLA 1번부대 문장에 장소가 없어 화살표 없음(글은 표시). ③ 팀명 '탑/바텀 입구막팀'은 entranceBlock이 '입구막팀' 정확 일치만 보므로 차단 표시 대신 라인 출구 화살표(8강부터 같음).
+
+---
+
 갱신: 2026-11-03 — 폰 '스테프 순번' 화면(시트 「4강 스테프」 연동, 공개 배포 전)
 
 - 사용자: 이미지 대신 모바일 링크에서 보는 탭. missions.ts quarterStaffOrders(지정군 포인트별 순번 순, 사용 위치 비면 루시아 자리, 시작군 목적지별), briefing.tsx STAFF_HASH("#staff")·staffOpen 상태·첫 화면 '지정 스테프 순번 보기' 버튼·QuarterStaffBoard(탑/바텀 포인트 순번 목록 + 종류 꼬리표, 시작 스테프, 공통 규칙), war-table.tsx는 #staff도 카드 화면으로. CSS .quarter-staff-link/.quarter-staff-cols/.quarter-orders/.quarter-starts. 테스트 1개 추가·해시 단언 수정(37개).
