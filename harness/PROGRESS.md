@@ -1,5 +1,12 @@
 # 진행 상황
 
+갱신: 2026-11-03 — 4강 지정 스테프 순번 이미지(탑 11·바텀 8) 드라이브 비공유 업로드
+
+- 사용자 "스테프 임무 그림으로 볼 수 있는 링크?" — 11-01 이미지는 8강 기준이라 '4강 스테프' gviz(after2)에서 지정 순번만 뽑아 `work/staff-image-20261103/staff.html`(11-01 양식, 욘두·마구니 줄 강조) → Chrome 헤드리스 2배 560×722 PNG(1120×1444, 110,717바이트). codex `google_drive_upload_file`로 내 드라이브 최상위 비공유 업로드(ID 1iS8un9EPECcEJovXPPQDwPpI3nxRLXbu). 8강 이미지(1f9NKb…)는 그대로 둠. 공유 설정은 사용자 요청 시에만.
+- 공개 사이트는 agent-browser 헤디드 세션 `wb-semi-mobile-view`(390×844)로 띄워 둠.
+
+---
+
 갱신: 2026-11-03 — 4강 공개 버전 41 배포 · 욘두·마구니 탑 지정 스테프 10·11번(시트만)
 
 - 배포: 사용자 "배포해줘". codex Sites 흐름으로 575e022를 버전 41(appgver_7a1d11ebeb888191b542cb8445ec3f49)로 배포, appgdep_6ae8ad8d8e088191bd87ed18e6842b57 succeeded, active·public, 테스트 36개, 아카이브 9,269,447바이트(SHA-256 7122a49e…9225d3), source SHA 일치, 단기 자격증명 폐기. 첫 시도는 내 셸 명령 실수(`git rev-parse --short`에 인자 2개)로 codex 실행 전에 멈춤, 재실행 성공. 공개 cards-check.py 390px 30명·320px 4명·PC #common 통과.
