@@ -26,7 +26,7 @@ async function historyHelpers() {
   return runInNewContext(`${js}\n({ initialHistory, operationHistory })`, { structuredClone });
 }
 
-test("시트 새로고침은 늦은 이전 응답을 무시하고 탭별(임무·STAFF·8강 공통·8강 개인·8강 STAFF) 실패와 마지막 데이터를 보존한다", async () => {
+test("시트 새로고침은 늦은 이전 응답을 무시하고 탭별(임무·STAFF·4강 공통·4강 개인·4강 STAFF) 실패와 마지막 데이터를 보존한다", async () => {
   const hook = stripModule(await readApp(["use-mission-sheets.ts"]));
   const js = ts.transpileModule(hook, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
   const states = [], requests = [];
@@ -50,15 +50,15 @@ test("시트 새로고침은 늦은 이전 응답을 무시하고 탭별(임무�
     },
   });
   const settle = () => new Promise(setImmediate);
-  // 한 번 읽을 때마다 탭 다섯 개를 요청한다: 0 임무, 1 STAFF, 2 8강 공통, 3 8강 개인 임무, 4 8강 STAFF.
+  // 한 번 읽을 때마다 탭 다섯 개를 요청한다: 0 임무, 1 STAFF, 2 4강 공통, 3 4강 개인 임무, 4 4강 STAFF.
   const batch = (index) => requests.slice(index * 5, index * 5 + 5);
   assert.deepEqual(requests.map(({ url }) => url), ["mission", "staff", "quarter", "quarter-mission", "quarter-staff"]);
   refresh();
   const [m1, s1, q1, qm1, qs1] = batch(1);
-  m1.resolve("최신 임무"); s1.resolve("최신 STAFF"); q1.resolve("최신 공통"); qm1.resolve("최신 8강 임무"); qs1.resolve("최신 8강 STAFF");
+  m1.resolve("최신 임무"); s1.resolve("최신 STAFF"); q1.resolve("최신 공통"); qm1.resolve("최신 4강 임무"); qs1.resolve("최신 4강 STAFF");
   await settle();
   const [m0, s0, q0, qm0, qs0] = batch(0);
-  m0.resolve("이전 임무"); s0.reject(new Error("이전 요청 실패")); q0.resolve("이전 공통"); qm0.resolve("이전 8강 임무"); qs0.reject(new Error("이전 요청 실패"));
+  m0.resolve("이전 임무"); s0.reject(new Error("이전 요청 실패")); q0.resolve("이전 공통"); qm0.resolve("이전 4강 임무"); qs0.reject(new Error("이전 요청 실패"));
   await settle();
   assert.equal(states[0].data, "최신 임무");
   assert.equal(states[0].failed, false);
@@ -66,14 +66,14 @@ test("시트 새로고침은 늦은 이전 응답을 무시하고 탭별(임무�
   assert.equal(states[1].failed, false);
   assert.equal(states[2].data, "최신 공통");
   assert.equal(states[2].failed, false);
-  assert.equal(states[3].data, "최신 8강 임무");
+  assert.equal(states[3].data, "최신 4강 임무");
   assert.equal(states[3].failed, false);
-  assert.equal(states[4].data, "최신 8강 STAFF");
+  assert.equal(states[4].data, "최신 4강 STAFF");
   assert.equal(states[4].failed, false);
 
   refresh();
   const [m2, s2, q2, qm2, qs2] = batch(2);
-  m2.reject(new Error("임무 탭 실패")); s2.resolve("갱신 STAFF"); q2.reject(new Error("8강 공통 탭 실패")); qm2.reject(new Error("8강 개인 탭 실패")); qs2.resolve("갱신 8강 STAFF");
+  m2.reject(new Error("임무 탭 실패")); s2.resolve("갱신 STAFF"); q2.reject(new Error("4강 공통 탭 실패")); qm2.reject(new Error("4강 개인 탭 실패")); qs2.resolve("갱신 4강 STAFF");
   await settle();
   assert.equal(states[0].data, "최신 임무");
   assert.equal(states[0].failed, true);
@@ -81,14 +81,14 @@ test("시트 새로고침은 늦은 이전 응답을 무시하고 탭별(임무�
   assert.equal(states[1].failed, false);
   assert.equal(states[2].data, "최신 공통");
   assert.equal(states[2].failed, true);
-  assert.equal(states[3].data, "최신 8강 임무");
+  assert.equal(states[3].data, "최신 4강 임무");
   assert.equal(states[3].failed, true);
-  assert.equal(states[4].data, "갱신 8강 STAFF");
+  assert.equal(states[4].data, "갱신 4강 STAFF");
   assert.equal(states[4].failed, false);
 
   onVisible();
   const [m3, s3, q3, qm3, qs3] = batch(3);
-  m3.resolve("복귀 후 임무"); s3.reject(new Error("STAFF 탭 실패")); q3.resolve("복귀 후 공통"); qm3.resolve("복귀 후 8강 임무"); qs3.reject(new Error("8강 STAFF 탭 실패"));
+  m3.resolve("복귀 후 임무"); s3.reject(new Error("STAFF 탭 실패")); q3.resolve("복귀 후 공통"); qm3.resolve("복귀 후 4강 임무"); qs3.reject(new Error("4강 STAFF 탭 실패"));
   await settle();
   assert.equal(states[0].data, "복귀 후 임무");
   assert.equal(states[0].failed, false);
@@ -96,16 +96,16 @@ test("시트 새로고침은 늦은 이전 응답을 무시하고 탭별(임무�
   assert.equal(states[1].failed, true);
   assert.equal(states[2].data, "복귀 후 공통");
   assert.equal(states[2].failed, false);
-  assert.equal(states[3].data, "복귀 후 8강 임무");
+  assert.equal(states[3].data, "복귀 후 4강 임무");
   assert.equal(states[3].failed, false);
-  assert.equal(states[4].data, "갱신 8강 STAFF");
+  assert.equal(states[4].data, "갱신 4강 STAFF");
   assert.equal(states[4].failed, true);
 
   refresh();
   const before = JSON.stringify(states);
   cleanup();
   const [m4, s4, q4, qm4, qs4] = batch(4);
-  m4.resolve("종료 후 임무"); s4.reject(new Error("종료 후 실패")); q4.resolve("종료 후 공통"); qm4.resolve("종료 후 8강 임무"); qs4.reject(new Error("종료 후 실패"));
+  m4.resolve("종료 후 임무"); s4.reject(new Error("종료 후 실패")); q4.resolve("종료 후 공통"); qm4.resolve("종료 후 4강 임무"); qs4.reject(new Error("종료 후 실패"));
   await settle();
   assert.equal(JSON.stringify(states), before);
   assert.ok(cleared && removed);
@@ -116,7 +116,7 @@ test("시트 사본: 저장된 원문을 응답 전에 먼저 보이고, 새 응
   const js = ts.transpileModule(hook, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
   const states = [], requests = [];
   const key = (tab) => `heinapel-sheet-cache:${tab}`;
-  const store = new Map([[key("mission"), "사본 임무"], [key("quarter"), "깨진 사본"], [key("quarter-mission"), "사본 8강 임무"]]);
+  const store = new Map([[key("mission"), "사본 임무"], [key("quarter"), "깨진 사본"], [key("quarter-mission"), "사본 4강 임무"]]);
   runInNewContext(`${js}\nuseMissionSheets();`, {
     useState(initial) {
       const index = states.length;
@@ -133,17 +133,17 @@ test("시트 사본: 저장된 원문을 응답 전에 먼저 보이고, 새 응
     localStorage: { getItem: (name) => store.get(name) ?? null, setItem(name, value) { if (name === key("staff")) throw new Error("저장소 가득 참"); store.set(name, value); } },
   });
   // 응답 전: 사본이 있는 탭은 바로 보이고, 깨진 사본·사본 없는 탭은 비어 있다. 요청은 그대로 다섯 개.
-  assert.deepEqual(states.map((state) => state.data), ["사본 임무", null, null, "사본 8강 임무", null]);
+  assert.deepEqual(states.map((state) => state.data), ["사본 임무", null, null, "사본 4강 임무", null]);
   assert.ok(states.every((state) => !state.failed));
   assert.deepEqual(requests.map(({ url }) => url), ["mission", "staff", "quarter", "quarter-mission", "quarter-staff"]);
   const [mission, staff, quarter, quarterMission] = requests;
-  mission.resolve("새 임무"); staff.resolve("새 STAFF"); quarter.resolve("새 공통"); quarterMission.reject(new Error("8강 개인 탭 실패"));
+  mission.resolve("새 임무"); staff.resolve("새 STAFF"); quarter.resolve("새 공통"); quarterMission.reject(new Error("4강 개인 탭 실패"));
   await new Promise(setImmediate);
   assert.deepEqual(JSON.parse(JSON.stringify(states.slice(0, 3))), [{ data: "새 임무", failed: false }, { data: "새 STAFF", failed: false }, { data: "새 공통", failed: false }]);
-  assert.deepEqual({ ...states[3] }, { data: "사본 8강 임무", failed: true });
+  assert.deepEqual({ ...states[3] }, { data: "사본 4강 임무", failed: true });
   assert.equal(store.get(key("mission")), "새 임무");
   assert.equal(store.get(key("quarter")), "새 공통");
-  assert.equal(store.get(key("quarter-mission")), "사본 8강 임무");
+  assert.equal(store.get(key("quarter-mission")), "사본 4강 임무");
   assert.equal(store.has(key("staff")), false, "사본 저장에 실패해도 화면은 새 내용");
 });
 
@@ -489,7 +489,7 @@ test("구글 시트 임무는 머리글 이름으로 열을 찾고 따옴표·�
   assert.throws(() => readMissionSheet('"번호","닉네임"\n"1","무잔"'));
 });
 
-test("8강 개인 임무의 색·맨 위 안내 칸은 있으면 읽고 없거나 비면 넣지 않는다", async () => {
+test("4강 개인 임무의 색·맨 위 안내 칸은 있으면 읽고 없거나 비면 넣지 않는다", async () => {
   const { readMissionSheet } = await rosterHelpers();
   const head = '"스타팅 포인트 번호","닉네임","소속팀","메인임무","서브임무","1번부대","2번부대","3번부대","4번부대","5번부대"';
   const { missions } = readMissionSheet([`${head},"색","맨 위 안내"`, '"1","무잔","펫 팀","","","","","","","","초록",""', '"3","바르니","생석 팀","","","","","","","","","첫 스타트에 집결 탑승"'].join("\n"));
@@ -500,7 +500,7 @@ test("8강 개인 임무의 색·맨 위 안내 칸은 있으면 읽고 없거�
   assert.equal("color" in readMissionSheet(`${head}\n"1","무잔","펫 팀","","","","","","",""`).missions.get(1), false);
 });
 
-test("8강 공통 임무 탭은 번호·내용 머리글로 읽고 빈 내용은 숨기며 번호가 비면 순서대로 매긴다", async () => {
+test("4강 공통 임무 탭은 번호·내용 머리글로 읽고 빈 내용은 숨기며 번호가 비면 순서대로 매긴다", async () => {
   const { readQuarterCommon } = await rosterHelpers();
   const csv = [
     '"내용","번호"',
@@ -637,14 +637,14 @@ test("시트 「명단」에서 이름만 바뀐 기본 자리 선수는 PC에�
   assert.equal(playerBrief({ ...tesla, nickname: "새로 만든 선수", slot: 7, brief: null }, sheet), undefined);
 });
 
-test("8강 루시아 시트 문장은 그대로 보이고, 탑·바텀을 바꿔 부르며, 화살표는 16강과 같은 곳을 가리킨다", async () => {
+test("4강 루시아 시트 문장은 그대로 보이고, 탑·바텀을 바꿔 부르며, 화살표는 16강과 같은 곳을 가리킨다", async () => {
   const { swapLineNames, quarterToIan, LUCIA_LINE_NAME, mirrorMission, buildMissionPlan, entranceBlock, staffRoute, lineExit } = await rosterHelpers();
   assert.equal(swapLineNames("탑 라인 / 바텀 입구 / 집결 탑승"), "바텀 라인 / 탑 입구 / 집결 탑승");
   assert.equal(quarterToIan("루시아 기준 7시 축복의 전당 집결장 및 주둔장"), "이안 기준 1시 천무의 전당 집결장 및 주둔장");
   assert.equal(quarterToIan("바텀 라인 입구막는 적 보병 처리 / 12시 용기 / 11시"), "탑 라인 입구막는 적 보병 처리 / 6시 용기 / 11시");
   assert.equal(LUCIA_LINE_NAME(true), "바텀");
   assert.equal(LUCIA_LINE_NAME(false), "탑");
-  // 16강 이안 기준 임무와, 같은 규칙으로 바꾼 8강 루시아 임무는 루시아 지도에서 같은 목적지를 가리킨다.
+  // 16강 이안 기준 임무와, 같은 규칙으로 바꾼 4강 루시아 임무는 루시아 지도에서 같은 목적지를 가리킨다.
   const ianUnits = ["1시 천무의 전당 집결", "3시 치료 주유", "6시 용기의 영목 주둔", "집결 탑승 (테슬라님)", "탑 라인 필드"];
   const leadersIan = new Map([["TESLA", ["3시 치료의 영목 집결", "", "", "", ""]]]);
   const luciaUnits = ianUnits.map((text) => swapLineNames(mirrorMission(text, "lucia")));
@@ -653,7 +653,7 @@ test("8강 루시아 시트 문장은 그대로 보이고, 탑·바텀을 바꿔
   assert.equal(JSON.stringify(quarter), JSON.stringify(old));
   assert.ok(old.routes.length >= 3);
   // 입구막팀: 시트의 "바텀 입구"는 이안 기준 TOP 입구이고, 화면 이름은 다시 바텀이다.
-  // 햄수 8강 4·5번: "탑 라인 거점 주유"는 루시아 탑(이안 기준 바텀) 라인 출구로, 경우를 단 전망대 뒷문장은 화살표에서 뺀다.
+  // 햄수 4강 4·5번: "탑 라인 거점 주유"는 루시아 탑(이안 기준 바텀) 라인 출구로, 경우를 단 전망대 뒷문장은 화살표에서 뺀다.
   const lineUnits = ["블링크 보병으로 탑 라인 거점 주유 / 아군 전망대 집결 당할경우 전망대 주유 지원", "하엘로 보병으로 탑 라인 거점 주유 / 아군 전망대 집결 당할경우 전망대 주유 지원"];
   const linePlan = buildMissionPlan(lineUnits.map(swapLineNames), "lucia", "tactical", new Map());
   assert.equal(JSON.stringify(linePlan.routes), JSON.stringify([{ target: "own-bottom-line", to: lineExit(25, "lucia", "tactical").point, units: [1, 2] }]));
@@ -662,7 +662,7 @@ test("8강 루시아 시트 문장은 그대로 보이고, 탑·바텀을 바꿔
   const block = entranceBlock({ team: "입구막팀", main: quarterToIan("적 바텀 입구 막기") }, "lucia", "tactical");
   assert.equal(block.top, true);
   assert.equal(LUCIA_LINE_NAME(block.top), "바텀");
-  // 8강 STAFF 시트의 사용 위치 "바텀"은 이안 기준 TOP 포인트다.
+  // 4강 STAFF 시트의 사용 위치 "바텀"은 이안 기준 TOP 포인트다.
   const plan = { slot: 1, group: "point", order: 5, top: false, target: "", method: "" };
   assert.equal(staffRoute({ ...plan, top: !plan.top }, 1, "lucia", "tactical", new Map()).top, true);
 });
@@ -866,8 +866,8 @@ test("server-renders the Heinapel War Table", async () => {
   assert.doesNotMatch(html, /mobile-management/);
   assert.doesNotMatch(html, /mobile-exit|is-pc/, "첫 화면(폰)에는 PC 카드 화면 표시가 없다");
   assert.match(html, /class="active tool-select"[^>]*><span>↖<\/span>선택<\/button>/);
-  // 폰 첫 화면은 8강 제목·공통 임무·명단이다. 16강의 0번·S 버튼과 진영 전환은 없다.
-  assert.match(html, /<h1 class="quarter-title">8강 \(루시아 진영\) <span>공통 임무 및 개별 임무<\/span><\/h1>/);
+  // 폰 첫 화면은 4강 제목·공통 임무·명단이다. 16강의 0번·S 버튼과 진영 전환은 없다.
+  assert.match(html, /<h1 class="quarter-title">4강 \(루시아 진영\) <span>공통 임무 및 개별 임무<\/span><\/h1>/);
   assert.doesNotMatch(html, /class="mobile-common"|class="mobile-side"/);
   assert.match(html, /PLAYER ROSTER/);
   assert.match(html, /핵심 작전 도구/);
@@ -914,7 +914,7 @@ test("keeps the interactive operation features and map assets wired", async () =
     ]);
   // 공유 링크 주소#common은 폰·PC 모두 카드 화면의 공통 카드를 열고, 다른 화면으로 가면 주소를 비운다.
   assert.match(warTable, /const COMMON_HASH = "#common";/);
-  assert.match(warTable, /<h1 className="quarter-title">8강 \(루시아 진영\) <span>공통 임무 및 개별 임무<\/span><\/h1>/);
+  assert.match(warTable, /<h1 className="quarter-title">4강 \(루시아 진영\) <span>공통 임무 및 개별 임무<\/span><\/h1>/);
   assert.match(warTable, /if \(location\.hash !== COMMON_HASH\) try \{/);
   assert.match(warTable, /<h2 className="quarter-roster-title">내 이름을 누르면 개인 임무와 STAFF 사용법이 보입니다<\/h2>/);
   assert.match(warTable, /if \(location\.hash === COMMON_HASH\) setCardsOpen\(true\);/);
@@ -932,7 +932,7 @@ test("keeps the interactive operation features and map assets wired", async () =
   // 도구 버튼은 다시 눌러도 꺼지지 않아 라인을 이어 그을 수 있고, 끄는 곳은 '선택' 버튼이다.
   assert.match(warTable, /onClick=\{\(\) => setTool\(item\.id\)\}/);
   assert.match(warTable, /\{ id: "select", label: "선택"/);
-  // PC 지도 도구줄의 스테프 카드 버튼은 S 카드 부품을 창으로 띄운다. 폰(8강)은 STAFF 사용법을 개인 카드에 싣는다.
+  // PC 지도 도구줄의 스테프 카드 버튼은 S 카드 부품을 창으로 띄운다. 폰(4강)은 STAFF 사용법을 개인 카드에 싣는다.
   assert.match(warTable, /className="staff-open" onClick=\{\(\) => setStaffOpen\(true\)\}/);
   assert.match(warTable, /\{staffOpen && <StaffDialog /);
   assert.equal(warTable.match(/<StaffBoard /g)?.length, 1, "PC 스테프 창의 S 카드 부품");

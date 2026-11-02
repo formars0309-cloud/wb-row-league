@@ -38,15 +38,15 @@ export function entranceBlock(mission: SheetMission | undefined, side: MissionSi
   if (!top && !/바텀|bottom/i.test(mission.main)) return null;
   return { top, point: enemyGate(top, side, variant) };
 }
-// 8강 시트는 루시아 기준이라 탑·바텀도 이안과 반대로 부른다('탑승'은 제외). 두 번 바꾸면 원래 문장이다.
+// 4강 시트는 루시아 기준이라 탑·바텀도 이안과 반대로 부른다('탑승'은 제외). 두 번 바꾸면 원래 문장이다.
 export function swapLineNames(text: string) {
   return text.replace(/바텀|탑(?!승)/g, (word) => word === "탑" ? "바텀" : "탑");
 }
-// 화살표 계산은 이안 기준 문장을 받으므로 루시아 8강 문장을 되돌려 넘긴다.
+// 화살표 계산은 이안 기준 문장을 받으므로 루시아 4강 문장을 되돌려 넘긴다.
 export function quarterToIan(text: string) {
   return swapLineNames(mirrorMission(text, "lucia"));
 }
-// 이안 기준 TOP 쪽이 루시아 8강의 바텀이다.
+// 이안 기준 TOP 쪽이 루시아 4강의 바텀이다.
 export function LUCIA_LINE_NAME(top: boolean) {
   return top ? "바텀" : "탑";
 }

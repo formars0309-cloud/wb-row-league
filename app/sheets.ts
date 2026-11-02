@@ -88,18 +88,18 @@ export function readStaffSheet(text: string): StaffSheet {
   }
   return { plans, common };
 }
-// 8강 공통 임무는 「8강 공통 임무」 탭(번호·내용)에서 읽는다. 루시아 기준으로 쓰므로 환산하지 않는다.
-export const QUARTER_COMMON_CSV = sheetCsvUrl("8강 공통 임무");
-// 8강 개인 임무·스테프 탭은 16강 탭과 열이 같아 같은 파서를 쓴다.
-export const QUARTER_MISSION_CSV = sheetCsvUrl("8강 개인 임무");
-export const QUARTER_STAFF_CSV = sheetCsvUrl("8강 스테프");
+// 4강 공통 임무는 「4강 공통 임무」 탭(번호·내용)에서 읽는다. 루시아 기준으로 쓰므로 환산하지 않는다.
+export const QUARTER_COMMON_CSV = sheetCsvUrl("4강 공통 임무");
+// 4강 개인 임무·스테프 탭은 16강 탭과 열이 같아 같은 파서를 쓴다.
+export const QUARTER_MISSION_CSV = sheetCsvUrl("4강 개인 임무");
+export const QUARTER_STAFF_CSV = sheetCsvUrl("4강 스테프");
 export type QuarterCommon = Array<{ no: string; body: string }>;
 export function readQuarterCommon(text: string): QuarterCommon {
   const [head = [], ...rows] = parseCsv(text);
   const column = headerColumns(head);
   const at = { no: column("번호"), body: column("내용") };
   // 없는 탭을 요청하면 gviz가 첫 탭을 돌려주므로 머리글로 걸러낸다.
-  if (at.no < 0 || at.body < 0) throw new Error("8강 공통 임무 머리글을 찾지 못했습니다");
+  if (at.no < 0 || at.body < 0) throw new Error("4강 공통 임무 머리글을 찾지 못했습니다");
   // 내용이 빈 줄은 아직 쓰지 않은 번호라 화면에 내지 않는다. 번호가 비면 화면 순서로 매긴다.
   const items = rows.map((row) => ({ no: (row[at.no] ?? "").trim(), body: (row[at.body] ?? "").trim() })).filter((item) => item.body);
   return items.map((item, index) => ({ no: item.no || String(index + 1), body: item.body }));

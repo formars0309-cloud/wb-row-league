@@ -1,4 +1,4 @@
-// 8강 루시아 브리핑(폰 화면·PC 카드 화면)과 S 스테프 카드.
+// 4강 루시아 브리핑(폰 화면·PC 카드 화면)과 S 스테프 카드.
 import { useEffect, useRef, useState } from "react";
 import { type MissionSide, MISSION_SIDE_LABEL, OBJECTIVE_META, clamp, TOP_LINE_SLOTS, lineExit, slotPoint } from "./map-geometry";
 import { type MissionSheet, type StaffPlan, type StaffSheet, type QuarterCommon, QUARTER_COLORS, colorParts } from "./sheets";
@@ -24,7 +24,7 @@ function ColorText({ text }: { text: string }) {
   return <>{colorParts(text).map((part, index) => part.color ? <strong key={index} style={{ color: part.color }}>{part.text}</strong> : part.text)}</>;
 }
 const MOBILE_SLOTS = Array.from({ length: 30 }, (_, index) => index + 1);
-// 공유 링크(주소#common)는 폰·PC 모두 카드 화면의 8강 공통 카드를 바로 연다.
+// 공유 링크(주소#common)는 폰·PC 모두 카드 화면의 4강 공통 카드를 바로 연다.
 export const COMMON_HASH = "#common";
 // S 스테프 카드: 공통 규칙, 시작군 명단, 지정군 포인트별 순번표, 미배정. 폰 화면과 PC 창이 같이 쓴다.
 function StaffBoard({ staff, side, nameOf }: { staff: SheetState<StaffSheet>; side: MissionSide; nameOf: (slot: number) => string }) {
@@ -73,13 +73,13 @@ export function StaffDialog({ staff, side, nameOf, onClose }: { staff: SheetStat
     <StaffBoard staff={staff} side={side} nameOf={nameOf} />
   </dialog>;
 }
-// 8강 공통 카드: 시트에 적은 번호·내용만 그대로 보인다. 줄 나눔·강조를 더하지 않고 칸 안의 줄바꿈만 살린다.
+// 4강 공통 카드: 시트에 적은 번호·내용만 그대로 보인다. 줄 나눔·강조를 더하지 않고 칸 안의 줄바꿈만 살린다.
 function QuarterCommonBoard({ quarter }: { quarter: SheetState<QuarterCommon> }) {
   if (!quarter.data) return <p className="quarter-empty">{quarter.failed ? "공통 임무를 불러오지 못했습니다" : "불러오는 중…"}</p>;
   if (!quarter.data.length) return <p className="quarter-empty">임무 준비 중</p>;
   return <ol className="quarter-items">{quarter.data.map((item, index) => <li key={index}><b>{item.no}</b><p><ColorText text={item.body} /></p></li>)}</ol>;
 }
-// 폰 화면과 PC 카드 화면(onExit)은 8강 루시아 브리핑이다. 첫 화면은 제목·공통 임무·1~30번 명단, 이름을 누르면 개인 카드.
+// 폰 화면과 PC 카드 화면(onExit)은 4강 루시아 브리핑이다. 첫 화면은 제목·공통 임무·1~30번 명단, 이름을 누르면 개인 카드.
 export function MobileBriefing({ players, quarter, missionSheet, staffSheet, onExit }: { players: Player[]; quarter: SheetState<QuarterCommon>; missionSheet: SheetState<MissionSheet>; staffSheet: SheetState<StaffSheet>; onExit?: () => void }) {
   const [picked, setPicked] = useState<number | null>(null);
   // 저장된 선택을 읽기 전(서버 첫 화면 포함)에는 첫 화면과 카드 중 어디로 갈지 모른다.
@@ -101,15 +101,15 @@ export function MobileBriefing({ players, quarter, missionSheet, staffSheet, onE
   };
   const missions = missionSheet.data?.missions;
   const nameOf = (slot: number) => slotName(missions, players, slot);
-  // 「8강 개인 임무」 색 칸(초록·빨강·파랑·주황·노랑)으로 닉네임에 색을 입힌다.
+  // 「4강 개인 임무」 색 칸(초록·빨강·파랑·주황·노랑)으로 닉네임에 색을 입힌다.
   const colorOf = (slot: number) => QUARTER_COLORS[missions?.get(slot)?.color ?? ""];
   const shell = `mobile-shell is-quarter${onExit ? " is-pc" : ""}`;
   const homeTop = <header className="mobile-top">
-    <h1 className="quarter-title">8강 (루시아 진영) <span>공통 임무 및 개별 임무</span></h1>
+    <h1 className="quarter-title">4강 (루시아 진영) <span>공통 임무 및 개별 임무</span></h1>
     {onExit && <button type="button" className="mobile-exit" onClick={onExit}>작전판</button>}
   </header>;
 
-  // 8강 세 탭이 오거나(사본 포함) 실패할 때까지는 제목과 "불러오는 중…"만 보인다. 앱 기본 명단·빈 공통 임무가
+  // 4강 세 탭이 오거나(사본 포함) 실패할 때까지는 제목과 "불러오는 중…"만 보인다. 앱 기본 명단·빈 공통 임무가
   // 먼저 보였다가 시트 내용으로 바뀌며 밀리거나, 첫 화면이 보였다가 저장된 카드로 넘어가는 것을 막는다.
   const settled = [quarter, missionSheet, staffSheet].every((tab) => tab.data !== null || tab.failed);
   if (!restored || !settled) return <div className={shell}>{homeTop}<p className="quarter-empty">불러오는 중…</p></div>;
