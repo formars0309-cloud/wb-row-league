@@ -50,6 +50,16 @@ export function quarterToIan(text: string) {
 export function LUCIA_LINE_NAME(top: boolean) {
   return top ? "바텀" : "탑";
 }
+// 4강 스테프 순번 화면: 지정군은 포인트(탑·바텀)별 순번 순, 시작군은 목적지별로 모은다. 사용 위치가 비면
+// 루시아 자리로 정한다(이안 TOP 자리 = 루시아 바텀). 문장은 루시아 기준 그대로라 환산하지 않는다.
+export function quarterStaffOrders(plans: Map<number, StaffPlan>) {
+  const list = [...plans.values()];
+  const isTop = (plan: StaffPlan) => plan.top ?? !TOP_LINE_SLOTS.has(plan.slot);
+  const points = (top: boolean) => list.filter((plan) => plan.group === "point" && isTop(plan) === top).sort((a, b) => (a.order ?? 99) - (b.order ?? 99) || a.slot - b.slot);
+  const starts = new Map<string, StaffPlan[]>();
+  list.filter((plan) => plan.group === "start").forEach((plan) => starts.set(plan.target, [...(starts.get(plan.target) ?? []), plan]));
+  return { top: points(true), bottom: points(false), starts: [...starts] };
+}
 export function staffLabel(plan: StaffPlan, slot: number) {
   return plan.group === "start" ? "시작 스테프 · 게임 시작 직후" : `지정 스테프 · ${plan.top ?? TOP_LINE_SLOTS.has(slot) ? "TOP" : "BOTTOM"} 포인트${plan.order ? ` ${plan.order}번째` : ""}`;
 }

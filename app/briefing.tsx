@@ -4,7 +4,7 @@ import { type MissionSide, MISSION_SIDE_LABEL, OBJECTIVE_META, clamp, TOP_LINE_S
 import { type MissionSheet, type StaffPlan, type StaffSheet, type QuarterCommon, QUARTER_COLORS, colorParts } from "./sheets";
 import { type SheetState } from "./use-mission-sheets";
 import { type Player } from "./operation";
-import { mirrorMission, entranceBlock, swapLineNames, quarterToIan, LUCIA_LINE_NAME, missionLines, missionParts, groupUnits, buildMissionPlan, staffRoute, slotName } from "./missions";
+import { mirrorMission, entranceBlock, swapLineNames, quarterToIan, LUCIA_LINE_NAME, missionLines, missionParts, groupUnits, buildMissionPlan, staffRoute, slotName, quarterStaffOrders } from "./missions";
 import { type MissionOrders } from "./roster";
 
 // 폰 화면: 첫 화면은 주전 30명 번호순 3열, 이름을 누르면 시트 임무를 04 작전보드형 카드로 보여 준다.
@@ -26,6 +26,8 @@ function ColorText({ text }: { text: string }) {
 const MOBILE_SLOTS = Array.from({ length: 30 }, (_, index) => index + 1);
 // 공유 링크(주소#common)는 폰·PC 모두 카드 화면의 4강 공통 카드를 바로 연다.
 export const COMMON_HASH = "#common";
+// 공유 링크(주소#staff)는 4강 스테프 순번 화면을 바로 연다.
+export const STAFF_HASH = "#staff";
 // S 스테프 카드: 공통 규칙, 시작군 명단, 지정군 포인트별 순번표, 미배정. 폰 화면과 PC 창이 같이 쓴다.
 function StaffBoard({ staff, side, nameOf }: { staff: SheetState<StaffSheet>; side: MissionSide; nameOf: (slot: number) => string }) {
   const plans = staff.data?.plans;
@@ -79,16 +81,35 @@ function QuarterCommonBoard({ quarter }: { quarter: SheetState<QuarterCommon> })
   if (!quarter.data.length) return <p className="quarter-empty">임무 준비 중</p>;
   return <ol className="quarter-items">{quarter.data.map((item, index) => <li key={index}><b>{item.no}</b><p><ColorText text={item.body} /></p></li>)}</ol>;
 }
+// 4강 스테프 순번 화면: 「4강 스테프」 탭의 지정 순번(탑·바텀 포인트)과 시작 스테프(목적지별)를 시트 그대로 보인다.
+function QuarterStaffBoard({ staff, nameOf, colorOf }: { staff: SheetState<StaffSheet>; nameOf: (slot: number) => string; colorOf: (slot: number) => string | undefined }) {
+  if (!staff.data) return <p className="quarter-empty">{staff.failed ? "스테프 표를 불러오지 못했습니다" : "불러오는 중…"}</p>;
+  const orders = quarterStaffOrders(staff.data.plans);
+  const groups = [{ title: "탑 포인트", items: orders.top }, { title: "바텀 포인트", items: orders.bottom }];
+  return <article className="quarter-card">
+    {staff.data.common && <p className="quarter-team">{staff.data.common}</p>}
+    <section className="quarter-section"><h2>지정 스테프 순번 · 라인 포인트에서 타는 차례</h2>
+      <div className="quarter-staff-cols">{groups.map((group) => <div key={group.title}><h3>{group.title}<small>{group.items.length}명</small></h3>
+        {group.items.length ? <ol className="quarter-orders">{group.items.map((plan) => <li key={plan.slot}><i>{plan.order ?? "–"}</i><span style={{ color: colorOf(plan.slot) }}>{nameOf(plan.slot)}<small>{plan.slot}</small></span>{plan.kind && <em>{plan.kind}</em>}</li>)}</ol> : <p className="quarter-empty">배정 없음</p>}
+      </div>)}</div>
+    </section>
+    {orders.starts.length > 0 && <section className="quarter-section"><h2>시작 스테프 · 게임 시작 직후</h2>
+      <ul className="quarter-starts">{orders.starts.map(([target, items]) => <li key={target}><b>{target || "목적지 미정"}</b><span>{items.map((plan) => <span key={plan.slot}><i>{plan.slot}</i>{nameOf(plan.slot)}</span>)}</span></li>)}</ul>
+    </section>}
+  </article>;
+}
 // 폰 화면과 PC 카드 화면(onExit)은 4강 루시아 브리핑이다. 첫 화면은 제목·공통 임무·1~30번 명단, 이름을 누르면 개인 카드.
 export function MobileBriefing({ players, quarter, missionSheet, staffSheet, onExit }: { players: Player[]; quarter: SheetState<QuarterCommon>; missionSheet: SheetState<MissionSheet>; staffSheet: SheetState<StaffSheet>; onExit?: () => void }) {
   const [picked, setPicked] = useState<number | null>(null);
+  const [staffOpen, setStaffOpen] = useState(false);
   // 저장된 선택을 읽기 전(서버 첫 화면 포함)에는 첫 화면과 카드 중 어디로 갈지 모른다.
   const [restored, setRestored] = useState(false);
 
   useEffect(() => {
     queueMicrotask(() => {
-      // 공유 링크(주소#common)는 늘 첫 화면에서 시작한다.
-      if (location.hash !== COMMON_HASH) try {
+      // 공유 링크(주소#common)는 늘 첫 화면, 주소#staff는 스테프 순번 화면에서 시작한다.
+      if (location.hash === STAFF_HASH) setStaffOpen(true);
+      else if (location.hash !== COMMON_HASH) try {
         const slot = Number(localStorage.getItem(MOBILE_PICK_KEY));
         if (MOBILE_SLOTS.includes(slot)) setPicked(slot);
       } catch { /* 사생활 모드에서는 그냥 고르게 둔다. */ }
@@ -114,11 +135,23 @@ export function MobileBriefing({ players, quarter, missionSheet, staffSheet, onE
   const settled = [quarter, missionSheet, staffSheet].every((tab) => tab.data !== null || tab.failed);
   if (!restored || !settled) return <div className={shell}>{homeTop}<p className="quarter-empty">불러오는 중…</p></div>;
 
+  if (staffOpen) return (
+    <div className={shell}>
+      <header className="mobile-top">
+        <button type="button" className="mobile-back" onClick={() => setStaffOpen(false)} aria-label="공통 임무와 명단으로 돌아가기">‹</button>
+        <h1 className="quarter-card-name">스테프 순번</h1>
+      </header>
+      {staffSheet.failed && staffSheet.data && <p className="mobile-sync" role="alert">최신 스테프 표를 불러오지 못했습니다. 마지막으로 받은 내용입니다.</p>}
+      <QuarterStaffBoard staff={staffSheet} nameOf={nameOf} colorOf={colorOf} />
+    </div>
+  );
+
   if (picked === null) return (
     <div className={shell}>
       {homeTop}
       {quarter.failed && quarter.data && <p className="mobile-sync" role="alert">최신 공통 임무를 불러오지 못했습니다. 마지막으로 받은 내용입니다.</p>}
       <QuarterCommonBoard quarter={quarter} />
+      <button type="button" className="quarter-staff-link" onClick={() => setStaffOpen(true)}>지정 스테프 순번 보기<span>›</span></button>
       <h2 className="quarter-roster-title">내 이름을 누르면 개인 임무와 STAFF 사용법이 보입니다</h2>
       <ol className="mobile-roster">{MOBILE_SLOTS.map((slot) => <li key={slot}><button type="button" onClick={() => pick(slot)}><b>{slot}</b><span style={{ color: colorOf(slot) }}>{nameOf(slot)}</span></button></li>)}</ol>
     </div>

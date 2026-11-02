@@ -5,7 +5,7 @@ import { type MapVariant, type MissionSide, type Point, MISSION_SIDE_LABEL, MISS
 import { useMissionSheets } from "./use-mission-sheets";
 import { type ObjectiveOwner, type MissionCard, type FairyDragonPosition, type Player, type TacticalObject, type Scene, type Operation, STORAGE_KEY, SECONDARY_LABEL, freshOperation, clone, playerSlot, readOperation, newPlayer } from "./operation";
 import { mirrorMission, sheetMissionForPlayer, shownName, staffLabel, missionEmphasis, missionsByNickname, missionView, editablePlayer, slotName } from "./missions";
-import { MOBILE_PICK_KEY, MissionText, MissionLines, COMMON_HASH, StaffDialog, MobileBriefing } from "./briefing";
+import { MOBILE_PICK_KEY, MissionText, MissionLines, COMMON_HASH, STAFF_HASH, StaffDialog, MobileBriefing } from "./briefing";
 import { PlayerEditor } from "./player-editor";
 import { ROLE_LABEL, type PrimaryRole } from "./roster";
 import { useOperationHistory } from "./operation-history";
@@ -140,7 +140,7 @@ export default function WarTable() {
           restore(restored);
         }
       } catch { setStorageError("저장 데이터를 읽지 못했습니다. 원본은 보존했습니다. JSON 백업을 확인해 주세요."); }
-      if (location.hash === COMMON_HASH) setCardsOpen(true);
+      if (location.hash === COMMON_HASH || location.hash === STAFF_HASH) setCardsOpen(true);
       setReady(true);
     });
   }, [restore]);

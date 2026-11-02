@@ -17,7 +17,7 @@ async function rosterHelpers() {
   const roster = await import(`data:text/javascript;base64,${Buffer.from(rosterJs).toString("base64")}`);
   const helpers = stripModule(await readApp(HELPER_MODULES));
   const js = ts.transpileModule(helpers, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
-  return runInNewContext(`${js}\n({ freshOperation, normalizeRoster, normalizeOperation, playerBrief, playerSlot, readMissionSheet, mirrorMission, lineExit, entranceBlock, missionTargets, buildMissionPlan, objectivePoint, OBJECTIVE_META, missionLines, missionParts, groupUnits, readStaffSheet, readQuarterCommon, colorParts, shownName, swapLineNames, quarterToIan, LUCIA_LINE_NAME, staffPoint, staffRoute, slotPoint, readOperation, missionView, missionsByNickname })`, { ...roster });
+  return runInNewContext(`${js}\n({ freshOperation, normalizeRoster, normalizeOperation, playerBrief, playerSlot, readMissionSheet, mirrorMission, quarterStaffOrders, lineExit, entranceBlock, missionTargets, buildMissionPlan, objectivePoint, OBJECTIVE_META, missionLines, missionParts, groupUnits, readStaffSheet, readQuarterCommon, colorParts, shownName, swapLineNames, quarterToIan, LUCIA_LINE_NAME, staffPoint, staffRoute, slotPoint, readOperation, missionView, missionsByNickname })`, { ...roster });
 }
 
 async function historyHelpers() {
@@ -489,6 +489,19 @@ test("구글 시트 임무는 머리글 이름으로 열을 찾고 따옴표·�
   assert.throws(() => readMissionSheet('"번호","닉네임"\n"1","무잔"'));
 });
 
+test("4강 스테프 순번은 포인트별 순번 순이고, 사용 위치가 비면 루시아 자리로 정하며, 시작 스테프는 목적지별로 모은다", async () => {
+  const { readStaffSheet, quarterStaffOrders } = await rosterHelpers();
+  const head = '"번호","닉네임","군","순번","사용 위치","목적지","부대구성","종류"';
+  const rows = ['"1","무잔","지정 순번 STAFF 사용","5","바텀","","","에테리얼 (7명까지가능)"', '"2","오소리","스타팅 STAFF 사용","","","7시 축복의 전당","주둔장 1",""',
+    '"7","TESLA","스타팅 STAFF 사용","","","7시 축복의 전당","아처 3",""', '"9","마구니","지정 순번 STAFF 사용","11","탑","","",""', '"16","욘두","지정 순번 STAFF 사용","10","탑","","",""',
+    '"26","Elega","지정 순번 STAFF 사용","1","","","",""', '"29","햄수","지정 순번 STAFF 사용","1","탑","","",""', '"30","늑대","지정 순번 STAFF 사용","","","","",""'];
+  const orders = quarterStaffOrders(readStaffSheet([head, ...rows].join("\n")).plans);
+  assert.deepEqual(Array.from(orders.top, (plan) => [plan.order, plan.slot]), [[1, 29], [10, 16], [11, 9], [null, 30]], "탑은 순번 순, 순번 없는 30번(이안 BOTTOM 자리 = 루시아 탑)은 맨 뒤");
+  assert.deepEqual(Array.from(orders.bottom, (plan) => [plan.order, plan.slot]), [[1, 26], [5, 1]], "26번은 사용 위치가 비어도 루시아 바텀(이안 TOP 자리)");
+  assert.equal(orders.top[2].kind, undefined); assert.equal(orders.bottom[1].kind, "에테리얼 (7명까지가능)");
+  assert.deepEqual(Array.from(orders.starts, ([target, items]) => [target, Array.from(items, (plan) => plan.slot)]), [["7시 축복의 전당", [2, 7]]]);
+});
+
 test("4강 개인 임무의 색·맨 위 안내 칸은 있으면 읽고 없거나 비면 넣지 않는다", async () => {
   const { readMissionSheet } = await rosterHelpers();
   const head = '"스타팅 포인트 번호","닉네임","소속팀","메인임무","서브임무","1번부대","2번부대","3번부대","4번부대","5번부대"';
@@ -915,9 +928,13 @@ test("keeps the interactive operation features and map assets wired", async () =
   // 공유 링크 주소#common은 폰·PC 모두 카드 화면의 공통 카드를 열고, 다른 화면으로 가면 주소를 비운다.
   assert.match(warTable, /const COMMON_HASH = "#common";/);
   assert.match(warTable, /<h1 className="quarter-title">4강 \(루시아 진영\) <span>공통 임무 및 개별 임무<\/span><\/h1>/);
-  assert.match(warTable, /if \(location\.hash !== COMMON_HASH\) try \{/);
+  assert.match(warTable, /if \(location\.hash === STAFF_HASH\) setStaffOpen\(true\);\n {6}else if \(location\.hash !== COMMON_HASH\) try \{/);
   assert.match(warTable, /<h2 className="quarter-roster-title">내 이름을 누르면 개인 임무와 STAFF 사용법이 보입니다<\/h2>/);
-  assert.match(warTable, /if \(location\.hash === COMMON_HASH\) setCardsOpen\(true\);/);
+  assert.match(warTable, /if \(location\.hash === COMMON_HASH \|\| location\.hash === STAFF_HASH\) setCardsOpen\(true\);/);
+  // 주소#staff와 첫 화면 버튼은 4강 스테프 순번 화면(탑·바텀 포인트 순번, 시작 스테프)을 연다.
+  assert.match(warTable, /const STAFF_HASH = "#staff";/);
+  assert.match(warTable, /<button type="button" className="quarter-staff-link" onClick=\{\(\) => setStaffOpen\(true\)\}>지정 스테프 순번 보기<span>›<\/span><\/button>/);
+  assert.match(warTable, /<QuarterStaffBoard staff=\{staffSheet\} nameOf=\{nameOf\} colorOf=\{colorOf\} \/>/);
 
   assert.match(warTable, /const STORAGE_KEY = "heinapel-war-table-v0\.3"/);
   assert.match(warTable, /const OBJECTIVE_META = \[/);

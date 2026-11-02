@@ -1,5 +1,13 @@
 # 진행 상황
 
+갱신: 2026-11-03 — 폰 '스테프 순번' 화면(시트 「4강 스테프」 연동, 공개 배포 전)
+
+- 사용자: 이미지 대신 모바일 링크에서 보는 탭. missions.ts quarterStaffOrders(지정군 포인트별 순번 순, 사용 위치 비면 루시아 자리, 시작군 목적지별), briefing.tsx STAFF_HASH("#staff")·staffOpen 상태·첫 화면 '지정 스테프 순번 보기' 버튼·QuarterStaffBoard(탑/바텀 포인트 순번 목록 + 종류 꼬리표, 시작 스테프, 공통 규칙), war-table.tsx는 #staff도 카드 화면으로. CSS .quarter-staff-link/.quarter-staff-cols/.quarter-orders/.quarter-starts. 테스트 1개 추가·해시 단언 수정(37개).
+- 검증: lint·typecheck·npm test 37개 통과, git diff --check. 로컬 4327 staff-check.py 390/320/PC 통과(탑 11·바텀 8 = 시트, 시작 스테프 5곳, #staff 직행), cards-check.py 통과, 캡처 확인. 서버 종료. 테스트에서 vm 컨텍스트 배열은 deepEqual이 프로토타입 차이로 실패하므로 Array.from으로 옮겨 비교.
+- 다음: 사용자 배포 요청 시 배포 → `python3 work/staff-tab-20261103/staff-check.py https://heinapel-war-table.formars0309.chatgpt.site public` → FEATURES [x]. 공유 링크는 `https://heinapel-war-table.formars0309.chatgpt.site/#staff`.
+
+---
+
 갱신: 2026-11-03 — 4강 지정 스테프 순번 이미지(탑 11·바텀 8) 드라이브 비공유 업로드
 
 - 사용자 "스테프 임무 그림으로 볼 수 있는 링크?" — 11-01 이미지는 8강 기준이라 '4강 스테프' gviz(after2)에서 지정 순번만 뽑아 `work/staff-image-20261103/staff.html`(11-01 양식, 욘두·마구니 줄 강조) → Chrome 헤드리스 2배 560×722 PNG(1120×1444, 110,717바이트). codex `google_drive_upload_file`로 내 드라이브 최상위 비공유 업로드(ID 1iS8un9EPECcEJovXPPQDwPpI3nxRLXbu). 8강 이미지(1f9NKb…)는 그대로 둠. 공유 설정은 사용자 요청 시에만.

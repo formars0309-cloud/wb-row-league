@@ -1337,6 +1337,23 @@ body {
 .quarter-staff { display: grid; grid-template-columns: max-content 1fr; gap: 14px 16px; margin: 0; }
 .quarter-staff dt { color: #9aa9bb; font-size: 18px; font-weight: 600; line-height: 2.2; }
 .quarter-section .mobile-map { margin-top: 8px; border-radius: 10px; overflow: hidden; }
+/* 스테프 순번 화면: 첫 화면의 열기 버튼, 탑·바텀 순번 목록(넓으면 두 칸), 시작 스테프 목적지별 명단. */
+.quarter-staff-link { display: flex; align-items: center; justify-content: space-between; width: calc(100% - 12px); max-width: 628px; margin: 24px auto 0; padding: 16px 18px; border: 1px solid rgba(143, 179, 220, 0.28); border-radius: 12px; background: #182436; color: #cfe0f5; font-size: 19px; font-weight: 700; text-align: left; cursor: pointer; }
+.quarter-staff-link span { color: #8fb3dc; font-size: 26px; line-height: 1; }
+.quarter-staff-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px 28px; }
+.quarter-staff-cols h3 { margin: 0; padding-bottom: 10px; border-bottom: 1px solid rgba(143, 179, 220, 0.28); color: #cfe0f5; font-size: 21px; font-weight: 700; }
+.quarter-staff-cols h3 small { margin-left: 10px; color: #9aa9bb; font-size: 15px; font-weight: 500; }
+.quarter-orders { margin: 0; padding: 0; list-style: none; }
+.quarter-orders li { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid rgba(143, 179, 220, 0.12); font-size: 21px; font-weight: 600; line-height: 1.4; }
+.quarter-orders i { flex: 0 0 34px; height: 34px; display: grid; place-items: center; border-radius: 50%; background: #24364f; color: #cfe0f5; font-style: normal; font-size: 17px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.quarter-orders span { flex: 1; min-width: 0; word-break: keep-all; overflow-wrap: anywhere; }
+.quarter-orders small { margin-left: 6px; color: #7f93ab; font-size: 14px; font-weight: 500; }
+.quarter-orders em { flex: 0 1 auto; max-width: 45%; padding: 3px 8px; border-radius: 6px; background: rgba(185, 166, 234, 0.14); color: #b9a6ea; font-style: normal; font-size: 13px; font-weight: 700; line-height: 1.4; text-align: center; word-break: keep-all; }
+.quarter-starts { display: grid; gap: 18px; margin: 0; padding: 0; list-style: none; }
+.quarter-starts li { display: grid; gap: 6px; }
+.quarter-starts b { color: #cfe0f5; font-size: 19px; font-weight: 700; line-height: 1.5; white-space: pre-line; word-break: keep-all; overflow-wrap: anywhere; }
+.quarter-starts > li > span { display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 18px; font-weight: 500; }
+.quarter-starts i { margin-right: 4px; color: #8fb3dc; font-style: normal; font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .quarter-items > li > p {flex: 1; min-width: 0; margin: 0; font-size: 20px; font-weight: 500; line-height: 1.75; letter-spacing: -0.01em; white-space: pre-line; word-break: keep-all; overflow-wrap: anywhere; }
 /* PC에서 연 카드 화면: 작전판을 숨기고 폰 화면을 520px 폭으로 가운데 띄운다. */
 .war-shell.cards-open { display: none; }
