@@ -13,7 +13,7 @@ export type Player = { id: number; nickname: string; primaryRole: PrimaryRole; s
 export type TacticalObject = { id: string; type: ObjectType; x: number; y: number; x2?: number; y2?: number; points?: Point[]; text?: string };
 type SceneEvents = { fairyDragon: string; lifeStone: string; fairyDragonPosition: FairyDragonPosition };
 export type Scene = { id: string; name: string; time: string; positions: Record<string, Point>; objects: TacticalObject[]; events: SceneEvents; objectiveOwners?: Record<string, ObjectiveOwner> };
-export type Operation = { version: 1; rosterRevision?: 1 | 2 | 3 | 4 | 5 | 6; name: string; players: Player[]; scenes: Scene[]; activeSceneId: string; updatedAt: string; side?: MissionSide; cards?: MissionCard[] };
+export type Operation = { version: 1; rosterRevision?: 1 | 2 | 3 | 4 | 5 | 6 | 7; name: string; players: Player[]; scenes: Scene[]; activeSceneId: string; updatedAt: string; side?: MissionSide; cards?: MissionCard[] };
 
 export const STORAGE_KEY = "heinapel-war-table-v0.3";
 export const SECONDARY_LABEL: Record<SecondaryRole, string> = { garrison: "주둔장", rally: "집결장", blocker: "블로커" };
@@ -38,7 +38,7 @@ const INITIAL_PLAYERS: Player[] = PLAYER_SOURCE.map(([nickname, primaryRole], in
 const DEFAULT_SCENE_EVENTS: SceneEvents = { fairyDragon: "", lifeStone: "", fairyDragonPosition: "northwest" };
 export function freshOperation(): Operation {
   const sceneId = "scene-1";
-  return { version: 1, rosterRevision: 6, name: "WB 헤이나펄 리그 2기", side: "ian", players: INITIAL_PLAYERS, scenes: [{ id: sceneId, name: "START", time: "60:00", positions: {}, objects: [], events: { ...DEFAULT_SCENE_EVENTS } }], activeSceneId: sceneId, updatedAt: new Date().toISOString() };
+  return { version: 1, rosterRevision: 7, name: "WB 헤이나펄 리그 2기", side: "ian", players: INITIAL_PLAYERS, scenes: [{ id: sceneId, name: "START", time: "60:00", positions: {}, objects: [], events: { ...DEFAULT_SCENE_EVENTS } }], activeSceneId: sceneId, updatedAt: new Date().toISOString() };
 }
 export function clone<T>(value: T): T { return JSON.parse(JSON.stringify(value)) as T; }
 // 사진 정본으로 한 번 이관한다. 유지 선수의 ID를 보존하고 신규 ID는 옛 명단 전체와 겹치지 않게 만든다.
@@ -71,6 +71,8 @@ export function playerSlot(player: Player): number | undefined {
 // 2026-10-04 시트 자리 변경 전 번호. 저장본에 이 기본 번호가 그대로 남은 선수만 한 번 새 기본 번호를 따르게 한다.
 const SEATS_BEFORE_2026_10_04 = new Map([["마스터", 5], ["TESLA", 6], ["Mim Mi", 7], ["압수", 12], ["마리오", 19], ["TOMAS SHELBY", 20], ["Elega", 27]]);
 const SEATS_BEFORE_CARD_SYNC = new Map([["Elega", 19], ["5000", 26]]);
+// 2026-11-03 알나인티 님 → 스누피 교체와 번호 회전(Mim Mi 12→6, 5000 19→12, 스누피 6→19) 전 번호.
+const SEATS_BEFORE_2026_11_03 = new Map([["Mim Mi", 12], ["5000", 19], ["스누피", 6]]);
 export function normalizeRoster(saved: Operation): Player[] {
   const players = saved.players;
   const revision = saved.rosterRevision ?? 0;
@@ -93,16 +95,19 @@ export function normalizeRoster(saved: Operation): Player[] {
     ids.add(player.id); names.add(player.nickname.trim().toLowerCase());
   }
   if (photoRoster) {
-    const renamed = players.map((player) => {
+    // 2026-11-03 멤버 교체: 알나인티 님의 말·ID는 스누피가 이어받는다. 이미 스누피를 넣어 두었으면 옛 이름만 지운다.
+    const snoopy = revision < 7 && players.some((player) => player.nickname === "스누피");
+    const renamed = players.filter((player) => !(snoopy && player.nickname === "알나인티 님")).map((player) => revision < 7 && player.nickname === "알나인티 님" ? { ...player, nickname: "스누피", brief: player.brief ? { ...player.brief, nickname: "스누피" } : player.brief } : player).map((player) => {
       const nickname = ROSTER_ALIASES.get(player.nickname);
       return nickname && (SLOT_BY_NICKNAME.get(nickname) === 2 || (revision < 5 && player.nickname === "GINSENG MAN")) ? { ...player, nickname, brief: player.brief ? { ...player.brief, nickname } : player.brief } : player;
     }).map((player) => player.slot != null && ((revision === 2 && SEATS_BEFORE_2026_10_04.get(player.nickname) === player.slot) ||
-      (revision < 6 && SEATS_BEFORE_CARD_SYNC.get(player.nickname) === player.slot)) ? { ...player, slot: undefined } : player);
+      (revision < 6 && SEATS_BEFORE_CARD_SYNC.get(player.nickname) === player.slot) ||
+      (revision < 7 && SEATS_BEFORE_2026_11_03.get(player.nickname) === player.slot)) ? { ...player, slot: undefined } : player);
     if (new Set(renamed.map((player) => player.nickname.trim().toLowerCase())).size !== renamed.length) throw new Error("잘못된 명단");
     // 실제 멤버 교체다. 옛 선수의 ID·임무·보직은 넘기지 않고, 이미 지운 선수는 되살리지 않는다.
     if (revision < 5 && renamed.some((player) => player.nickname === "TOMAS SHELBY")) {
-      if (renamed.some((player) => player.nickname === "알나인티 님")) return renamed.filter((player) => player.nickname !== "TOMAS SHELBY");
-      const newcomer = { ...INITIAL_PLAYERS.find((player) => player.nickname === "알나인티 님")!, id: Math.max(...players.map((player) => player.id)) + 1 };
+      if (renamed.some((player) => player.nickname === "스누피")) return renamed.filter((player) => player.nickname !== "TOMAS SHELBY");
+      const newcomer = { ...INITIAL_PLAYERS.find((player) => player.nickname === "스누피")!, id: Math.max(...players.map((player) => player.id)) + 1 };
       if (!Number.isSafeInteger(newcomer.id)) throw new Error("선수 ID를 이관할 수 없습니다.");
       return renamed.map((player) => player.nickname === "TOMAS SHELBY" ? newcomer : player);
     }
@@ -120,17 +125,17 @@ function normalizeOperation(saved: Operation): Operation {
   const reseat = revision >= 2 && revision < 4;
   const byId = new Map(players.map((player) => [String(player.id), player]));
   const replaced = revision >= 2 && revision < 5 ? saved.players.find((player) => player.nickname === "TOMAS SHELBY") : undefined;
-  const newcomer = replaced && players.find((player) => player.nickname === "알나인티 님" && !previousIds.has(player.id));
-  return { ...saved, players, rosterRevision: 6, cards: saved.cards?.filter((card) => ids.has(String(card.playerId))),
+  const newcomer = replaced && players.find((player) => player.nickname === "스누피" && !previousIds.has(player.id));
+  return { ...saved, players, rosterRevision: 7, cards: saved.cards?.filter((card) => ids.has(String(card.playerId))),
     scenes: saved.scenes.map((item, index) => {
       const positions = Object.fromEntries(Object.entries(item.positions ?? {}).filter(([id]) => ids.has(id))
-        .map(([id, point]) => [id, revision >= 2 && revision < 6 && byId.has(id) ? moveFromOldSeat(byId.get(id)!, point, revision) : point]));
-      // 교체된 선수의 말이 기본 스타팅 자리에 있을 때만 새 선수도 6번에 배치한다. 직접 옮긴 말은 승계하지 않는다.
+        .map(([id, point]) => [id, revision >= 2 && revision < 7 && byId.has(id) ? moveFromOldSeat(byId.get(id)!, point, revision) : point]));
+      // 교체된 선수의 말이 기본 스타팅 자리에 있을 때만 새 선수도 기본 자리(스누피 19번)에 배치한다. 직접 옮긴 말은 승계하지 않는다.
       const point = replaced && item.positions?.[String(replaced.id)];
       if (newcomer && point && replaced && (replaced.slot === undefined || replaced.slot === (revision === 2 ? 20 : 6))) {
         for (const side of MISSION_SIDES) for (const variant of MAP_VARIANTS) for (const slot of reseat ? [6, 20] : [6]) {
           const old = slotPoint(slot, side, variant)!;
-          if (samePoint(old, point)) positions[String(newcomer.id)] = slotPoint(6, side, variant)!;
+          if (samePoint(old, point)) positions[String(newcomer.id)] = slotPoint(SLOT_BY_NICKNAME.get("스누피")!, side, variant)!;
         }
       }
       return { ...normalizeScene(item, index), positions };
@@ -140,7 +145,7 @@ function normalizeOperation(saved: Operation): Operation {
 // 2026-10-04 자리 변경 전에 배치한 말은 번호만 바뀌고 옛 자리 좌표에 남는다.
 // 새 기본 번호를 따르는 선수의 말이 옛 기본 자리에 그대로 있을 때만 새 자리로 한 번 옮긴다. 직접 옮긴 말은 둔다.
 function moveFromOldSeat(player: Player, point: Point, revision: number): Point {
-  const previous = [revision < 4 ? SEATS_BEFORE_2026_10_04.get(player.nickname) : undefined, SEATS_BEFORE_CARD_SYNC.get(player.nickname)].filter((slot) => slot !== undefined);
+  const previous = [revision < 4 ? SEATS_BEFORE_2026_10_04.get(player.nickname) : undefined, revision < 6 ? SEATS_BEFORE_CARD_SYNC.get(player.nickname) : undefined, SEATS_BEFORE_2026_11_03.get(player.nickname)].filter((slot) => slot !== undefined);
   const slot = playerSlot(player);
   if (!slot || slot !== SLOT_BY_NICKNAME.get(player.nickname)) return point;
   for (const before of previous) for (const side of MISSION_SIDES) for (const variant of MAP_VARIANTS) {
@@ -176,7 +181,7 @@ export function readOperation(saved: unknown): Operation {
   if (!isRecord(saved) || saved.version !== 1 || !Array.isArray(saved.players) || !saved.players.every(isRecord) ||
     !Array.isArray(saved.scenes) || !saved.scenes.length || typeof saved.name !== "string" ||
     typeof saved.updatedAt !== "string" || !Number.isFinite(Date.parse(saved.updatedAt)) ||
-    (saved.rosterRevision !== undefined && ![1, 2, 3, 4, 5, 6].includes(saved.rosterRevision as number)) ||
+    (saved.rosterRevision !== undefined && ![1, 2, 3, 4, 5, 6, 7].includes(saved.rosterRevision as number)) ||
     (saved.side !== undefined && !MISSION_SIDES.includes(saved.side as MissionSide))) return invalid();
   const sceneIds = new Set<string>();
   for (const scene of saved.scenes) {

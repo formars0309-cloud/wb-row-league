@@ -19,6 +19,7 @@ export type Brief = {
 // 2026-10-01 전달 사진의 번호순 주전 30명. 길드·장식 문자는 생략한다. 26·27번은 같은 날 사용자 요청으로 맞바꿈.
 // 2026-10-04 시트 「스타팅 명단」 자리 변경을 따른다(5 마리오·6 TOMAS SHELBY·7 TESLA·12 Mim Mi·19 Elega·20 압수·27 마스터).
 // 2026-10-06 시트 대조: 6번 알나인티 님, 14번 GINSENG MAN (천상님이), 19번 5000·26번 Elega.
+// 2026-11-03 시트 「명단」: 알나인티 님 → 스누피 교체, 6 Mim Mi·12 5000·19 스누피.
 // 미확인 신규 선수는 임무를 승계하지 않으며, 병종은 편집 가능한 기본 보병이다.
 export const PLAYER_SOURCE: Array<[string, PrimaryRole]> = [
   ["무잔 Muzan", "cavalry"],
@@ -26,20 +27,20 @@ export const PLAYER_SOURCE: Array<[string, PrimaryRole]> = [
   ["바르니 barunii", "ranged"],
   ["마지태", "infantry"],
   ["마리오", "infantry"],
-  ["알나인티 님", "infantry"],
+  ["Mim Mi", "infantry"],
   ["TESLA", "infantry"],
   ["파리스", "infantry"],
   ["마구니", "ranged"],
   ["Glen fiddich", "infantry"],
   ["예리", "infantry"],
-  ["Mim Mi", "infantry"],
+  ["5000", "ranged"],
   ["곡곡이", "infantry"],
   ["GINSENG MAN (천상님이)", "infantry"],
   ["Kingsway", "infantry"],
   ["욘두 Yondu", "infantry"],
   ["진수", "infantry"],
   ["조롱말", "cavalry"],
-  ["5000", "ranged"],
+  ["스누피", "infantry"],
   ["압수", "infantry"],
   ["Bünker", "ranged"],
   ["불개", "infantry"],
