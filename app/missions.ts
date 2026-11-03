@@ -104,6 +104,17 @@ export function groupUnits(units: string[]) {
   return groups;
 }
 const RALLY_LEADER_ALIAS: Array<[string, string]> = [["진수님", "진수"], ["MAHA님", "Maha"], ["테슬라님", "TESLA"], ["TESLA님", "TESLA"], ["예리님", "예리"], ["벌꿀오소리형", "벌꿀오소리형"], ["게이님", "벌꿀오소리형"], ["오소리님", "벌꿀오소리형"]];
+// "진수님 집결 탑승"의 집결장 번호. 카드 '한눈에'에서 그 사람 카드로 가는 버튼에 쓴다.
+export function rallyLeaderSlot(text: string, missions: Map<number, SheetMission>): number | null {
+  if (!/집결 ?탑승/.test(text)) return null;
+  const alias = RALLY_LEADER_ALIAS.find(([label]) => text.includes(label));
+  const leader = alias && [...missions.values()].find((mission) => mission.nickname === alias[1]);
+  return leader?.slot ?? null;
+}
+// 스테프 종류 꼬리표: "에테리얼 (본인 포함 8부대까지)" → "에테리얼". 괄호 설명은 title로만 남긴다.
+export function staffKind(kind: string) {
+  return kind.replace(/\s*[(（].*$/, "").trim() || kind;
+}
 function missionTargets(text: string, side: MissionSide, variant: MapVariant, missions: Map<string, MissionOrders>, followed = false): Array<{ key: string; point: Point }> {
   // 집결 탑승은 그 집결장이 서는 자리로 따라간다.
   if (!followed && /집결 ?탑승/.test(text)) {

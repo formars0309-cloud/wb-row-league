@@ -17,7 +17,7 @@ async function rosterHelpers() {
   const roster = await import(`data:text/javascript;base64,${Buffer.from(rosterJs).toString("base64")}`);
   const helpers = stripModule(await readApp(HELPER_MODULES));
   const js = ts.transpileModule(helpers, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
-  return runInNewContext(`${js}\n({ freshOperation, normalizeRoster, normalizeOperation, playerBrief, playerSlot, readMissionSheet, mirrorMission, quarterStaffOrders, lineExit, entranceBlock, missionTargets, buildMissionPlan, objectivePoint, OBJECTIVE_META, missionLines, missionParts, groupUnits, readStaffSheet, readQuarterCommon, colorParts, shownName, swapLineNames, quarterToIan, LUCIA_LINE_NAME, staffPoint, staffRoute, slotPoint, readOperation, missionView, missionsByNickname })`, { ...roster });
+  return runInNewContext(`${js}\n({ freshOperation, normalizeRoster, normalizeOperation, playerBrief, playerSlot, readMissionSheet, mirrorMission, quarterStaffOrders, rallyLeaderSlot, staffKind, lineExit, entranceBlock, missionTargets, buildMissionPlan, objectivePoint, OBJECTIVE_META, missionLines, missionParts, groupUnits, readStaffSheet, readQuarterCommon, colorParts, shownName, swapLineNames, quarterToIan, LUCIA_LINE_NAME, staffPoint, staffRoute, slotPoint, readOperation, missionView, missionsByNickname })`, { ...roster });
 }
 
 async function historyHelpers() {
@@ -535,6 +535,11 @@ test("4강 스테프 순번은 포인트별 순번 순이고, 사용 위치가 �
   assert.deepEqual(Array.from(orders.bottom, (plan) => [plan.order, plan.slot]), [[1, 26], [5, 1]], "26번은 사용 위치가 비어도 루시아 바텀(이안 TOP 자리)");
   assert.equal(orders.top[2].kind, undefined); assert.equal(orders.bottom[1].kind, "에테리얼 (7명까지가능)");
   assert.deepEqual(Array.from(orders.starts, ([target, items]) => [target, Array.from(items, (plan) => plan.slot)]), [["7시 축복의 전당", [2, 7]]]);
+  // 카드 '한눈에': 집결 탑승 문장은 그 집결장 번호로, 종류 꼬리표는 괄호 설명을 뗀다.
+  const { readMissionSheet, rallyLeaderSlot, staffKind } = await rosterHelpers();
+  const { missions } = readMissionSheet(['"스타팅 포인트 번호","닉네임","소속팀","메인임무","서브임무","1번부대","2번부대","3번부대","4번부대","5번부대"', '"10","진수","","","","","","","",""', '"7","TESLA","","","","","","","",""', '"2","벌꿀오소리형","","","","","","","",""'].join("\n"));
+  assert.deepEqual(["진수님 집결 탑승", "테슬라님 집결 탑승", "오소리님 집결 탑승", "블링크 보병으로 9시 치료 주유", "예리님 집결 탑승"].map((text) => rallyLeaderSlot(text, missions)), [10, 7, 2, null, null]);
+  assert.equal(staffKind("에테리얼 (본인 포함 8부대까지)"), "에테리얼"); assert.equal(staffKind("에테리얼"), "에테리얼"); assert.equal(staffKind("(설명만)"), "(설명만)");
 });
 
 test("4강 개인 임무의 색·맨 위 안내 칸은 있으면 읽고 없거나 비면 넣지 않는다", async () => {
@@ -915,8 +920,9 @@ test("server-renders the Heinapel War Table", async () => {
   assert.doesNotMatch(html, /mobile-management/);
   assert.doesNotMatch(html, /mobile-exit|is-pc/, "첫 화면(폰)에는 PC 카드 화면 표시가 없다");
   assert.match(html, /class="active tool-select"[^>]*><span>↖<\/span>선택<\/button>/);
-  // 폰 첫 화면은 4강 제목·공통 임무·명단이다. 16강의 0번·S 버튼과 진영 전환은 없다.
-  assert.match(html, /<h1 class="quarter-title">4강 \(루시아 진영\) <span>공통 임무 및 개별 임무<\/span><\/h1>/);
+  // 폰 첫 화면은 4강 제목과 명단·공통 임무·스테프 순번 탭이다. 16강의 0번·S 버튼과 진영 전환은 없다.
+  assert.match(html, /<h1 class="quarter-title">4강 · 루시아<\/h1>/);
+  assert.match(html, /<nav class="quarter-tabs" aria-label="화면"><button type="button" aria-current="page">명단<\/button><button type="button">공통 임무<\/button><button type="button">스테프 순번<\/button><\/nav>/);
   assert.doesNotMatch(html, /class="mobile-common"|class="mobile-side"/);
   assert.match(html, /PLAYER ROSTER/);
   assert.match(html, /핵심 작전 도구/);
@@ -963,14 +969,17 @@ test("keeps the interactive operation features and map assets wired", async () =
     ]);
   // 공유 링크 주소#common은 폰·PC 모두 카드 화면의 공통 카드를 열고, 다른 화면으로 가면 주소를 비운다.
   assert.match(warTable, /const COMMON_HASH = "#common";/);
-  assert.match(warTable, /<h1 className="quarter-title">4강 \(루시아 진영\) <span>공통 임무 및 개별 임무<\/span><\/h1>/);
-  assert.match(warTable, /if \(location\.hash === STAFF_HASH\) setStaffOpen\(true\);\n {6}else if \(location\.hash !== COMMON_HASH\) try \{/);
-  assert.match(warTable, /<h2 className="quarter-roster-title">내 이름을 누르면 개인 임무와 STAFF 사용법이 보입니다<\/h2>/);
+  assert.match(warTable, /<h1 className="quarter-title">4강 · 루시아<\/h1>/);
+  assert.match(warTable, /if \(location\.hash === STAFF_HASH\) setView\("staff"\);\n {6}else if \(location\.hash === COMMON_HASH\) setView\("common"\);\n {6}else setPicked\(saved\);/);
+  assert.match(warTable, /<h2 className="quarter-roster-title">명단 30명 <small>이름을 누르면 개인 임무와 STAFF 사용법<\/small><\/h2>/);
   assert.match(warTable, /if \(location\.hash === COMMON_HASH \|\| location\.hash === STAFF_HASH\) setCardsOpen\(true\);/);
-  // 주소#staff와 첫 화면 버튼은 4강 스테프 순번 화면(탑·바텀 포인트 순번, 시작 스테프)을 연다.
+  // 주소#staff와 위 탭은 4강 스테프 순번 화면(내 차례·탑/바텀 포인트 탭·시작 스테프)을 연다. 첫 화면은 내 카드 띠와 공통 임무 미리보기.
   assert.match(warTable, /const STAFF_HASH = "#staff";/);
-  assert.match(warTable, /<button type="button" className="quarter-staff-link" onClick=\{\(\) => setStaffOpen\(true\)\}>지정 스테프 순번 보기<span>›<\/span><\/button>/);
-  assert.match(warTable, /<QuarterStaffBoard staff=\{staffSheet\} nameOf=\{nameOf\} colorOf=\{colorOf\} \/>/);
+  assert.match(warTable, /<QuarterStaffBoard staff=\{staffSheet\} mine=\{mine\} nameOf=\{nameOf\} colorOf=\{colorOf\} \/>/);
+  assert.match(warTable, /\{mine !== null && <button type="button" className="quarter-mine-card" onClick=\{\(\) => pick\(mine\)\}>/);
+  assert.match(warTable, /const preview = quarter\.data\?\.slice\(0, 3\) \?\? \[\];/);
+  assert.match(warTable, /<nav className="quarter-segments" aria-label="포인트">/);
+  assert.match(warTable, /<section className="quarter-glance"><h2>한눈에 · 부대 \{glance\.length\}개<\/h2>/);
 
   assert.match(warTable, /const STORAGE_KEY = "heinapel-war-table-v0\.3"/);
   assert.match(warTable, /const OBJECTIVE_META = \[/);
