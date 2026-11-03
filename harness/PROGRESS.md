@@ -1,5 +1,14 @@
 # 진행 상황
 
+갱신: 2026-11-03 — 폰 화면 가독성 개선 구현(안 A + 개인 카드 + 스테프 순번, 커밋 2dc85c6, 공개 배포 전) · 벙커 스테프 문장 시트 수정
+
+- 사용자 "안 A + 개인 카드 + 스테프 순번으로 구현". briefing.tsx MobileBriefing을 view(home·common·staff)+mine(마지막 선택, 뒤로 가도 유지) 구조로 다시 씀: 위 막대 제목 "4강 · 루시아"+탭, 명단 화면(내 카드 띠·공통 임무 3개 미리보기·더 보기·범례·명단 두 줄 고정 높이·내 자리 강조), 공통 임무 화면(전체), 순번 화면(내 차례·탑/바텀 탭·내 줄 강조·staffKind 꼬리표·시작 스테프 카드), 개인 카드(순번표 버튼·칩·한눈에(missionLines 첫 줄, rallyLeaderSlot로 집결장 카드 버튼)·지도 위로·STAFF 상자·원문 그대로). missions.ts rallyLeaderSlot·staffKind 추가. CSS .quarter-bar/.quarter-tabs/.quarter-mine-card/.quarter-preview/.quarter-more/.quarter-legend/.quarter-chips/.quarter-glance/.quarter-staff-box/.quarter-mine/.quarter-segments, 옛 .quarter-staff-link/.quarter-staff-cols 삭제. 해시: #common → 공통 임무 화면, #staff → 순번 화면, 없으면 저장 카드 직행.
+- 검증: lint·typecheck·npm test 38개 통과(테스트 단언 갱신·보조 함수 단언 추가), git diff --check. 로컬 ui-check.py 390/320/PC 통과, 캡처(home·card 21·staff·320) 확인 후 명단 한 줄 말줄임→두 줄 고정 높이, 한눈에 집결 탑승 "카드 ›"로 조정해 재검수 통과. 서버 종료. 시안의 "누구와"는 원래 열 이름 "부대구성"으로 되돌림.
+- 시트: 사용자 "벙커님 지정 스테프 부대구성 잘못됨" → codex가 '4강 스테프' G23만 "8번째 지정 스테프 순서로 차례가 되면 바텀 지정스테프 포인트로 지팡이 부대 가져오기"로 기록(사전값 확인, 다른 칸·탭 무변경, gviz 대조). 다른 지정 행 점검: 불개(22, 탑 8)·햄수(29, 탑 1)는 아직 8강 문장 "벙커님 불개님 햄수님 보병 6명 마지태님 에테리얼 스테프 같이 타기", Mim Mi(6)·5000(12)·스누피(19)는 시작 때 TESLA·오소리 지팡이 타는 문장, 마스터(27)는 필드 문장 — 사용자 결정 대기. 기록 `work/ux-impl-20261103/`.
+- 다음: 사용자 배포 요청 시 배포 → `python3 work/ux-impl-20261103/ui-check.py https://heinapel-war-table.formars0309.chatgpt.site public` → FEATURES [x]. 불개·햄수 등 스테프 문장은 사용자 지시 시 시트 기록.
+
+---
+
 갱신: 2026-11-03 — 폰 화면 가독성·직관성 대안 시안(코드 변경 없음)
 
 - 사용자 "가독성이랑 직관성 개선 대안 제시, 모바일 기준". 공개 폰 화면 전체 캡처 `work/ux-review-20261103/`(첫 화면 1,711px·카드 1,800~2,000px·순번 2,029px). 디자인 캔버스 https://claude.ai/artifact/4gGZuZqAvfXmsRH7r7x1TF 에 시안 4장: 첫 화면 안 A(상단 탭·내 카드 고정·공통 임무 접기·명단 한 줄·색 범례), 안 B(라인별 명단 먼저·공통 임무 접기), 개인 카드(팀·라인·STAFF 칩, 부대 5개 요약, 지도 위로, 섹션 제목 확대, 집결장 이름 링크, 공통 규칙 축소), 스테프 순번(내 차례 고정·탑/바텀 탭·내 줄 강조·에테리얼 꼬리표 축약·시작 스테프 거점 카드).
