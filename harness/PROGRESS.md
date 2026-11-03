@@ -1,5 +1,13 @@
 # 진행 상황
 
+갱신: 2026-11-03 — 가독성 개선 공개 버전 44 배포 · 지정 스테프 전원 부대구성 문장 통일(시트)
+
+- 배포: 사용자 "배포해줘". codex Sites 흐름으로 447f45e 배포, appgdep_6ae93efafedc819193e1fab876ace11d succeeded, active·public·최신 버전 44, 테스트 38개, 아카이브 9,273,923바이트(SHA-256 46a062b4…17dcbc), 자격증명 폐기. 공개 `work/ux-impl-20261103/ui-check.py` 390px 30명·320px·PC 통과, 카드 21 캡처 확인. FEATURES [x].
+- 시트(codex, 사전값 확인·updateCells): 사용자 "지정 스테프 멤버는 모두 동일, 탑/바텀 차이만" → '4강 스테프' G열 지정 18행에 "{순번}번째 지정 스테프 순서로 차례가 되면 {탑|바텀} 지정스테프 포인트로 지팡이 부대 가져오기"(벙커 G23은 앞서 기록). 덮어쓴 옛 문장 4개(Mim Mi·5000·스누피 TESLA·오소리 지팡이, 마스터 날기병)는 `before-staff-all.csv`에 보존. 이어 사용자 "밈미·5000·스누피는 TESLA·오소리·파리스님 지팡이 같이 타기, 파리스 추가" → G8·G14·G21 뒤에 " / 하엘로 아티든 보병 1부대 TESLA님 지팡이 같이 타기 / 방패아티든 보병 1부대 오소리님 지팡이 같이 타기 / 보병 1부대 파리스님 지팡이 같이 타기" 추가(파리스 몫 병종은 파리스 행 "보병 1부대씩 태워가기"에 맞춰 '보병 1부대'). gviz 전후 G열 지정 칸만 변경, 8강 스테프·명단 무변경(개인 임무 5번 부대 5칸은 사용자 직접 편집). 공개 카드 6·22·29 STAFF 상자 새 문장 확인.
+- 다음: 없음.
+
+---
+
 갱신: 2026-11-03 — 폰 화면 가독성 개선 구현(안 A + 개인 카드 + 스테프 순번, 커밋 2dc85c6, 공개 배포 전) · 벙커 스테프 문장 시트 수정
 
 - 사용자 "안 A + 개인 카드 + 스테프 순번으로 구현". briefing.tsx MobileBriefing을 view(home·common·staff)+mine(마지막 선택, 뒤로 가도 유지) 구조로 다시 씀: 위 막대 제목 "4강 · 루시아"+탭, 명단 화면(내 카드 띠·공통 임무 3개 미리보기·더 보기·범례·명단 두 줄 고정 높이·내 자리 강조), 공통 임무 화면(전체), 순번 화면(내 차례·탑/바텀 탭·내 줄 강조·staffKind 꼬리표·시작 스테프 카드), 개인 카드(순번표 버튼·칩·한눈에(missionLines 첫 줄, rallyLeaderSlot로 집결장 카드 버튼)·지도 위로·STAFF 상자·원문 그대로). missions.ts rallyLeaderSlot·staffKind 추가. CSS .quarter-bar/.quarter-tabs/.quarter-mine-card/.quarter-preview/.quarter-more/.quarter-legend/.quarter-chips/.quarter-glance/.quarter-staff-box/.quarter-mine/.quarter-segments, 옛 .quarter-staff-link/.quarter-staff-cols 삭제. 해시: #common → 공통 임무 화면, #staff → 순번 화면, 없으면 저장 카드 직행.
