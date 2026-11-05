@@ -1,5 +1,13 @@
 # 진행 상황
 
+갱신: 2026-11-05 — 사용자 시트 수정 점검 · 바텀 지정 순번 재배열(시트만, 앱·배포 변경 없음)
+
+- 사용자 "구글시트 수정했는데 반영됐는지 체크": gviz 재수집 `work/renumber-20261105/user-edit/`. 변경은 '4강 개인 임무' 부대 문장 17명(탑 Kingsway·늑대장군·떡틸로·진수·예리·JunkHun·Glen·욘두, 바텀 Bünker·곡곡이·Mim Mi·파리스·Elega·GINSENG·스누피·압수·5000), 다른 7개 탭 무변경. 공개 폰 `cards-check.py` 17명 카드 팀·메인·서브·부대 1~5 문장 일치, 넘침·오류 없음. 발견: "현명+탈리아 or …" 문장은 missionLines가 "+"를 구분자로 읽어 '한눈에'에 "현명"만 보임(원문은 전체 표시) — 사용자에게 알림, 수정 지시 없음.
+- 사용자 "바텀 지팡이 순서 무잔>밈미>5000>스누피>Elega>마스터>GINSENG MAN": codex가 '4강 스테프' Mim Mi(D8·G8) 5→2, 5000(D14·G14) 4→3, 스누피(D21·G21) 3→4, Elega(D28·G28) 2→5 8칸 기록(사전값 확인, 번호 numberValue·문장 앞 숫자만). 무잔 1·마스터 6·GINSENG 7·Bünker 8 그대로. gviz 전후 8칸만 변경, 공개 #staff 바텀 목록 새 순서 확인. 기록 `work/renumber-20261105/bottom-order/`.
+- 다음: 없음.
+
+---
+
 갱신: 2026-11-05 — 번호 변경 공개 버전 45 배포
 
 - 사용자 "배포해줘". codex Sites 흐름으로 dc8397d 배포, appgdep_6aebe56d5cb08191859cb9b04b01e2c1 succeeded, active·public·최신 버전 45(appgver_f4fa9fbc74a48191aa1e38077e9fc0a7), 테스트 39개, 아카이브 9,274,207바이트(SHA-256 e8425be2…0c64e5), source SHA 일치, 자격증명 폐기. 공개 `work/renumber-20261105/pc-check.py … public`: PC 명단 30명 사진과 일치, 버전 7 저장본 → 8 이관(11명 말 새 자리·진수 직접 옮긴 말 보존), 오류 없음, 캡처 확인. FEATURES [x].
